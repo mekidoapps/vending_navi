@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "215928026767",
+    "project_id": "jihanki-navi",
+    "storage_bucket": "jihanki-navi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215928026767:android:692c7cc8e9f985a61462fa",
+        "android_client_info": {
+          "package_name": "com.example.vending_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "215928026767-p857fp99vn0pad0ki3rnhvdn5hpajbla.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vending_app",
+            "certificate_hash": "ff27f7a60298d97c51be3ad693e778895291ce3e"
+          }
+        },
+        {
+          "client_id": "215928026767-esi22ok34928ki7qqbviq3o55487esdj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkzYQKlhcEFHqk7iOjne5gnOsv0NQNav4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "215928026767-esi22ok34928ki7qqbviq3o55487esdj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "215928026767-pi11q25emqr6r48a24jraicqcm8qo543.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.vendingApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215928026767:android:0919a2ad923e9d261462fa",
+        "android_client_info": {
+          "package_name": "com.mekidoapps.vendingnavi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "215928026767-2t54qm1cgdin9hlkgejpvlku08g5aa16.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mekidoapps.vendingnavi",
+            "certificate_hash": "ff27f7a60298d97c51be3ad693e778895291ce3e"
+          }
+        },
+        {
+          "client_id": "215928026767-esi22ok34928ki7qqbviq3o55487esdj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkzYQKlhcEFHqk7iOjne5gnOsv0NQNav4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "215928026767-esi22ok34928ki7qqbviq3o55487esdj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "215928026767-pi11q25emqr6r48a24jraicqcm8qo543.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.vendingApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
