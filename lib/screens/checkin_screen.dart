@@ -1,8 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/enums/app_enums.dart';
+import '../providers/auth_provider.dart';
 import '../providers/checkin_provider.dart';
 
 class CheckinScreen extends StatefulWidget {
@@ -42,9 +42,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CheckinProvider>().initialize(
-        machineId: widget.machineId,
-        productId: widget.productId,
-      );
+            machineId: widget.machineId,
+            productId: widget.productId,
+          );
     });
   }
 
@@ -56,10 +56,28 @@ class _CheckinScreenState extends State<CheckinScreen> {
   }
 
   Future<void> _submit(CheckinProvider provider) async {
+    // ✅ アクション未選択チェック
+    if (provider.actionType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('内容を選択してください')),
+      );
+      return;
+    }
+
+    // ✅ 価格更新なのに未入力チェック
+    if (provider.actionType == CheckinActionType.priceUpdate &&
+        _priceController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('確認した価格を入力してください')),
+      );
+      return;
+    }
+
     provider.setReportedPriceText(_priceController.text);
     provider.setComment(_commentController.text);
 
-    final String? userId = FirebaseAuth.instance.currentUser?.uid;
+    // ✅ FirebaseAuth直参照をAuthProvider経由に変更
+    final String? userId = context.read<AuthProvider>().currentUser?.uid;
     if (userId == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,27 +153,32 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   _ActionChoiceChip(
                     label: '行った',
                     selected: actionType == CheckinActionType.visit,
-                    onSelected: () => provider.setActionType(CheckinActionType.visit),
+                    onSelected: () =>
+                        provider.setActionType(CheckinActionType.visit),
                   ),
                   _ActionChoiceChip(
                     label: 'あった',
                     selected: actionType == CheckinActionType.found,
-                    onSelected: () => provider.setActionType(CheckinActionType.found),
+                    onSelected: () =>
+                        provider.setActionType(CheckinActionType.found),
                   ),
                   _ActionChoiceChip(
                     label: '売り切れ',
                     selected: actionType == CheckinActionType.soldOut,
-                    onSelected: () => provider.setActionType(CheckinActionType.soldOut),
+                    onSelected: () =>
+                        provider.setActionType(CheckinActionType.soldOut),
                   ),
                   _ActionChoiceChip(
                     label: '値段が違った',
                     selected: actionType == CheckinActionType.priceUpdate,
-                    onSelected: () => provider.setActionType(CheckinActionType.priceUpdate),
+                    onSelected: () =>
+                        provider.setActionType(CheckinActionType.priceUpdate),
                   ),
                   _ActionChoiceChip(
                     label: '写真更新',
                     selected: actionType == CheckinActionType.photoUpdate,
-                    onSelected: () => provider.setActionType(CheckinActionType.photoUpdate),
+                    onSelected: () =>
+                        provider.setActionType(CheckinActionType.photoUpdate),
                   ),
                 ],
               ),
@@ -183,15 +206,18 @@ class _CheckinScreenState extends State<CheckinScreen> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: provider.isSubmitting ? null : () => _submit(provider),
+                // ✅ アクション未選択または送信中は無効化
+                onPressed: provider.isSubmitting || provider.actionType == null
+                    ? null
+                    : () => _submit(provider),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   child: provider.isSubmitting
                       ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('送信する'),
                 ),
               ),

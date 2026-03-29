@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import 'onboarding_screen.dart';
+import 'auth_gate.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -38,20 +38,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final bool success = _isRegisterMode
         ? await authProvider.registerWithEmail(
-      email: email,
-      password: password,
-    )
+            email: email,
+            password: password,
+          )
         : await authProvider.signInWithEmail(
-      email: email,
-      password: password,
-    );
+            email: email,
+            password: password,
+          );
 
     if (!mounted) return;
 
     if (success) {
+      // ✅ AuthGate に戻して初回判定（onboarding_done フラグ）に任せる
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => const OnboardingScreen(),
+          builder: (_) => const AuthGate(),
         ),
       );
       return;
@@ -80,7 +81,9 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          success ? 'パスワード再設定メールを送信しました' : (authProvider.errorMessage ?? '送信に失敗しました'),
+          success
+              ? 'パスワード再設定メールを送信しました'
+              : (authProvider.errorMessage ?? '送信に失敗しました'),
         ),
       ),
     );
@@ -181,14 +184,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ? null
                                   : () => _submit(authProvider),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 child: authProvider.isLoading
                                     ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                                    : Text(_isRegisterMode ? '登録してはじめる' : 'ログイン'),
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : Text(
+                                        _isRegisterMode ? '登録してはじめる' : 'ログイン'),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -196,10 +202,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: authProvider.isLoading
                                   ? null
                                   : () {
-                                setState(() {
-                                  _isRegisterMode = !_isRegisterMode;
-                                });
-                              },
+                                      setState(() {
+                                        _isRegisterMode = !_isRegisterMode;
+                                      });
+                                    },
                               child: Text(
                                 _isRegisterMode
                                     ? 'すでにアカウントをお持ちの方はこちら'

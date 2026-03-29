@@ -18,12 +18,20 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // すでに初期化済みの場合は無視する
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow;
+    }
+  }
 
   runApp(const VendingNaviApp());
 }
+
 
 class VendingNaviApp extends StatelessWidget {
   const VendingNaviApp({super.key});

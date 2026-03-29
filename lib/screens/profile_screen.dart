@@ -1,12 +1,12 @@
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/auth_provider.dart' as app_auth;
+import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/common/empty_state_view.dart';
 import '../widgets/common/loading_view.dart';
-import 'login_screen.dart';
+import 'auth_gate.dart';
+import 'dev_seed_screen.dart';
 import 'terms_screen.dart';
 import 'title_list_screen.dart';
 
@@ -27,10 +27,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_initialized) return;
     _initialized = true;
 
-    final fb_auth.User? user = fb_auth.FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    final String? userId = context.read<AuthProvider>().currentUser?.uid;
+    if (userId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<ProfileProvider>().loadProfile(user.uid);
+        context.read<ProfileProvider>().loadProfile(userId);
       });
     }
   }
@@ -58,8 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (result != true || !mounted) return;
 
-    final app_auth.AuthProvider authProvider =
-    context.read<app_auth.AuthProvider>();
+    final AuthProvider authProvider = context.read<AuthProvider>();
     final bool success = await authProvider.signOut();
 
     if (!mounted) return;
@@ -67,9 +66,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (success) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => const LoginScreen(),
+          builder: (_) => const AuthGate(),
         ),
-            (_) => false,
+        (_) => false,
       );
       return;
     }
@@ -85,36 +84,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Consumer<ProfileProvider>(
       builder: (BuildContext context, ProfileProvider profileProvider, _) {
-        final fb_auth.User? user = fb_auth.FirebaseAuth.instance.currentUser;
+        final String? userId = context.watch<AuthProvider>().currentUser?.uid;
 
         return Scaffold(
           appBar: AppBar(
             title: const Text('マイページ'),
           ),
-          body: user == null
+          body: userId == null
               ? const EmptyStateView(
-            title: 'ログインが必要です',
-            description: 'プロフィールを表示するにはログインしてください。',
-            icon: Icons.person_off_outlined,
-          )
+                  title: 'ログインが必要です',
+                  description: 'プロフィールを表示するにはログインしてください。',
+                  icon: Icons.person_off_outlined,
+                )
               : profileProvider.isLoading && profileProvider.userStats == null
-              ? const LoadingView(
-            message: 'プロフィールを読み込み中…',
-          )
-              : RefreshIndicator(
-            onRefresh: () => profileProvider.refresh(user.uid),
-            child: _buildBody(context, profileProvider, user),
-          ),
+                  ? const LoadingView(
+                      message: 'プロフィールを読み込み中…',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () => profileProvider.refresh(userId),
+                      child: _buildBody(context, profileProvider, userId),
+                    ),
         );
       },
     );
   }
 
   Widget _buildBody(
-      BuildContext context,
-      ProfileProvider profileProvider,
-      fb_auth.User user,
-      ) {
+    BuildContext context,
+    ProfileProvider profileProvider,
+    String userId,
+  ) {
     final userStats = profileProvider.userStats;
 
     if (userStats == null) {
@@ -130,10 +129,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final String displayName = user.displayName?.trim().isNotEmpty == true
-        ? user.displayName!.trim()
-        : userStats.displayName;
-    final String? photoUrl = user.photoURL ?? userStats.photoUrl;
+    final String displayName =
+        context.read<AuthProvider>().currentUser?.displayName?.trim().isNotEmpty == true
+            ? context.read<AuthProvider>().currentUser!.displayName!.trim()
+            : userStats.displayName;
+    final String? photoUrl =
+        context.read<AuthProvider>().currentUser?.photoURL ?? userStats.photoUrl;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -240,6 +241,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
               const Divider(height: 1),
+              // 🛠 開発用：本番リリース前に削除
+              _MenuTile(
+                icon: Icons.developer_mode,
+                title: '🛠 シードデータ投入',
+                subtitle: '開発用：本番前に削除',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DevSeedScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
               _MenuTile(
                 icon: Icons.logout,
                 title: 'ログアウト',
@@ -275,8 +290,9 @@ class _ProfileHeader extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundImage:
-              (photoUrl != null && photoUrl!.isNotEmpty) ? NetworkImage(photoUrl!) : null,
+              backgroundImage: (photoUrl != null && photoUrl!.isNotEmpty)
+                  ? NetworkImage(photoUrl!)
+                  : null,
               child: (photoUrl == null || photoUrl!.isEmpty)
                   ? const Icon(Icons.person, size: 30)
                   : null,
@@ -292,7 +308,8 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(999),
