@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ユーザー情報：本人のみ読み書き
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 自販機：全員読み取り可、ログイン済みで書き込み可
+    match /vending_machines/{machineId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 自販機の商品情報：全員読み取り可、ログイン済みで書き込み可
+    match /machine_items/{itemId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 商品マスター：全員読み取り可、ログイン済みで書き込み可（シード投入用）
+    match /product_master/{productId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // チェックイン：ログイン済みで読み書き可
+    match /checkins/{checkinId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // お気に入り：ログイン済みで読み書き可
+    match /favorites/{favoriteId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 称号マスター：全員読み取り可、書き込み不可（管理者がコンソールから操作）
+    match /title_master/{titleId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ユーザー称号：ログイン済みで読み書き可
+    match /user_titles/{userTitleId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // お気に入りドリンク通知：ログイン済みで読み書き可
+    match /favorite_drink_notifications/{notifId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

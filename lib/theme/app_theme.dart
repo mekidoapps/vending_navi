@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
@@ -13,13 +14,47 @@ class AppTheme {
       primary: AppColors.primary,
       surface: AppColors.surface,
     ),
-    appBarTheme: const AppBarTheme(
+    // 日本語フォント（Noto Sans JP）＋アプリカラーをマージ
+    textTheme: GoogleFonts.notoSansJpTextTheme().copyWith(
+      headlineSmall: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.bold,
+      ),
+      titleLarge: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.bold,
+      ),
+      titleMedium: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+      titleSmall: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+      bodyLarge: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+      ),
+      bodyMedium: GoogleFonts.notoSansJp(
+        color: AppColors.textPrimary,
+      ),
+      bodySmall: GoogleFonts.notoSansJp(
+        color: AppColors.textSecondary,
+      ),
+      labelMedium: GoogleFonts.notoSansJp(
+        color: AppColors.textSecondary,
+      ),
+      labelSmall: GoogleFonts.notoSansJp(
+        color: AppColors.textSecondary,
+      ),
+    ),
+    appBarTheme: AppBarTheme(
       centerTitle: false,
       backgroundColor: AppColors.surface,
       foregroundColor: AppColors.textPrimary,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: TextStyle(
+      titleTextStyle: GoogleFonts.notoSansJp(
         color: AppColors.textPrimary,
         fontSize: 20,
         fontWeight: FontWeight.bold,
@@ -33,29 +68,6 @@ class AppTheme {
         borderRadius: BorderRadius.circular(20),
       ),
       margin: EdgeInsets.zero,
-    ),
-    textTheme: const TextTheme(
-      headlineSmall: TextStyle(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.bold,
-      ),
-      titleLarge: TextStyle(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.bold,
-      ),
-      titleMedium: TextStyle(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.w600,
-      ),
-      bodyLarge: TextStyle(
-        color: AppColors.textPrimary,
-      ),
-      bodyMedium: TextStyle(
-        color: AppColors.textPrimary,
-      ),
-      bodySmall: TextStyle(
-        color: AppColors.textSecondary,
-      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(

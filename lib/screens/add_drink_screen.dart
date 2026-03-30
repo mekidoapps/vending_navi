@@ -118,9 +118,14 @@ class _AddDrinkScreenState extends State<AddDrinkScreen> {
 
       await context.read<MachineProvider>().refresh();
 
+      if (!mounted) return;
+
+      // pop前にmessengerとメッセージを確保してからpop
+      final messenger = ScaffoldMessenger.of(context);
+      final String productName = _selectedProduct!.displayName;
       Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${_selectedProduct!.displayName} を追加しました')),
+      messenger.showSnackBar(
+        SnackBar(content: Text('$productName を追加しました')),
       );
     } catch (e) {
       if (!mounted) return;
