@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../core/enums/app_enums.dart';
@@ -53,6 +56,18 @@ class _CheckinScreenState extends State<CheckinScreen> {
     _priceController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(CheckinProvider provider, ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: source,
+      imageQuality: 70,
+      maxWidth: 1280,
+    );
+    if (image != null) {
+      provider.addPhotoPath(image.path);
+    }
   }
 
   Future<void> _submit(CheckinProvider provider) async {
@@ -193,6 +208,80 @@ class _CheckinScreenState extends State<CheckinScreen> {
                     prefixIcon: Icon(Icons.currency_yen),
                   ),
                 ),
+              ],
+              if (actionType == CheckinActionType.photoUpdate) ...[
+                const SizedBox(height: 20),
+                Text(
+                  '写真を選択',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _pickImage(provider, ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('ライブラリ'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _pickImage(provider, ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        label: const Text('カメラ'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (provider.photoPaths.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 100,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: provider.photoPaths.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (BuildContext context, int index) {
+                        final String path = provider.photoPaths[index];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(path),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: GestureDetector(
+                                onTap: () => provider.removePhotoPath(path),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 20),
               TextField(

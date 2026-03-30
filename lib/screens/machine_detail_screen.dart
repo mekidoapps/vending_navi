@@ -9,6 +9,7 @@ import '../widgets/common/empty_state_view.dart';
 import '../widgets/common/loading_view.dart';
 import '../widgets/common/tag_chip_list.dart';
 import '../widgets/search/reliability_badge.dart';
+import 'add_drink_screen.dart';
 import 'checkin_screen.dart';
 
 class MachineDetailScreen extends StatefulWidget {
@@ -49,16 +50,20 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     final String? userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
-    final bool value = await context.read<FavoritesProvider>().isFavorite(
-      userId: userId,
-      targetType: 'machine',
-      targetId: widget.machineId,
-    );
+    try {
+      final bool value = await context.read<FavoritesProvider>().isFavorite(
+        userId: userId,
+        targetType: 'machine',
+        targetId: widget.machineId,
+      );
 
-    if (!mounted) return;
-    setState(() {
-      _isFavorite = value;
-    });
+      if (!mounted) return;
+      setState(() {
+        _isFavorite = value;
+      });
+    } catch (_) {
+      // お気に入り状態の取得失敗は無視（デフォルトfalseのまま）
+    }
   }
 
   Future<void> _toggleFavorite(MachineProvider machineProvider) async {
@@ -70,7 +75,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
       return;
     }
 
-    final bool result = await context.read<FavoritesProvider>().toggleFavorite(
+    final FavoritesProvider favProvider = context.read<FavoritesProvider>();
+    final String errorBefore = favProvider.errorMessage ?? '';
+
+    final bool result = await favProvider.toggleFavorite(
       userId: userId,
       targetType: 'machine',
       targetId: widget.machineId,
@@ -78,6 +86,15 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     );
 
     if (!mounted) return;
+
+    // エラーが発生した場合
+    if (favProvider.errorMessage != null &&
+        favProvider.errorMessage != errorBefore) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('操作に失敗しました。もう一度お試しください')),
+      );
+      return;
+    }
 
     setState(() {
       _isFavorite = result;
@@ -132,6 +149,22 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
               ),
             ],
           ),
+          floatingActionButton: machine == null
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<bool>(
+                        builder: (_) => AddDrinkScreen(
+                          machineId: machine.id,
+                          machineName: machine.name,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('ドリンクを追加'),
+                ),
           body: machineProvider.isLoading && machine == null
               ? const LoadingView(message: '自販機情報を読み込み中…')
               : machine == null

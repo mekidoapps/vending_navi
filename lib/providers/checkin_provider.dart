@@ -1,19 +1,29 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/enums/app_enums.dart';
 import '../models/checkin.dart';
 import '../repositories/checkin_repository.dart';
+import '../repositories/machine_repository.dart';
 import '../services/location_service.dart';
+import '../services/storage_service.dart';
 
 class CheckinProvider extends ChangeNotifier {
   CheckinProvider({
     CheckinRepository? checkinRepository,
     LocationService? locationService,
+    StorageService? storageService,
+    MachineRepository? machineRepository,
   })  : _checkinRepository = checkinRepository ?? CheckinRepository(),
-        _locationService = locationService ?? LocationService();
+        _locationService = locationService ?? LocationService(),
+        _storageService = storageService ?? StorageService(),
+        _machineRepository = machineRepository ?? MachineRepository();
 
   final CheckinRepository _checkinRepository;
   final LocationService _locationService;
+  final StorageService _storageService;
+  final MachineRepository _machineRepository;
 
   String? _machineId;
   String? _productId;
@@ -115,6 +125,22 @@ class CheckinProvider extends ChangeNotifier {
       final position = await _locationService.getCurrentPosition();
       final int? parsedPrice = int.tryParse(_reportedPriceText.trim());
 
+      // 写真をアップロード
+      List<String> uploadedPhotoUrls = const <String>[];
+      if (_photoPaths.isNotEmpty) {
+        final List<File> files =
+            _photoPaths.map((String p) => File(p)).toList();
+        uploadedPhotoUrls = await _storageService.uploadFiles(
+          files: files,
+          directoryPath: 'vending_machines/$_machineId/photos',
+        );
+        // 自販機ドキュメントの photo_urls に追記
+        await _machineRepository.appendPhotoUrls(
+          machineId: _machineId!,
+          urls: uploadedPhotoUrls,
+        );
+      }
+
       final Checkin checkin = Checkin(
         id: '',
         userId: userId,
@@ -123,7 +149,7 @@ class CheckinProvider extends ChangeNotifier {
         actionType: _actionType!,
         reportedPrice: parsedPrice,
         comment: _comment.trim().isEmpty ? null : _comment.trim(),
-        photoUrls: const <String>[],
+        photoUrls: uploadedPhotoUrls,
         createdAt: DateTime.now(),
         latitude: position?.latitude,
         longitude: position?.longitude,
@@ -131,7 +157,9 @@ class CheckinProvider extends ChangeNotifier {
 
       await _checkinRepository.createCheckin(checkin);
 
-      _successMessage = 'チェックインを保存しました';
+      _successMessage = uploadedPhotoUrls.isNotEmpty
+          ? '写真${uploadedPhotoUrls.length}枚を投稿しました'
+          : 'チェックインを保存しました';
       return true;
     } catch (e) {
       _errorMessage = e.toString();

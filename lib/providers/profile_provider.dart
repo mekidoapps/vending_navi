@@ -24,12 +24,26 @@ class ProfileProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> loadProfile(String userId) async {
+  Future<void> loadProfile(
+    String userId, {
+    String displayName = 'ユーザー',
+    String? photoUrl,
+  }) async {
     _setLoading(true);
     _errorMessage = null;
 
     try {
       _userStats = await _userRepository.fetchUserStats(userId);
+
+      if (_userStats == null) {
+        await _userRepository.ensureUserDocument(
+          userId: userId,
+          displayName: displayName,
+          photoUrl: photoUrl,
+        );
+        _userStats = await _userRepository.fetchUserStats(userId);
+      }
+
       _userTitles = await _titleRepository.fetchUserTitles(userId: userId);
     } catch (e) {
       _errorMessage = e.toString();
@@ -40,8 +54,12 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh(String userId) async {
-    await loadProfile(userId);
+  Future<void> refresh(
+    String userId, {
+    String displayName = 'ユーザー',
+    String? photoUrl,
+  }) async {
+    await loadProfile(userId, displayName: displayName, photoUrl: photoUrl);
   }
 
   void clear() {

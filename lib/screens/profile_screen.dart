@@ -27,10 +27,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_initialized) return;
     _initialized = true;
 
-    final String? userId = context.read<AuthProvider>().currentUser?.uid;
+    final authProvider = context.read<AuthProvider>();
+    final String? userId = authProvider.currentUser?.uid;
     if (userId != null) {
+      final String displayName =
+          authProvider.currentUser?.displayName?.trim().isNotEmpty == true
+              ? authProvider.currentUser!.displayName!.trim()
+              : authProvider.currentUser?.email?.split('@').first ?? 'ユーザー';
+      final String? photoUrl = authProvider.currentUser?.photoURL;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<ProfileProvider>().loadProfile(userId);
+        context.read<ProfileProvider>().loadProfile(
+          userId,
+          displayName: displayName,
+          photoUrl: photoUrl,
+        );
       });
     }
   }
@@ -101,7 +111,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       message: 'プロフィールを読み込み中…',
                     )
                   : RefreshIndicator(
-                      onRefresh: () => profileProvider.refresh(userId),
+                      onRefresh: () {
+                        final auth = context.read<AuthProvider>();
+                        final String dn =
+                            auth.currentUser?.displayName?.trim().isNotEmpty == true
+                                ? auth.currentUser!.displayName!.trim()
+                                : auth.currentUser?.email?.split('@').first ?? 'ユーザー';
+                        return profileProvider.refresh(
+                          userId,
+                          displayName: dn,
+                          photoUrl: auth.currentUser?.photoURL,
+                        );
+                      },
                       child: _buildBody(context, profileProvider, userId),
                     ),
         );

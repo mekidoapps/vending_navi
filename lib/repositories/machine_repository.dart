@@ -123,4 +123,16 @@ class MachineRepository {
       SetOptions(merge: true),
     );
   }
+
+  Future<void> appendPhotoUrls({
+    required String machineId,
+    required List<String> urls,
+  }) {
+    return _firestoreService.vendingMachines().doc(machineId).update(
+      <String, dynamic>{
+        'photo_urls': FieldValue.arrayUnion(urls),
+        'updated_at': DateTime.now(),
+      },
+    );
+  }
 }
