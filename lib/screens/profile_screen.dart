@@ -106,6 +106,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   description: 'プロフィールを表示するにはログインしてください。',
                   icon: Icons.person_off_outlined,
                 )
+              : context.watch<AuthProvider>().isAnonymous
+                  ? _buildGuestBody(context)
               : profileProvider.isLoading && profileProvider.userStats == null
                   ? const LoadingView(
                       message: 'プロフィールを読み込み中…',
@@ -127,6 +129,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
         );
       },
+    );
+  }
+
+  Widget _buildGuestBody(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.person_outline, size: 72),
+            const SizedBox(height: 16),
+            Text(
+              'ゲストモードで利用中',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'アカウントを作成すると投稿履歴・お気に入りが保存されます',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () async {
+                await context.read<AuthProvider>().signOut();
+                if (!mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+                  (_) => false,
+                );
+              },
+              child: const Text('アカウント登録 / ログイン'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

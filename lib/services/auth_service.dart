@@ -41,6 +41,12 @@ class AuthService {
     return _auth.sendPasswordResetEmail(email: email);
   }
 
+  Future<UserCredential> signInAnonymously() {
+    return _auth.signInAnonymously();
+  }
+
+  bool get isAnonymous => _auth.currentUser?.isAnonymous ?? false;
+
   Future<void> signOut() {
     return _auth.signOut();
   }

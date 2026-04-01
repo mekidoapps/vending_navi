@@ -18,6 +18,7 @@ class AuthProvider extends ChangeNotifier {
 
   User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
+  bool get isAnonymous => _currentUser?.isAnonymous ?? false;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _currentUser != null;
 
@@ -62,6 +63,21 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> signInAsGuest() async {
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      await _authService.signInAnonymously();
       return true;
     } catch (e) {
       _errorMessage = e.toString();

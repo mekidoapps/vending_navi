@@ -3,40 +3,42 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class StorageService {
-  StorageService._internal();
+  StorageService({
+    FirebaseStorage? storage,
+  }) : _storage = storage ?? FirebaseStorage.instance;
 
-  static final StorageService _instance = StorageService._internal();
+  final FirebaseStorage _storage;
 
-  factory StorageService() => _instance;
-
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-
-  Future<String> uploadFile({
+  Future<String> uploadMachinePhoto({
     required File file,
-    required String path,
-    SettableMetadata? metadata,
+    required String fileName,
   }) async {
-    final Reference ref = _storage.ref().child(path);
-    final UploadTask uploadTask = ref.putFile(file, metadata);
+    final ref = _storage.ref().child('vending_machines/photos/$fileName');
 
-    final TaskSnapshot snapshot = await uploadTask;
+    final metadata = SettableMetadata(
+      contentType: _detectContentType(file.path),
+    );
+
+    final uploadTask = ref.putFile(file, metadata);
+    final snapshot = await uploadTask;
     return snapshot.ref.getDownloadURL();
   }
 
-  Future<List<String>> uploadFiles({
+  Future<List<String>> uploadMachinePhotos({
     required List<File> files,
-    required String directoryPath,
+    required String machineKey,
   }) async {
     final List<String> urls = <String>[];
 
     for (int i = 0; i < files.length; i++) {
-      final File file = files[i];
-      final String filePath =
-          '$directoryPath/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+      final file = files[i];
+      final extension = _extensionFromPath(file.path);
+      final fileName =
+          '${machineKey}_${DateTime.now().millisecondsSinceEpoch}_$i$extension';
 
-      final String url = await uploadFile(
+      final url = await uploadMachinePhoto(
         file: file,
-        path: filePath,
+        fileName: fileName,
       );
       urls.add(url);
     }
@@ -44,8 +46,17 @@ class StorageService {
     return urls;
   }
 
-  Future<void> deleteByUrl(String fileUrl) async {
-    final Reference ref = _storage.refFromURL(fileUrl);
-    await ref.delete();
+  String _extensionFromPath(String path) {
+    final dotIndex = path.lastIndexOf('.');
+    if (dotIndex == -1) return '.jpg';
+    return path.substring(dotIndex).toLowerCase();
+  }
+
+  String _detectContentType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
   }
 }

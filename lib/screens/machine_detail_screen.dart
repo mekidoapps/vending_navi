@@ -1,288 +1,576 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../core/enums/app_enums.dart';
-import '../providers/favorites_provider.dart';
-import '../providers/machine_provider.dart';
-import '../widgets/common/empty_state_view.dart';
-import '../widgets/common/loading_view.dart';
-import '../widgets/common/tag_chip_list.dart';
-import '../widgets/search/reliability_badge.dart';
-import 'add_drink_screen.dart';
-import 'checkin_screen.dart';
+import '../models/vending_machine.dart';
+import '../services/map_launcher_service.dart';
+import '../theme/app_colors.dart';
+import '../utils/distance_util.dart';
 
 class MachineDetailScreen extends StatefulWidget {
-  final String machineId;
-  final String? highlightProductId;
-
   const MachineDetailScreen({
     super.key,
-    required this.machineId,
-    this.highlightProductId,
+    required this.machine,
   });
+
+  final VendingMachine machine;
 
   @override
   State<MachineDetailScreen> createState() => _MachineDetailScreenState();
 }
 
 class _MachineDetailScreenState extends State<MachineDetailScreen> {
-  bool _initialized = false;
-  bool _isFavorite = false;
+  final MapLauncherService _mapLauncherService = MapLauncherService();
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  bool _isLaunchingMap = false;
 
-    if (_initialized) return;
-    _initialized = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await context.read<MachineProvider>().loadMachineDetail(
-        machineId: widget.machineId,
-        highlightProductId: widget.highlightProductId,
-      );
-      await _loadFavoriteState();
-    });
-  }
-
-  Future<void> _loadFavoriteState() async {
-    final String? userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      final bool value = await context.read<FavoritesProvider>().isFavorite(
-        userId: userId,
-        targetType: 'machine',
-        targetId: widget.machineId,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isFavorite = value;
-      });
-    } catch (_) {
-      // お気に入り状態の取得失敗は無視（デフォルトfalseのまま）
-    }
-  }
-
-  Future<void> _toggleFavorite(MachineProvider machineProvider) async {
-    final String? userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null || machineProvider.machine == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ログインが必要です')),
-      );
-      return;
-    }
-
-    final FavoritesProvider favProvider = context.read<FavoritesProvider>();
-    final String errorBefore = favProvider.errorMessage ?? '';
-
-    final bool result = await favProvider.toggleFavorite(
-      userId: userId,
-      targetType: 'machine',
-      targetId: widget.machineId,
-      targetNameSnapshot: machineProvider.machine!.name,
-    );
-
-    if (!mounted) return;
-
-    // エラーが発生した場合
-    if (favProvider.errorMessage != null &&
-        favProvider.errorMessage != errorBefore) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('操作に失敗しました。もう一度お試しください')),
-      );
-      return;
-    }
+  Future<void> _openNavigation() async {
+    if (_isLaunchingMap) return;
 
     setState(() {
-      _isFavorite = result;
+      _isLaunchingMap = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result ? 'お気に入りに追加しました' : 'お気に入りを解除しました'),
-      ),
-    );
-  }
-
-  String _temperatureLabel(ItemTemperature value) {
-    switch (value) {
-      case ItemTemperature.cold:
-        return 'つめたい';
-      case ItemTemperature.hot:
-        return 'あたたかい';
-      case ItemTemperature.both:
-        return '冷/温';
-      case ItemTemperature.unknown:
-        return '温度不明';
-    }
-  }
-
-  String _stockLabel(StockStatus value) {
-    switch (value) {
-      case StockStatus.seenRecently:
-        return '最近確認';
-      case StockStatus.maybeAvailable:
-        return 'ありそう';
-      case StockStatus.soldOutReported:
-        return '売り切れ報告';
-      case StockStatus.unknown:
-        return '情報不明';
+    try {
+      await _mapLauncherService.openWalkingNavigation(
+        latitude: widget.machine.latitude,
+        longitude: widget.machine.longitude,
+        label: widget.machine.name,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('地図アプリを起動できませんでした'),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLaunchingMap = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MachineProvider>(
-      builder: (BuildContext context, MachineProvider machineProvider, _) {
-        final machine = machineProvider.machine;
+    final theme = Theme.of(context);
+    final machine = widget.machine;
+    final photos = machine.photoUrls;
+    final tags = machine.tags;
+    final drinks = machine.drinks;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('自販機詳細'),
-            actions: [
-              IconButton(
-                onPressed: machine == null ? null : () => _toggleFavorite(machineProvider),
-                icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('自販機詳細'),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _HeroSection(
+                machine: machine,
+                isLaunchingMap: _isLaunchingMap,
+                onOpenNavigation: _openNavigation,
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: '写真',
+                child: photos.isEmpty
+                    ? _EmptyPhotoState(machineName: machine.name)
+                    : SizedBox(
+                  height: 210,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: photos.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (BuildContext context, int index) {
+                      final url = photos[index];
+                      final isMain = index == 0;
+
+                      return Stack(
+                        children: <Widget>[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Container(
+                              width: 260,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceSoft,
+                                border: Border.all(color: AppColors.border),
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                              child: Image.network(
+                                url,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) {
+                                  return Container(
+                                    color: AppColors.surfaceSoft,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.broken_image_rounded,
+                                        size: 42,
+                                        color: AppColors.textHint,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return Container(
+                                    color: AppColors.surfaceSoft,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isMain
+                                    ? AppColors.accent
+                                    : Colors.black.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                isMain ? 'メイン写真' : '写真 ${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'タグ',
+                child: tags.isEmpty
+                    ? Text(
+                  'タグ情報はまだありません',
+                  style: theme.textTheme.bodySmall,
+                )
+                    : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: tags
+                      .map(
+                        (String tag) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'ドリンク一覧',
+                child: drinks.isEmpty
+                    ? Text(
+                  'ドリンク情報はまだありません',
+                  style: theme.textTheme.bodySmall,
+                )
+                    : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: drinks
+                      .map(
+                        (drink) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.local_drink_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                drink.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              if (drink.brand.isNotEmpty)
+                                Text(
+                                  drink.brand,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: '更新情報',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      machine.updatedLabel.isEmpty ? '更新情報なし' : machine.updatedLabel,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '登録した自販機が役に立ったよ！',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (machine.checkinCount > 0) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Text(
+                        'チェックイン ${machine.checkinCount} 回',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                    if (machine.reliabilityScore > 0) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Text(
+                        '信頼度スコア ${machine.reliabilityScore}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
-          floatingActionButton: machine == null
-              ? null
-              : FloatingActionButton.extended(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<bool>(
-                        builder: (_) => AddDrinkScreen(
-                          machineId: machine.id,
-                          machineName: machine.name,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('ドリンクを追加'),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroSection extends StatelessWidget {
+  const _HeroSection({
+    required this.machine,
+    required this.isLaunchingMap,
+    required this.onOpenNavigation,
+  });
+
+  final VendingMachine machine;
+  final bool isLaunchingMap;
+  final VoidCallback onOpenNavigation;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  machine.name,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 26),
                 ),
-          body: machineProvider.isLoading && machine == null
-              ? const LoadingView(message: '自販機情報を読み込み中…')
-              : machine == null
-              ? const EmptyStateView(
-            title: '自販機情報が見つかりません',
-            description: '削除されたか、まだ読み込めていない可能性があります。',
-            icon: Icons.local_drink_outlined,
-          )
-              : RefreshIndicator(
-            onRefresh: machineProvider.refresh,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          machine.name,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        if ((machine.placeNote ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(machine.placeNote!),
-                        ],
-                        const SizedBox(height: 12),
-                        TagChipList(
-                          tags: [
-                            ...machine.paymentMethods,
-                            ...machine.machineTags,
-                          ],
-                        ),
-                      ],
+              ),
+              if (machine.hasFavoriteMatch)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF2E7),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'おすすめ',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.accent,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => CheckinScreen(
-                                machineId: machine.id,
-                                machineName: machine.name,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.edit_location_alt_outlined),
-                        label: const Text('チェックイン'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '売っている商品',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                if (machineProvider.items.isEmpty)
-                  const EmptyStateView(
-                    title: '商品情報がまだありません',
-                    description: 'チェックインや登録が増えるとここに表示されます。',
-                    icon: Icons.local_drink_outlined,
-                  )
-                else
-                  ...machineProvider.items.map((item) {
-                    final bool isHighlighted =
-                        widget.highlightProductId != null &&
-                            widget.highlightProductId == item.productId;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Card(
-                        color: isHighlighted
-                            ? Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withValues(alpha: 0.35)
-                            : null,
-                        child: ListTile(
-                          contentPadding:
-                          const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                          title: Text(item.productNameSnapshot),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${item.priceLabel} ・ ${_temperatureLabel(item.temperature)}'),
-                                const SizedBox(height: 4),
-                                Text(_stockLabel(item.stockStatus)),
-                                const SizedBox(height: 8),
-                                ReliabilityBadge(
-                                  confidence: item.confidence,
-                                  compact: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                          trailing: isHighlighted
-                              ? const Icon(Icons.star)
-                              : const Icon(Icons.chevron_right),
-                        ),
-                      ),
-                    );
-                  }),
-              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            machine.headline,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _MetaChip(
+                icon: Icons.place_rounded,
+                text:
+                '${DistanceUtil.formatDistance(machine.distanceMeters)} ${DistanceUtil.formatWalkingTime(machine.distanceMeters)}',
+              ),
+              if (machine.paymentLabel.isNotEmpty)
+                _MetaChip(
+                  icon: Icons.payments_rounded,
+                  text: machine.paymentLabel,
+                ),
+              if (machine.updatedLabel.isNotEmpty)
+                _MetaChip(
+                  icon: Icons.update_rounded,
+                  text: machine.updatedLabel,
+                ),
+            ],
+          ),
+          if (machine.addressHint.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            Text(
+              machine.addressHint,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            'ここにありそう',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: isLaunchingMap ? null : onOpenNavigation,
+                  icon: isLaunchingMap
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Icon(Icons.directions_walk_rounded),
+                  label: Text(isLaunchingMap ? '起動中...' : 'ここに行く'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isLaunchingMap ? null : onOpenNavigation,
+                  icon: const Icon(Icons.map_rounded),
+                  label: const Text('地図で開く'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPhotoState extends StatelessWidget {
+  const _EmptyPhotoState({
+    required this.machineName,
+  });
+
+  final String machineName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 190,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.photo_camera_back_rounded,
+              size: 40,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'まだ写真はありません',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              machineName,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 19),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

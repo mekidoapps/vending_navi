@@ -218,6 +218,36 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : () => _resetPassword(authProvider),
                               child: const Text('パスワードを忘れた場合'),
                             ),
+                            const SizedBox(height: 8),
+                            const Row(
+                              children: [
+                                Expanded(child: Divider()),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text('または'),
+                                ),
+                                Expanded(child: Divider()),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: authProvider.isLoading
+                                  ? null
+                                  : () async {
+                                      final bool ok =
+                                          await authProvider.signInAsGuest();
+                                      if (!mounted) return;
+                                      if (ok) {
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => const AuthGate(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                              icon: const Icon(Icons.person_outline),
+                              label: const Text('ゲストとして使う'),
+                            ),
                           ],
                         ),
                       ),

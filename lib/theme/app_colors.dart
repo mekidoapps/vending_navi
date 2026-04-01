@@ -1,32 +1,28 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  const AppColors._();
 
-  /// 基本カラー
-  static const primary = Color(0xFF4DB6E5); // 水色
-  static const background = Color(0xFFF7F9FB); // ややグレー白
-  static const surface = Colors.white;
+  static const Color primary = Color(0xFF18A0A6);
+  static const Color primaryDark = Color(0xFF0F7F84);
+  static const Color accent = Color(0xFFFF8A3D);
 
-  /// テキスト
-  static const textPrimary = Color(0xFF222222);
-  static const textSecondary = Color(0xFF777777);
+  static const Color background = Color(0xFFF6F8FB);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceSoft = Color(0xFFF0F5F7);
+  static const Color border = Color(0xFFD9E2E8);
 
-  /// ボーダー
-  static const border = Color(0xFFE3E6EB);
+  static const Color textPrimary = Color(0xFF1E2933);
+  static const Color textSecondary = Color(0xFF5D6B75);
+  static const Color textHint = Color(0xFF7D8A93);
 
-  /// 成功 / 注意
-  static const success = Color(0xFF4CAF50);
-  static const warning = Color(0xFFFFC107);
+  static const Color success = Color(0xFF2E9E5B);
+  static const Color warning = Color(0xFFF4A100);
+  static const Color danger = Color(0xFFD9534F);
 
-  /// くすみカラー（アクセント）
-  static const mutedBlue = Color(0xFF8FAFD9);
-  static const mutedGreen = Color(0xFF9CCFB8);
-  static const mutedOrange = Color(0xFFE6B89C);
-  static const mutedPurple = Color(0xFFC2A4E0);
+  static const Color chipBg = Color(0xFFEAF6F7);
+  static const Color chipSelectedBg = Color(0xFF18A0A6);
+  static const Color chipSelectedText = Color(0xFFFFFFFF);
 
-  static const List<String> checkinStatuses = [
-    'available',
-    'sold_out',
-    'out_of_order',
-  ];
+  static const Color shadow = Color(0x14000000);
 }
