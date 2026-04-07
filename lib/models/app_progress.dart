@@ -1,62 +1,93 @@
 class AppProgress {
   const AppProgress({
-    required this.exp,
     required this.level,
+    required this.exp,
     required this.searchHistory,
-    required this.viewedMachineIds,
     required this.viewedMachineNames,
     required this.createdMachineNames,
   });
 
-  final int exp;
   final int level;
+  final int exp;
   final List<String> searchHistory;
-  final List<String> viewedMachineIds;
   final List<String> viewedMachineNames;
   final List<String> createdMachineNames;
 
   factory AppProgress.initial() {
     return const AppProgress(
-      exp: 0,
       level: 1,
+      exp: 0,
       searchHistory: <String>[],
-      viewedMachineIds: <String>[],
       viewedMachineNames: <String>[],
       createdMachineNames: <String>[],
     );
   }
 
+  factory AppProgress.fromJson(Map<String, dynamic> json) {
+    return AppProgress(
+      level: _readInt(json['level'], fallback: 1),
+      exp: _readInt(json['exp'], fallback: 0),
+      searchHistory: _readStringList(json['searchHistory']),
+      viewedMachineNames: _readStringList(json['viewedMachineNames']),
+      createdMachineNames: _readStringList(json['createdMachineNames']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'level': level,
+      'exp': exp,
+      'searchHistory': searchHistory,
+      'viewedMachineNames': viewedMachineNames,
+      'createdMachineNames': createdMachineNames,
+    };
+  }
+
   AppProgress copyWith({
-    int? exp,
     int? level,
+    int? exp,
     List<String>? searchHistory,
-    List<String>? viewedMachineIds,
     List<String>? viewedMachineNames,
     List<String>? createdMachineNames,
   }) {
     return AppProgress(
-      exp: exp ?? this.exp,
       level: level ?? this.level,
+      exp: exp ?? this.exp,
       searchHistory: searchHistory ?? this.searchHistory,
-      viewedMachineIds: viewedMachineIds ?? this.viewedMachineIds,
       viewedMachineNames: viewedMachineNames ?? this.viewedMachineNames,
       createdMachineNames: createdMachineNames ?? this.createdMachineNames,
     );
   }
 
-  static int levelFromExp(int exp) {
-    if (exp <= 0) return 1;
-    return (exp ~/ 100) + 1;
-  }
+  double get levelProgress {
+    final currentLevelBase = (level - 1) * 100;
+    final nextLevelBase = level * 100;
+    final span = nextLevelBase - currentLevelBase;
 
-  int get expIntoCurrentLevel => exp % 100;
+    if (span <= 0) return 0;
+
+    final raw = (exp - currentLevelBase) / span;
+    if (raw < 0) return 0;
+    if (raw > 1) return 1;
+    return raw;
+  }
 
   int get expToNextLevel {
-    final remain = 100 - expIntoCurrentLevel;
-    return remain == 100 ? 0 : remain;
+    final nextLevelBase = level * 100;
+    final remain = nextLevelBase - exp;
+    return remain < 0 ? 0 : remain;
   }
 
-  double get levelProgress {
-    return (expIntoCurrentLevel / 100).clamp(0, 1);
+  static int _readInt(dynamic value, {required int fallback}) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return fallback;
+  }
+
+  static List<String> _readStringList(dynamic value) {
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return <String>[];
   }
 }

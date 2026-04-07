@@ -1,340 +1,331 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 
-import '../core/enums/app_enums.dart';
-import '../providers/auth_provider.dart';
-import '../providers/checkin_provider.dart';
+import '../models/vending_machine.dart';
+import '../services/firestore_service.dart';
 
 class CheckinScreen extends StatefulWidget {
-  final String machineId;
-  final String? productId;
-  final String? machineName;
-
   const CheckinScreen({
     super.key,
-    required this.machineId,
-    this.productId,
-    this.machineName,
+    required this.machine,
   });
+
+  final VendingMachine machine;
 
   @override
   State<CheckinScreen> createState() => _CheckinScreenState();
 }
 
 class _CheckinScreenState extends State<CheckinScreen> {
-  late final TextEditingController _priceController;
-  late final TextEditingController _commentController;
-  bool _initialized = false;
+  bool _isSubmitting = false;
+  String? _selectedDrink;
+  final TextEditingController _memoController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _priceController = TextEditingController();
-    _commentController = TextEditingController();
-  }
+  List<String> get _products {
+    final result = <String>[];
+    final used = <String>{};
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+    for (final slot in widget.machine.drinkSlots) {
+      final name = (slot['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
 
-    if (_initialized) return;
-    _initialized = true;
+      final key = name.toLowerCase();
+      if (used.contains(key)) continue;
+      used.add(key);
+      result.add(name);
+    }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CheckinProvider>().initialize(
-            machineId: widget.machineId,
-            productId: widget.productId,
-          );
-    });
+    return result;
   }
 
   @override
   void dispose() {
-    _priceController.dispose();
-    _commentController.dispose();
+    _memoController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickImage(CheckinProvider provider, ImageSource source) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 1280,
-    );
-    if (image != null) {
-      provider.addPhotoPath(image.path);
+  Future<void> _submit() async {
+    final drink = _selectedDrink?.trim();
+    if (drink == null || drink.isEmpty) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final updatedDrinkSlots =
+      widget.machine.drinkSlots.map((slot) {
+        final name = (slot['name'] ?? '').toString().trim();
+        if (name.isEmpty) return Map<String, dynamic>.from(slot);
+
+        if (name == drink) {
+          return <String, dynamic>{
+            ...Map<String, dynamic>.from(slot),
+            'name': name,
+            'isSoldOut': false,
+          };
+        }
+
+        return Map<String, dynamic>.from(slot);
+      }).toList();
+
+      final exists = updatedDrinkSlots.any(
+            (slot) => ((slot['name'] ?? '').toString().trim() == drink),
+      );
+
+      if (!exists) {
+        updatedDrinkSlots.add(<String, dynamic>{
+          'name': drink,
+          'manufacturer': null,
+          'category': null,
+          'isSoldOut': false,
+        });
+      }
+
+      await FirestoreService.instance.checkin(
+        machineId: widget.machine.id,
+        drinkSlots: updatedDrinkSlots,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('チェックイン保存に失敗しました: $e'),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+      });
     }
   }
 
-  Future<void> _submit(CheckinProvider provider) async {
-    // ✅ アクション未選択チェック
-    if (provider.actionType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('内容を選択してください')),
-      );
-      return;
-    }
+  Widget _buildMachineHeader() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F6F8),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.local_drink_rounded),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  widget.machine.name,
+                  style: const TextStyle(
+                    fontFamily: 'Noto Sans JP',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if ((widget.machine.address ?? '').trim().isNotEmpty)
+                  Text(
+                    widget.machine.address!,
+                    style: const TextStyle(
+                      fontFamily: 'Noto Sans JP',
+                      fontSize: 13,
+                      color: Color(0xFF60707A),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // ✅ 価格更新なのに未入力チェック
-    if (provider.actionType == CheckinActionType.priceUpdate &&
-        _priceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('確認した価格を入力してください')),
-      );
-      return;
-    }
+  Widget _buildDrinkSelector() {
+    final products = _products;
 
-    provider.setReportedPriceText(_priceController.text);
-    provider.setComment(_commentController.text);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            '飲んだドリンク',
+            style: TextStyle(
+              fontFamily: 'Noto Sans JP',
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (products.isEmpty)
+            const Text(
+              '登録されているドリンクがありません',
+              style: TextStyle(
+                fontFamily: 'Noto Sans JP',
+                fontSize: 13,
+                color: Color(0xFF60707A),
+              ),
+            )
+          else
+            ...products.map((drink) {
+              final selected = _selectedDrink == drink;
 
-    // ✅ FirebaseAuth直参照をAuthProvider経由に変更
-    final String? userId = context.read<AuthProvider>().currentUser?.uid;
-    if (userId == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ログインが必要です')),
-      );
-      return;
-    }
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedDrink = drink;
+                  });
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFFEAF6F7) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected
+                          ? Theme.of(context).colorScheme.primary
+                          : const Color(0xFFE3E7EB),
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          drink,
+                          style: TextStyle(
+                            fontFamily: 'Noto Sans JP',
+                            fontSize: 14,
+                            fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w600,
+                            color: const Color(0xFF1F2A30),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : const Color(0xFF7A8791),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
 
-    final bool success = await provider.submit(userId: userId);
-
-    if (!mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.successMessage ?? 'チェックインを保存しました'),
-        ),
-      );
-      Navigator.of(context).pop(true);
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(provider.errorMessage ?? '保存に失敗しました'),
+  Widget _buildMemoCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'メモ（任意）',
+            style: TextStyle(
+              fontFamily: 'Noto Sans JP',
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _memoController,
+            maxLines: 3,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans JP',
+              fontSize: 14,
+              color: Color(0xFF1F2A30),
+            ),
+            decoration: const InputDecoration(
+              hintText: '例: ちゃんと補充されてた / 冷えてた / 行列なし',
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<CheckinProvider>(
-      builder: (BuildContext context, CheckinProvider provider, _) {
-        final CheckinActionType? actionType = provider.actionType;
-        final bool showPriceInput = actionType == CheckinActionType.priceUpdate;
+    final products = _products;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('チェックイン'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('チェックイン'),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+              (_selectedDrink == null || _isSubmitting || products.isEmpty)
+                  ? null
+                  : _submit,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Icon(Icons.check_circle_rounded),
+              label: Text(_isSubmitting ? '保存中...' : 'チェックインする'),
+            ),
           ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.machineName ?? '対象の自販機',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '現地で確認した内容を投稿します',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '内容を選択',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ActionChoiceChip(
-                    label: '行った',
-                    selected: actionType == CheckinActionType.visit,
-                    onSelected: () =>
-                        provider.setActionType(CheckinActionType.visit),
-                  ),
-                  _ActionChoiceChip(
-                    label: 'あった',
-                    selected: actionType == CheckinActionType.found,
-                    onSelected: () =>
-                        provider.setActionType(CheckinActionType.found),
-                  ),
-                  _ActionChoiceChip(
-                    label: '売り切れ',
-                    selected: actionType == CheckinActionType.soldOut,
-                    onSelected: () =>
-                        provider.setActionType(CheckinActionType.soldOut),
-                  ),
-                  _ActionChoiceChip(
-                    label: '値段が違った',
-                    selected: actionType == CheckinActionType.priceUpdate,
-                    onSelected: () =>
-                        provider.setActionType(CheckinActionType.priceUpdate),
-                  ),
-                  _ActionChoiceChip(
-                    label: '写真更新',
-                    selected: actionType == CheckinActionType.photoUpdate,
-                    onSelected: () =>
-                        provider.setActionType(CheckinActionType.photoUpdate),
-                  ),
-                ],
-              ),
-              if (showPriceInput) ...[
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '確認した価格',
-                    hintText: '140',
-                    prefixIcon: Icon(Icons.currency_yen),
-                  ),
-                ),
-              ],
-              if (actionType == CheckinActionType.photoUpdate) ...[
-                const SizedBox(height: 20),
-                Text(
-                  '写真を選択',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            _pickImage(provider, ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('ライブラリ'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            _pickImage(provider, ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        label: const Text('カメラ'),
-                      ),
-                    ),
-                  ],
-                ),
-                if (provider.photoPaths.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: provider.photoPaths.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (BuildContext context, int index) {
-                        final String path = provider.photoPaths[index];
-                        return Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(path),
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: GestureDetector(
-                                onTap: () => provider.removePhotoPath(path),
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black54,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ],
-              const SizedBox(height: 20),
-              TextField(
-                controller: _commentController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'コメント（任意）',
-                  hintText: '例: 綾鷹はまだ売っていました',
-                  prefixIcon: Icon(Icons.comment_outlined),
-                ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                // ✅ アクション未選択または送信中は無効化
-                onPressed: provider.isSubmitting || provider.actionType == null
-                    ? null
-                    : () => _submit(provider),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: provider.isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('送信する'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ActionChoiceChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  const _ActionChoiceChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+        children: <Widget>[
+          _buildMachineHeader(),
+          const SizedBox(height: 12),
+          _buildDrinkSelector(),
+          const SizedBox(height: 12),
+          _buildMemoCard(),
+        ],
+      ),
     );
   }
 }

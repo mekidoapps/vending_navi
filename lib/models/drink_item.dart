@@ -1,57 +1,37 @@
 class DrinkItem {
+  final String id;
+  final String name;
+  final String brand;
+  final String category;
+  final String imageUrl;
+  final List<String> searchKeywords;
+  final bool isHotCompatible;
+
   const DrinkItem({
     required this.id,
     required this.name,
     required this.brand,
     required this.category,
-    this.imageUrl,
+    this.imageUrl = '',
     this.searchKeywords = const <String>[],
     this.isHotCompatible = false,
-    this.isColdCompatible = true,
   });
 
-  final String id;
-  final String name;
-  final String brand;
-  final String category;
-  final String? imageUrl;
-  final List<String> searchKeywords;
-  final bool isHotCompatible;
-  final bool isColdCompatible;
-
-  bool matches(String query) {
-    final normalized = query.trim().toLowerCase();
-    if (normalized.isEmpty) return true;
-
-    if (name.toLowerCase().contains(normalized)) return true;
-    if (brand.toLowerCase().contains(normalized)) return true;
-    if (category.toLowerCase().contains(normalized)) return true;
-
-    for (final keyword in searchKeywords) {
-      if (keyword.toLowerCase().contains(normalized)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   factory DrinkItem.fromMap(
-      Map<String, dynamic> map, {
+      Map<String, dynamic> data, {
         String? documentId,
       }) {
     return DrinkItem(
-      id: (map['id'] as String?)?.trim().isNotEmpty == true
-          ? map['id'] as String
-          : (documentId ?? ''),
-      name: (map['name'] as String?) ?? '',
-      brand: (map['brand'] as String?) ?? '',
-      category: (map['category'] as String?) ?? '',
-      imageUrl: map['imageUrl'] as String?,
-      searchKeywords: ((map['searchKeywords'] as List<dynamic>?) ?? const [])
-          .map((e) => e.toString())
-          .toList(),
-      isHotCompatible: (map['isHotCompatible'] as bool?) ?? false,
-      isColdCompatible: (map['isColdCompatible'] as bool?) ?? true,
+      id: (documentId ?? data['id'] ?? '').toString(),
+      name: (data['name'] ?? '名称未設定').toString(),
+      brand: (data['brand'] ?? '').toString(),
+      category: (data['category'] ?? '').toString(),
+      imageUrl: (data['imageUrl'] ?? '').toString(),
+      searchKeywords: (data['searchKeywords'] as List?)
+          ?.map((e) => e.toString())
+          .toList() ??
+          const <String>[],
+      isHotCompatible: data['isHotCompatible'] == true,
     );
   }
 
@@ -64,7 +44,6 @@ class DrinkItem {
       'imageUrl': imageUrl,
       'searchKeywords': searchKeywords,
       'isHotCompatible': isHotCompatible,
-      'isColdCompatible': isColdCompatible,
     };
   }
 
@@ -76,7 +55,6 @@ class DrinkItem {
     String? imageUrl,
     List<String>? searchKeywords,
     bool? isHotCompatible,
-    bool? isColdCompatible,
   }) {
     return DrinkItem(
       id: id ?? this.id,
@@ -86,7 +64,16 @@ class DrinkItem {
       imageUrl: imageUrl ?? this.imageUrl,
       searchKeywords: searchKeywords ?? this.searchKeywords,
       isHotCompatible: isHotCompatible ?? this.isHotCompatible,
-      isColdCompatible: isColdCompatible ?? this.isColdCompatible,
     );
+  }
+
+  bool matches(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+
+    return name.toLowerCase().contains(normalized) ||
+        brand.toLowerCase().contains(normalized) ||
+        category.toLowerCase().contains(normalized) ||
+        searchKeywords.any((k) => k.toLowerCase().contains(normalized));
   }
 }
