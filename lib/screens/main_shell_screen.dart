@@ -33,6 +33,15 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
+  static const Color _appBackground = Color(0xFFD6ECFF);
+  static const Color _panelBackground = Colors.white;
+  static const Color _softBorder = Color(0xFFE3E7EB);
+  static const Color _softSurface = Color(0xFFF4F6F8);
+  static const Color _softSurfaceBlue = Color(0xFFF7FBFC);
+  static const Color _softText = Color(0xFF60707A);
+  static const Color _strongText = Color(0xFF334148);
+  static const Color _accentBlue = Color(0xFF3E7BFA);
+
   final TextEditingController _searchController = TextEditingController();
 
   StreamSubscription<List<VendingMachine>>? _machinesSubscription;
@@ -927,6 +936,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     final selected = _selectedView;
 
     return Scaffold(
+      backgroundColor: _appBackground,
       floatingActionButton: _currentTabIndex == 0
           ? FloatingActionButton.extended(
         onPressed: _openCreate,
@@ -1289,6 +1299,7 @@ class _TopSearchBar extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
+                  onChanged: (_) {},
                   onSubmitted: onSubmitted,
                   style: const TextStyle(
                     fontFamily: 'Noto Sans JP',
@@ -1341,7 +1352,8 @@ class _TopSearchBar extends StatelessWidget {
             children: <Widget>[
               GestureDetector(
                 onTap: onToggleOnlyFresh,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
@@ -1998,6 +2010,13 @@ class _SearchResultPreviewList extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE3E7EB)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2231,6 +2250,11 @@ class _MapSection extends StatelessWidget {
         child: Stack(
           children: <Widget>[
             Positioned.fill(
+              child: Container(
+                color: const Color(0xFFD6ECFF),
+              ),
+            ),
+            Positioned.fill(
               child: GoogleMap(
                 initialCameraPosition: initialCameraPosition,
                 onMapCreated: onMapCreated,
@@ -2280,16 +2304,21 @@ class _BottomScaffoldPanel extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
+        border: Border.all(color: const Color(0xFFDCE9F3)),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 6),
+            color: Color(0x16000000),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -2347,8 +2376,28 @@ class _BottomScaffoldPanel extends StatelessWidget {
               }),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Expanded(child: child),
+          const SizedBox(height: 12),
+          Container(
+            height: 60,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F3F5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE3E7EB)),
+            ),
+            alignment: Alignment.center,
+            child: const Text(
+              'Ad Space',
+              style: TextStyle(
+                fontFamily: 'Noto Sans JP',
+                fontSize: 12,
+                color: Color(0xFF60707A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2518,6 +2567,13 @@ class _SelectedMachineCard extends StatelessWidget {
           color: const Color(0xFFF7FBFC),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFD8E7EA)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x10000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2780,7 +2836,8 @@ class _MachineListTile extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(18),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFEAF6F7) : Colors.white,

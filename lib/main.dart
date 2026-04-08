@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
-import 'services/nearby_favorite_notification_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -12,38 +11,18 @@ Future<void> main() async {
   String? startupError;
 
   try {
-    await _initializeFirebaseSafely();
-    await NearbyFavoriteNotificationService.initialize();
-  } catch (e) {
-    startupError = e.toString();
-  }
-
-  runApp(VendingApp(startupError: startupError));
-}
-
-Future<void> _initializeFirebaseSafely() async {
-  if (Firebase.apps.isNotEmpty) {
-    return;
-  }
-
-  try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    final message = e.toString();
-
-    if (message.contains('duplicate-app') ||
-        message.contains('already exists')) {
-      return;
-    }
-
-    rethrow;
+    startupError = e.toString();
   }
+
+  runApp(VendingNaviApp(startupError: startupError));
 }
 
-class VendingApp extends StatelessWidget {
-  const VendingApp({
+class VendingNaviApp extends StatelessWidget {
+  const VendingNaviApp({
     super.key,
     this.startupError,
   });
@@ -73,13 +52,60 @@ class StartupErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('起動エラー'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SelectableText(message),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 560),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: const Color(0xFFE3E7EB),
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 52,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '起動時にエラーが発生しました',
+                  style: theme.textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                SelectableText(
+                  message,
+                  style: theme.textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Firebase設定や初期化内容を確認してください。',
+                  style: theme.textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -25,9 +28,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -40,49 +49,20 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDynS4pySOCAOrKlWeB56ZxQtdZxJ4i5Vc',
-    appId: '1:215928026767:web:27968608b66758921462fa',
-    messagingSenderId: '215928026767',
-    projectId: 'jihanki-navi',
-    authDomain: 'jihanki-navi.firebaseapp.com',
-    storageBucket: 'jihanki-navi.firebasestorage.app',
-    measurementId: 'G-S895CRYGQ7',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAkzYQKlhcEFHqk7iOjne5gnOsv0NQNav4',
-    appId: '1:215928026767:android:692c7cc8e9f985a61462fa',
-    messagingSenderId: '215928026767',
-    projectId: 'jihanki-navi',
-    storageBucket: 'jihanki-navi.firebasestorage.app',
+    apiKey: 'AIzaSyCLvvvDm7s9-LvZk9SsKV6s78M530fpaYM',
+    appId: '1:589528386744:android:2d95d614e155a8de52784d',
+    messagingSenderId: '589528386744',
+    projectId: 'vendingnavi',
+    storageBucket: 'vendingnavi.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAE4HSupnUZiTiUpVWdwEqjule1ZdAj3UY',
-    appId: '1:215928026767:ios:5e5149d8c29f59f21462fa',
-    messagingSenderId: '215928026767',
-    projectId: 'jihanki-navi',
-    storageBucket: 'jihanki-navi.firebasestorage.app',
-    iosBundleId: 'com.example.vendingApp',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAE4HSupnUZiTiUpVWdwEqjule1ZdAj3UY',
-    appId: '1:215928026767:ios:5e5149d8c29f59f21462fa',
-    messagingSenderId: '215928026767',
-    projectId: 'jihanki-navi',
-    storageBucket: 'jihanki-navi.firebasestorage.app',
-    iosBundleId: 'com.example.vendingApp',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDynS4pySOCAOrKlWeB56ZxQtdZxJ4i5Vc',
-    appId: '1:215928026767:web:17d7fd83e54a8b861462fa',
-    messagingSenderId: '215928026767',
-    projectId: 'jihanki-navi',
-    authDomain: 'jihanki-navi.firebaseapp.com',
-    storageBucket: 'jihanki-navi.firebasestorage.app',
-    measurementId: 'G-7WBTDZYLLG',
+    apiKey: 'AIzaSyCyZRn7Mlgwr7Jm4cPBT20Ob7OSTU4puek',
+    appId: '1:589528386744:ios:e6afb2ac27e7a1e552784d',
+    messagingSenderId: '589528386744',
+    projectId: 'vendingnavi',
+    storageBucket: 'vendingnavi.firebasestorage.app',
+    iosBundleId: 'com.mekidoapps.vendingnavi',
   );
 }

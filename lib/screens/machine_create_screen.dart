@@ -1,7 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../models/vending_machine.dart';
-import '../services/firestore_service.dart';
+import '../utils/distance_util.dart';
 
 class MachineCreateScreen extends StatefulWidget {
   const MachineCreateScreen({super.key});
@@ -11,200 +11,520 @@ class MachineCreateScreen extends StatefulWidget {
 }
 
 class _MachineCreateScreenState extends State<MachineCreateScreen> {
-  final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
-  bool _isSubmitting = false;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _locationNameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _latitudeController = TextEditingController();
+  final TextEditingController _longitudeController = TextEditingController();
+  final TextEditingController _imageUrlController = TextEditingController();
+  final TextEditingController _productInputController = TextEditingController();
 
-  double? _latitude;
-  double? _longitude;
+  bool _isSaving = false;
+  bool _cashlessSupported = false;
 
-  // 🔥 12枠（最低構成）
-  List<Map<String, dynamic>> _drinkSlots = List.generate(
-    12,
-        (_) => {
-      'name': '',
-      'manufacturer': null,
-      'category': null,
-      'isSoldOut': false,
-    },
-  );
+  final List<String> _selectedTags = <String>[];
+  final List<String> _products = <String>[];
+
+  static const List<String> _availableTags = <String>[
+    '電子決済OK',
+    '現金のみ',
+    'ゴミ箱あり',
+    '屋内',
+    '屋外',
+    '駅近',
+    '24時間',
+  ];
+
+  String _normalize(String input) {
+    return input
+        .trim()
+        .toLowerCase()
+        .replaceAll('　', '')
+        .replaceAll(' ', '')
+        .replaceAll('〜', 'ー')
+        .replaceAll('～', 'ー')
+        .replaceAll('-', 'ー');
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _locationNameController.dispose();
     _addressController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    _imageUrlController.dispose();
+    _productInputController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final name = _nameController.text.trim();
+  Future<void> _fillCurrentLocation() async {
+    final position = await DistanceUtil.getCurrentPositionSafe();
+    if (!mounted || position == null) return;
 
-    if (name.isEmpty || _latitude == null || _longitude == null) {
+    setState(() {
+      _latitudeController.text = position.latitude.toStringAsFixed(7);
+      _longitudeController.text = position.longitude.toStringAsFixed(7);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('現在地を入力しました'),
+      ),
+    );
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
+      } else {
+        _selectedTags.add(tag);
+      }
+    });
+  }
+
+  void _addProduct() {
+    final value = _productInputController.text.trim();
+    if (value.isEmpty) return;
+
+    final normalized = _normalize(value);
+    final exists = _products.any((e) => _normalize(e) == normalized);
+    if (exists) {
+      _productInputController.clear();
+      return;
+    }
+
+    setState(() {
+      _products.add(value);
+      _productInputController.clear();
+    });
+  }
+
+  void _removeProduct(String product) {
+    setState(() {
+      _products.remove(product);
+    });
+  }
+
+  Future<void> _save() async {
+    if (_isSaving) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    final lat = double.tryParse(_latitudeController.text.trim());
+    final lng = double.tryParse(_longitudeController.text.trim());
+
+    if (lat == null || lng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('必須項目を入力してください')),
+        const SnackBar(
+          content: Text('緯度・経度を正しく入力してください'),
+        ),
+      );
+      return;
+    }
+
+    if (_products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('飲み物を1つ以上追加してください'),
+        ),
       );
       return;
     }
 
     setState(() {
-      _isSubmitting = true;
+      _isSaving = true;
     });
 
     try {
-      final machine = VendingMachine(
-        id: '',
-        name: name,
-        address: _addressController.text.trim().isEmpty
-            ? null
-            : _addressController.text.trim(),
-        latitude: _latitude!,
-        longitude: _longitude!,
-        drinkSlots: _drinkSlots,
-        imageUrl: null,
-        tags: [],
-        cashlessSupported: false,
-        createdAt: null,
-        updatedAt: null,
-        lastCheckedAt: null,
-        checkinCount: 0,
-      );
+      final now = Timestamp.now();
 
-      await FirestoreService.instance.createMachine(machine);
+      final drinkSlots = _products.map((product) {
+        return <String, dynamic>{
+          'name': product,
+          'price': null,
+          'isAvailable': true,
+        };
+      }).toList();
+
+      await FirebaseFirestore.instance.collection('vending_machines').add({
+        'name': _nameController.text.trim(),
+        'locationName': _locationNameController.text.trim(),
+        'address': _addressController.text.trim(),
+        'latitude': lat,
+        'longitude': lng,
+        'imageUrl': _imageUrlController.text.trim().isEmpty
+            ? null
+            : _imageUrlController.text.trim(),
+        'tags': _selectedTags,
+        'cashlessSupported': _cashlessSupported,
+        'drinkSlots': drinkSlots,
+        'status': 'available',
+        'createdAt': now,
+        'updatedAt': now,
+        'lastCheckedAt': now,
+      });
 
       if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('自販機を登録しました'),
+        ),
+      );
+
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('登録に失敗しました: $e')),
-      );
-    } finally {
-      if (!mounted) return;
-
       setState(() {
-        _isSubmitting = false;
+        _isSaving = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('登録に失敗しました: $e'),
+        ),
+      );
+      return;
     }
   }
 
-  Widget _buildBasicInfo() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '自販機名（例：〇〇駅前）',
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _addressController,
-            decoration: const InputDecoration(
-              labelText: '住所（任意）',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationDummy() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          const Text('位置（仮）'),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: () {
-              // 🔥 MVP用ダミー（後でGPSに置き換え）
-              setState(() {
-                _latitude = 35.681236;
-                _longitude = 139.767125;
-              });
-            },
-            child: const Text('現在地をセット（仮）'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrinkEditorSimple() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'ドリンク（12枠）',
-            style: TextStyle(
-              fontFamily: 'Noto Sans JP',
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          ...List.generate(_drinkSlots.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'ドリンク ${index + 1}',
-                ),
-                onChanged: (value) {
-                  _drinkSlots[index]['name'] = value;
-                },
-              ),
-            );
-          }),
-        ],
+  InputDecoration _decoration(BuildContext context, String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('自販機登録'),
+        title: const Text('自販機を登録'),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submit,
-            child: Text(_isSubmitting ? '保存中...' : '登録する'),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFE3E7EB),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '基本情報',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _nameController,
+                      textInputAction: TextInputAction.next,
+                      decoration: _decoration(context, '自販機名'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return '自販機名を入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _locationNameController,
+                      textInputAction: TextInputAction.next,
+                      decoration: _decoration(context, '場所名'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _addressController,
+                      textInputAction: TextInputAction.next,
+                      decoration: _decoration(context, '住所・メモ'),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _imageUrlController,
+                      textInputAction: TextInputAction.next,
+                      decoration: _decoration(context, '画像URL（任意）'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFE3E7EB),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '位置情報',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _latitudeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            decoration: _decoration(context, '緯度'),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return '緯度を入力してください';
+                              }
+                              if (double.tryParse(value.trim()) == null) {
+                                return '数値で入力してください';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _longitudeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            decoration: _decoration(context, '経度'),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return '経度を入力してください';
+                              }
+                              if (double.tryParse(value.trim()) == null) {
+                                return '数値で入力してください';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _fillCurrentLocation,
+                        icon: const Icon(Icons.my_location_rounded),
+                        label: const Text('現在地を入力する'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFE3E7EB),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '支払い・タグ',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 10),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('電子決済対応'),
+                      subtitle: const Text('交通系IC・QR決済など'),
+                      value: _cashlessSupported,
+                      onChanged: (value) {
+                        setState(() {
+                          _cashlessSupported = value;
+                          if (value) {
+                            _selectedTags.remove('現金のみ');
+                            if (!_selectedTags.contains('電子決済OK')) {
+                              _selectedTags.add('電子決済OK');
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableTags.map((tag) {
+                        final selected = _selectedTags.contains(tag);
+                        return FilterChip(
+                          label: Text(tag),
+                          selected: selected,
+                          onSelected: (_) => _toggleTag(tag),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFE3E7EB),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '飲み物',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '商品名を追加してください',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _productInputController,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _addProduct(),
+                            decoration: _decoration(context, '例: お〜いお茶'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _addProduct,
+                            child: const Text('追加'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_products.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4F6F8),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFE3E7EB),
+                          ),
+                        ),
+                        child: Text(
+                          'まだ飲み物が追加されていません',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _products.map((product) {
+                          return InputChip(
+                            label: Text(product),
+                            onDeleted: () => _removeProduct(product),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _save,
+                  icon: _isSaving
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Icon(Icons.save_rounded),
+                  label: Text(_isSaving ? '登録中...' : 'この内容で登録'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: _isSaving
+                      ? null
+                      : () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('キャンセル'),
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-        children: [
-          _buildBasicInfo(),
-          const SizedBox(height: 12),
-          _buildLocationDummy(),
-          const SizedBox(height: 12),
-          _buildDrinkEditorSimple(),
-        ],
       ),
     );
   }
