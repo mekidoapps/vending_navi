@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:589528386744:android:2d95d614e155a8de52784d",
+        "mobilesdk_app_id": "1:589528386744:android:148186bc1a2af79a52784d",
         "android_client_info": {
-          "package_name": "com.mekidoapps.vendingnavi"
+          "package_name": "com.example.vending_field_register"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "589528386744-98llrqpk117acmc77ol18l3o5niov85d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vending_field_register",
+            "certificate_hash": "ff27f7a60298d97c51be3ad693e778895291ce3e"
+          }
+        },
+        {
+          "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCLvvvDm7s9-LvZk9SsKV6s78M530fpaYM"
@@ -20,7 +33,55 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "589528386744-sccs5dvr2u7sp4r9358haqpsrkmk0pgi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mekidoapps.vendingnavi"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:589528386744:android:9685cae6dc02e61452784d",
+        "android_client_info": {
+          "package_name": "com.mekidoapps.vendingnavi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLvvvDm7s9-LvZk9SsKV6s78M530fpaYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "589528386744-sccs5dvr2u7sp4r9358haqpsrkmk0pgi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mekidoapps.vendingnavi"
+              }
+            }
+          ]
         }
       }
     }
