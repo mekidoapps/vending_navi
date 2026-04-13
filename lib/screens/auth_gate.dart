@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'login_screen.dart';
 import 'main_shell_screen.dart';
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     this.initialMachineId,
@@ -11,6 +12,11 @@ class AuthGate extends StatelessWidget {
 
   final String? initialMachineId;
 
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -20,20 +26,8 @@ class AuthGate extends StatelessWidget {
           return const _AuthLoadingScreen();
         }
 
-        if (snapshot.hasError) {
-          return _AuthErrorScreen(
-            message: snapshot.error.toString(),
-            initialMachineId: initialMachineId,
-          );
-        }
-
-        final user = snapshot.data;
-
         return MainShellScreen(
-          key: ValueKey<String?>(
-            user?.uid ?? 'guest',
-          ),
-          initialMachineId: initialMachineId,
+          initialMachineId: widget.initialMachineId,
         );
       },
     );
@@ -48,18 +42,14 @@ class _AuthLoadingScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFD6ECFF),
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 320),
-          margin: const EdgeInsets.all(24),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 24,
-          ),
+          width: 260,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: const Color(0xFFE3E7EB),
             ),
@@ -74,23 +64,20 @@ class _AuthLoadingScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
-                width: 36,
-                height: 36,
-                child: CircularProgressIndicator(),
+              Icon(
+                Icons.local_drink_rounded,
+                size: 42,
+                color: theme.colorScheme.primary,
               ),
               const SizedBox(height: 14),
               Text(
-                '自販機ナビを準備しています',
-                style: theme.textTheme.titleMedium,
-                textAlign: TextAlign.center,
+                '自販機ナビ',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'ログイン状態を確認中です。',
-                style: theme.textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
+              const SizedBox(height: 16),
+              const CircularProgressIndicator(),
             ],
           ),
         ),
@@ -99,81 +86,80 @@ class _AuthLoadingScreen extends StatelessWidget {
   }
 }
 
-class _AuthErrorScreen extends StatelessWidget {
-  const _AuthErrorScreen({
-    required this.message,
-    required this.initialMachineId,
-  });
+class LoginRequiredSheet extends StatelessWidget {
+  const LoginRequiredSheet({super.key});
 
-  final String message;
-  final String? initialMachineId;
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const LoginRequiredSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 560),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
                 color: const Color(0xFFE3E7EB),
+                borderRadius: BorderRadius.circular(999),
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
-                ),
-              ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 52,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'ログイン状態の確認に失敗しました',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                SelectableText(
-                  message,
-                  style: theme.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MainShellScreen(
-                            initialMachineId: initialMachineId,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.map_rounded),
-                    label: const Text('ゲストとして続ける'),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 16),
+            const Text(
+              'ログインが必要です',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+            const SizedBox(height: 10),
+            const Text(
+              '自販機の登録や保存系の機能にはログインが必要です。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                color: Color(0xFF60707A),
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const LoginScreen(),
+                    ),
+                  );
+                },
+                child: const Text('ログインへ'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('あとで'),
+              ),
+            ),
+          ],
         ),
       ),
     );

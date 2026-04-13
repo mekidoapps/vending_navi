@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/distance_util.dart';
+import '../utils/drink_tag_util.dart';
 
 class MachineCreateScreen extends StatefulWidget {
   const MachineCreateScreen({super.key});
@@ -16,6 +17,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _locationNameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
   final TextEditingController _latitudeController = TextEditingController();
   final TextEditingController _longitudeController = TextEditingController();
   final TextEditingController _imageUrlController = TextEditingController();
@@ -23,6 +25,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
 
   bool _isSaving = false;
   bool _cashlessSupported = false;
+  String? _selectedManufacturer;
 
   final List<String> _selectedTags = <String>[];
   final List<String> _products = <String>[];
@@ -37,15 +40,85 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
     '24時間',
   ];
 
-  String _normalize(String input) {
-    return input
-        .trim()
-        .toLowerCase()
-        .replaceAll('　', '')
-        .replaceAll(' ', '')
-        .replaceAll('〜', 'ー')
-        .replaceAll('～', 'ー')
-        .replaceAll('-', 'ー');
+  static const List<String> _manufacturerOptions = <String>[
+    'コカ・コーラ',
+    'サントリー',
+    '伊藤園',
+    'キリン',
+    'アサヒ',
+    'ダイドー',
+    '大塚製薬',
+    'AQUO',
+    'その他',
+  ];
+
+  static const Map<String, List<String>> _drinkPresetsByManufacturer =
+  <String, List<String>>{
+    'コカ・コーラ': <String>[
+      'コカ・コーラ',
+      'コカ・コーラゼロ',
+      '綾鷹',
+      '爽健美茶',
+      'いろはす',
+      'ジョージア ブラック',
+      'ジョージア カフェオレ',
+    ],
+    'サントリー': <String>[
+      'BOSS ブラック',
+      'BOSS カフェオレ',
+      '伊右衛門',
+      'ペプシ',
+      'なっちゃん',
+      'サントリー天然水',
+    ],
+    '伊藤園': <String>[
+      'お〜いお茶',
+      '健康ミネラルむぎ茶',
+      '充実野菜',
+      'TULLY\'S COFFEE',
+    ],
+    'キリン': <String>[
+      '午後の紅茶',
+      '生茶',
+      'キリンレモン',
+      'FIRE ブラック',
+    ],
+    'アサヒ': <String>[
+      'ワンダ モーニングショット',
+      'ワンダ 金の微糖',
+      '三ツ矢サイダー',
+      '十六茶',
+      'カルピスウォーター',
+    ],
+    'ダイドー': <String>[
+      'ダイドーブレンド',
+      'デミタスコーヒー',
+      'miu',
+      '葉の茶',
+    ],
+    '大塚製薬': <String>[
+      'ポカリスエット',
+      'ポカリスエット イオンウォーター',
+      'オロナミンC',
+      'MATCH',
+      'エネルゲン',
+      'ボディメンテ',
+    ],
+    'AQUO': <String>[
+      '天然水',
+      'お〜いお茶',
+      '綾鷹',
+      'BOSS ブラック',
+      'ジョージア ブラック',
+      'いろはす',
+    ],
+    'その他': <String>[],
+  };
+
+  List<String> get _presetDrinks {
+    if (_selectedManufacturer == null) return const <String>[];
+    return _drinkPresetsByManufacturer[_selectedManufacturer] ??
+        const <String>[];
   }
 
   @override
@@ -53,6 +126,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
     _nameController.dispose();
     _locationNameController.dispose();
     _addressController.dispose();
+    _noteController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     _imageUrlController.dispose();
@@ -86,12 +160,27 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
     });
   }
 
+  void _togglePresetDrink(String drink) {
+    final normalized = DrinkTagUtil.normalize(drink);
+    final exists =
+    _products.any((e) => DrinkTagUtil.normalize(e) == normalized);
+
+    setState(() {
+      if (exists) {
+        _products.removeWhere((e) => DrinkTagUtil.normalize(e) == normalized);
+      } else {
+        _products.add(drink);
+      }
+    });
+  }
+
   void _addProduct() {
     final value = _productInputController.text.trim();
     if (value.isEmpty) return;
 
-    final normalized = _normalize(value);
-    final exists = _products.any((e) => _normalize(e) == normalized);
+    final normalized = DrinkTagUtil.normalize(value);
+    final exists =
+    _products.any((e) => DrinkTagUtil.normalize(e) == normalized);
     if (exists) {
       _productInputController.clear();
       return;
@@ -105,8 +194,45 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
 
   void _removeProduct(String product) {
     setState(() {
-      _products.remove(product);
+      _products.removeWhere(
+            (e) => DrinkTagUtil.normalize(e) == DrinkTagUtil.normalize(product),
+      );
     });
+  }
+
+  String _buildAutoName() {
+    final typedName = _nameController.text.trim();
+    if (typedName.isNotEmpty) return typedName;
+
+    final locationName = _locationNameController.text.trim();
+    final manufacturer = (_selectedManufacturer ?? '').trim();
+
+    if (locationName.isNotEmpty && manufacturer.isNotEmpty) {
+      return '$locationName の $manufacturer 自販機';
+    }
+    if (locationName.isNotEmpty) {
+      return '$locationName の自販機';
+    }
+    if (manufacturer.isNotEmpty) {
+      return '$manufacturer 自販機';
+    }
+    return '自販機';
+  }
+
+  List<Map<String, dynamic>> _buildProductsPayload() {
+    final result = <Map<String, dynamic>>[];
+
+    for (final product in _products) {
+      final trimmed = product.trim();
+      if (trimmed.isEmpty) continue;
+
+      result.add({
+        'name': trimmed,
+        'tags': DrinkTagUtil.guessTags(trimmed),
+      });
+    }
+
+    return result;
   }
 
   Future<void> _save() async {
@@ -125,10 +251,10 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
       return;
     }
 
-    if (_products.isEmpty) {
+    if ((_selectedManufacturer ?? '').trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('飲み物を1つ以上追加してください'),
+          content: Text('メーカーを選択してください'),
         ),
       );
       return;
@@ -140,19 +266,16 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
 
     try {
       final now = Timestamp.now();
+      final productsPayload = _buildProductsPayload();
 
-      final drinkSlots = _products.map((product) {
-        return <String, dynamic>{
-          'name': product,
-          'price': null,
-          'isAvailable': true,
-        };
-      }).toList();
-
+      final createdDoc =
       await FirebaseFirestore.instance.collection('vending_machines').add({
-        'name': _nameController.text.trim(),
+        'name': _buildAutoName(),
         'locationName': _locationNameController.text.trim(),
         'address': _addressController.text.trim(),
+        'note': _noteController.text.trim(),
+        'lat': lat,
+        'lng': lng,
         'latitude': lat,
         'longitude': lng,
         'imageUrl': _imageUrlController.text.trim().isEmpty
@@ -160,22 +283,115 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
             : _imageUrlController.text.trim(),
         'tags': _selectedTags,
         'cashlessSupported': _cashlessSupported,
-        'drinkSlots': drinkSlots,
-        'status': 'available',
+        'manufacturer': _selectedManufacturer,
+        'products': productsPayload,
+        'drinkSlots': productsPayload,
         'createdAt': now,
         'updatedAt': now,
         'lastCheckedAt': now,
+        'checkinCount': 0,
       });
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('自販機を登録しました'),
+      final goToEdit = await showModalBottomSheet<bool>(
+        context: context,
+        isDismissible: true,
+        enableDrag: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
+        builder: (context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    '登録しました',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F8FF),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '・あとで編集できます',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '・ドリンク未登録でもOKです',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '今このままドリンクを登録することもできます。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('今ドリンクを登録する'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('あとでやる'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       );
 
-      Navigator.of(context).pop(true);
+      if (!mounted) return;
+
+      Navigator.of(context).pop({
+        'created': true,
+        'openDetail': goToEdit == true,
+        'machineId': createdDoc.id,
+      });
     } catch (e) {
       if (!mounted) return;
 
@@ -189,6 +405,12 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
         ),
       );
       return;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -197,6 +419,170 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
       labelText: label,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
+      ),
+    );
+  }
+
+  Widget _buildManufacturerSection(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'メーカー',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '先にメーカーを選ぶと、候補ドリンクをすぐ追加できます。',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _manufacturerOptions.map((manufacturer) {
+              final selected = _selectedManufacturer == manufacturer;
+              return ChoiceChip(
+                label: Text(manufacturer),
+                selected: selected,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedManufacturer = manufacturer;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetDrinkSection(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '飲み物',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'あとで追加できます。今は候補からざっくり選んでもOKです。',
+            style: theme.textTheme.bodySmall,
+          ),
+          if (_presetDrinks.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              '候補から追加',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _presetDrinks.map((drink) {
+                final selected = _products.any(
+                      (e) =>
+                  DrinkTagUtil.normalize(e) ==
+                      DrinkTagUtil.normalize(drink),
+                );
+                return FilterChip(
+                  label: Text(drink),
+                  selected: selected,
+                  onSelected: (_) => _togglePresetDrink(drink),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _productInputController,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _addProduct(),
+                  decoration: _decoration(context, '例: お〜いお茶'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _addProduct,
+                  child: const Text('追加'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_products.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F6F8),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFE3E7EB),
+                ),
+              ),
+              child: Text(
+                'まだ飲み物は追加されていません',
+                style: theme.textTheme.bodySmall,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _products.map((product) {
+                final tags = DrinkTagUtil.guessTags(product);
+                return InputChip(
+                  label: Text(
+                    tags.isEmpty ? product : '$product (${tags.join(" / ")})',
+                  ),
+                  onDeleted: () => _removeProduct(product),
+                );
+              }).toList(),
+            ),
+        ],
       ),
     );
   }
@@ -216,6 +602,47 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7EF),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFFFD8B6),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'サクッと登録できます',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'まずはメーカーだけでもOKです。ドリンクはあとで編集できます。',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '登録名プレビュー: ${_buildAutoName()}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildManufacturerSection(theme),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -243,13 +670,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
                     TextFormField(
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
-                      decoration: _decoration(context, '自販機名'),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '自販機名を入力してください';
-                        }
-                        return null;
-                      },
+                      decoration: _decoration(context, '自販機名（空でもOK）'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -262,6 +683,13 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
                       controller: _addressController,
                       textInputAction: TextInputAction.next,
                       decoration: _decoration(context, '住所・メモ'),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _noteController,
+                      textInputAction: TextInputAction.next,
+                      decoration: _decoration(context, '備考（例: B1 エレベーター横）'),
                       maxLines: 2,
                     ),
                     const SizedBox(height: 12),
@@ -412,86 +840,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0xFFE3E7EB),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x12000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '飲み物',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '商品名を追加してください',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _productInputController,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _addProduct(),
-                            decoration: _decoration(context, '例: お〜いお茶'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _addProduct,
-                            child: const Text('追加'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_products.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF4F6F8),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFFE3E7EB),
-                          ),
-                        ),
-                        child: Text(
-                          'まだ飲み物が追加されていません',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _products.map((product) {
-                          return InputChip(
-                            label: Text(product),
-                            onDeleted: () => _removeProduct(product),
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
-              ),
+              _buildPresetDrinkSection(theme),
               const SizedBox(height: 18),
               SizedBox(
                 height: 54,
@@ -507,7 +856,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
                     ),
                   )
                       : const Icon(Icons.save_rounded),
-                  label: Text(_isSaving ? '登録中...' : 'この内容で登録'),
+                  label: Text(_isSaving ? '登録中...' : '登録する'),
                 ),
               ),
               const SizedBox(height: 10),

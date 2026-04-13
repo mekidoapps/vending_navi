@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,103 +9,133 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   bool _isLoading = false;
-  String? _errorMessage;
-  bool _googleInitialized = false;
+  bool _isRegisterMode = false;
+  bool _obscurePassword = true;
+  String? _message;
 
-  Future<void> _ensureGoogleInitialized() async {
-    if (_googleInitialized) return;
-
-    await GoogleSignIn.instance.initialize();
-    _googleInitialized = true;
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _submitEmailAuth() async {
     if (_isLoading) return;
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _message = null;
     });
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
     try {
-      await _ensureGoogleInitialized();
-
-      final googleSignIn = GoogleSignIn.instance;
-
-      await googleSignIn.signOut();
-
-      final GoogleSignInAccount googleUser =
-      await googleSignIn.authenticate(scopeHint: const <String>['email']);
-
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      if (_isRegisterMode) {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } else {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop();
-    } on GoogleSignInException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = _googleSignInErrorMessage(e);
-      });
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _errorMessage = _firebaseErrorMessage(e);
+        _message = _firebaseErrorMessage(e);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _errorMessage = 'ログインに失敗しました。設定を確認してください。\n$e';
+        _message = 'ログインに失敗しました。\n$e';
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  String _googleSignInErrorMessage(GoogleSignInException e) {
-    switch (e.code) {
-      case GoogleSignInExceptionCode.canceled:
-        return 'ログインがキャンセルされました。';
-      case GoogleSignInExceptionCode.clientConfigurationError:
-        return 'Googleログイン設定に問題があります。client_id や google-services.json を確認してください。';
-      case GoogleSignInExceptionCode.uiUnavailable:
-        return 'この端末ではGoogleログイン画面を表示できませんでした。';
-      case GoogleSignInExceptionCode.userMismatch:
-        return '前回のログイン情報と一致しませんでした。もう一度お試しください。';
-      case GoogleSignInExceptionCode.unknownError:
-        return 'Googleログインで不明なエラーが発生しました。';
-      default:
-        return 'Googleログインに失敗しました。';
+  void _showGoogleLoginTemporarilyUnavailable() {
+    setState(() {
+      _message =
+      'Googleログインは現在調整中です。\n'
+          'いまはメールアドレスログインを先に利用してください。';
+    });
+  }
+
+  String? _validateEmail(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return 'メールアドレスを入力してください';
     }
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(text)) {
+      return 'メールアドレスの形式で入力してください';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final text = value ?? '';
+    if (text.isEmpty) {
+      return 'パスワードを入力してください';
+    }
+    if (text.length < 6) {
+      return '6文字以上で入力してください';
+    }
+    return null;
   }
 
   String _firebaseErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
-      case 'account-exists-with-different-credential':
-        return '別のログイン方法で既に登録されているアカウントです。';
+      case 'email-already-in-use':
+        return 'このメールアドレスは既に使われています。';
+      case 'invalid-email':
+        return 'メールアドレスの形式が正しくありません。';
+      case 'weak-password':
+        return 'パスワードが弱すぎます。6文字以上にしてください。';
+      case 'user-not-found':
+        return 'このメールアドレスのアカウントが見つかりません。';
+      case 'wrong-password':
       case 'invalid-credential':
-        return '認証情報が無効です。Googleログイン設定を確認してください。';
-      case 'operation-not-allowed':
-        return 'このログイン方法は現在無効です。Firebase設定を確認してください。';
+        return 'メールアドレスまたはパスワードが違います。';
       case 'user-disabled':
         return 'このアカウントは無効化されています。';
+      case 'operation-not-allowed':
+        return 'メールアドレスログインが有効になっていません。Firebase設定を確認してください。';
+      case 'too-many-requests':
+        return '試行回数が多すぎます。少し待ってから再度お試しください。';
       case 'network-request-failed':
         return '通信に失敗しました。ネットワーク接続を確認してください。';
       default:
-        return 'ログインに失敗しました。\n${e.message ?? e.code}';
+        return '認証に失敗しました。\n${e.message ?? e.code}';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = _isRegisterMode ? 'メールアドレスで新規登録' : 'メールアドレスでログイン';
+    final submitLabel = _isRegisterMode ? '新規登録する' : 'ログインする';
+    final switchLabel = _isRegisterMode
+        ? 'すでにアカウントを持っている'
+        : 'はじめて使うので新規登録する';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -200,94 +229,181 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Googleでログイン',
-                          style: theme.textTheme.titleMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '閲覧だけならログインなしでも使えます。\n登録や保存系の機能を使う時にログインしてください。',
-                          style: theme.textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _signInWithGoogle,
-                            icon: _isLoading
-                                ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: Colors.white,
-                              ),
-                            )
-                                : const Icon(Icons.login_rounded),
-                            label: Text(
-                              _isLoading ? 'ログイン中...' : 'Googleでログイン',
-                            ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleMedium,
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('今はログインしない'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'まずはメールアドレスで使える状態にします。',
+                            style: theme.textTheme.bodySmall,
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF4F4),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFFFD2D2),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            validator: _validateEmail,
+                            decoration: InputDecoration(
+                              labelText: 'メールアドレス',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 1),
-                                  child: Icon(
-                                    Icons.error_outline_rounded,
-                                    size: 18,
-                                    color: Color(0xFFC62828),
-                                  ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            validator: _validatePassword,
+                            onFieldSubmitted: (_) => _submitEmailAuth(),
+                            decoration: InputDecoration(
+                              labelText: 'パスワード',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              suffixIcon: IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: const Color(0xFFC62828),
-                                      fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed: _isLoading ? null : _submitEmailAuth,
+                              icon: _isLoading
+                                  ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                                  : Icon(
+                                _isRegisterMode
+                                    ? Icons.person_add_alt_1_rounded
+                                    : Icons.login_rounded,
+                              ),
+                              label: Text(
+                                _isLoading ? '処理中...' : submitLabel,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                setState(() {
+                                  _isRegisterMode = !_isRegisterMode;
+                                  _message = null;
+                                });
+                              },
+                              child: Text(switchLabel),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Googleでログイン',
+                            style: theme.textTheme.titleSmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Googleログインは現在調整中です。',
+                            style: theme.textTheme.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: _isLoading
+                                  ? null
+                                  : _showGoogleLoginTemporarilyUnavailable,
+                              icon: const Icon(Icons.construction_rounded),
+                              label: const Text('Googleログイン（調整中）'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('今はログインしない'),
+                            ),
+                          ),
+                          if (_message != null) ...[
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF8EC),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFFFD9A8),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 1),
+                                    child: Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 18,
+                                      color: Color(0xFFB26A00),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _message!,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: const Color(0xFF8A5300),
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Googleログインが失敗する場合は、Firebase設定・SHA-1/SHA-256・package名・google-services.json を確認してください。',
+                    'メールアドレスログインを先に有効にすると、登録機能の確認を前に進めやすくなります。',
                     style: theme.textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),

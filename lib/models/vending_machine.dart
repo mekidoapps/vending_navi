@@ -2,144 +2,201 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VendingMachine {
   final String id;
+  final double lat;
+  final double lng;
   final String name;
+  final String manufacturer;
+  final List<Map<String, dynamic>> products;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? lastCheckedAt;
+  final int checkinCount;
   final String? address;
-
-  final double latitude;
-  final double longitude;
-
-  final List<Map<String, dynamic>> drinkSlots; // 12枠ベース
+  final String? locationName;
   final String? imageUrl;
-
+  final String? note;
   final List<String> tags;
   final bool cashlessSupported;
 
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final DateTime? lastCheckedAt;
-
-  final int checkinCount;
-
-  VendingMachine({
+  const VendingMachine({
     required this.id,
+    required this.lat,
+    required this.lng,
     required this.name,
-    this.address,
-    required this.latitude,
-    required this.longitude,
-    required this.drinkSlots,
-    this.imageUrl,
-    required this.tags,
-    required this.cashlessSupported,
-    this.createdAt,
-    this.updatedAt,
+    required this.manufacturer,
+    required this.products,
+    required this.createdAt,
+    required this.updatedAt,
     this.lastCheckedAt,
-    required this.checkinCount,
+    this.checkinCount = 0,
+    this.address,
+    this.locationName,
+    this.imageUrl,
+    this.note,
+    this.tags = const <String>[],
+    this.cashlessSupported = false,
   });
 
-  /// Firestore → Model
-  factory VendingMachine.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc,
-      ) {
-    final data = doc.data() ?? {};
+  factory VendingMachine.fromFirestore(DocumentSnapshot doc) {
+    final data = (doc.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+    final createdAtTs = data['createdAt'] as Timestamp?;
+    final updatedAtTs =
+        (data['updatedAt'] as Timestamp?) ?? (data['createdAt'] as Timestamp?);
+    final lastCheckedAtTs =
+        (data['lastCheckedAt'] as Timestamp?) ??
+            (data['updatedAt'] as Timestamp?);
 
     return VendingMachine(
       id: doc.id,
-      name: data['name'] ?? '',
-      address: data['address'],
-
-      latitude: (data['latitude'] ?? 0).toDouble(),
-      longitude: (data['longitude'] ?? 0).toDouble(),
-
-      drinkSlots: _parseDrinkSlots(data['drinkSlots']),
-
-      imageUrl: data['imageUrl'],
-
-      tags: List<String>.from(data['tags'] ?? []),
-      cashlessSupported: data['cashlessSupported'] ?? false,
-
-      createdAt: _toDateTime(data['createdAt']),
-      updatedAt: _toDateTime(data['updatedAt']),
-      lastCheckedAt: _toDateTime(data['lastCheckedAt']),
-
-      checkinCount: data['checkinCount'] ?? 0,
+      lat: _readDouble(data['lat'] ?? data['latitude']),
+      lng: _readDouble(data['lng'] ?? data['longitude']),
+      name: (data['name'] ?? '自販機').toString(),
+      manufacturer: (data['manufacturer'] ?? '不明').toString(),
+      products: _readProducts(data),
+      createdAt: createdAtTs?.toDate() ?? DateTime.now(),
+      updatedAt: updatedAtTs?.toDate() ?? DateTime.now(),
+      lastCheckedAt: lastCheckedAtTs?.toDate(),
+      checkinCount: _readInt(data['checkinCount']),
+      address: _readNullableString(data['address']),
+      locationName: _readNullableString(data['locationName']),
+      imageUrl: _readNullableString(data['imageUrl']),
+      note: _readNullableString(data['note']),
+      tags: _readStringList(data['tags']),
+      cashlessSupported: data['cashlessSupported'] == true,
     );
   }
 
-  /// Model → Firestore
-  Map<String, dynamic> toFirestore() {
-    return {
+  static double _readDouble(dynamic value) {
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return 0;
+  }
+
+  static int _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is num) return value.toInt();
+    return 0;
+  }
+
+  static String? _readNullableString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+    return text;
+  }
+
+  static List<String> _readStringList(dynamic value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map((e) => e.toString())
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+  }
+
+  static List<Map<String, dynamic>> _readProducts(Map<String, dynamic> data) {
+    final rawProducts = data['products'];
+
+    if (rawProducts is List) {
+      return rawProducts
+          .whereType<Map>()
+          .map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return <String, dynamic>{
+          'name': (map['name'] ?? '').toString(),
+          'tags': _readStringList(map['tags']),
+        };
+      })
+          .where((e) => (e['name'] as String).trim().isNotEmpty)
+          .toList();
+    }
+
+    final rawDrinkSlots = data['drinkSlots'];
+    if (rawDrinkSlots is List) {
+      return rawDrinkSlots
+          .whereType<Map>()
+          .map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return <String, dynamic>{
+          'name': (map['name'] ?? '').toString(),
+          'tags': _readStringList(map['tags']),
+        };
+      })
+          .where((e) => (e['name'] as String).trim().isNotEmpty)
+          .toList();
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
       'name': name,
+      'manufacturer': manufacturer,
+      'lat': lat,
+      'lng': lng,
+      'latitude': lat,
+      'longitude': lng,
       'address': address,
-      'latitude': latitude,
-      'longitude': longitude,
-      'drinkSlots': drinkSlots,
+      'locationName': locationName,
       'imageUrl': imageUrl,
+      'note': note,
       'tags': tags,
       'cashlessSupported': cashlessSupported,
-      'createdAt': _toTimestamp(createdAt),
-      'updatedAt': _toTimestamp(updatedAt),
-      'lastCheckedAt': _toTimestamp(lastCheckedAt),
+      'products': products,
+      'drinkSlots': products,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'lastCheckedAt': Timestamp.fromDate(lastCheckedAt ?? updatedAt),
       'checkinCount': checkinCount,
     };
   }
 
-  /// copyWith
+  Map<String, dynamic> toFirestore() {
+    return toMap();
+  }
+
   VendingMachine copyWith({
     String? id,
+    double? lat,
+    double? lng,
     String? name,
-    String? address,
-    double? latitude,
-    double? longitude,
-    List<Map<String, dynamic>>? drinkSlots,
-    String? imageUrl,
-    List<String>? tags,
-    bool? cashlessSupported,
+    String? manufacturer,
+    List<Map<String, dynamic>>? products,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastCheckedAt,
     int? checkinCount,
+    String? address,
+    String? locationName,
+    String? imageUrl,
+    String? note,
+    List<String>? tags,
+    bool? cashlessSupported,
   }) {
     return VendingMachine(
       id: id ?? this.id,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
       name: name ?? this.name,
-      address: address ?? this.address,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
-      drinkSlots: drinkSlots ?? this.drinkSlots,
-      imageUrl: imageUrl ?? this.imageUrl,
-      tags: tags ?? this.tags,
-      cashlessSupported: cashlessSupported ?? this.cashlessSupported,
+      manufacturer: manufacturer ?? this.manufacturer,
+      products: products ?? this.products,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
       checkinCount: checkinCount ?? this.checkinCount,
+      address: address ?? this.address,
+      locationName: locationName ?? this.locationName,
+      imageUrl: imageUrl ?? this.imageUrl,
+      note: note ?? this.note,
+      tags: tags ?? this.tags,
+      cashlessSupported: cashlessSupported ?? this.cashlessSupported,
     );
   }
 
-  /// Timestamp → DateTime
-  static DateTime? _toDateTime(dynamic value) {
-    if (value == null) return null;
-    if (value is Timestamp) return value.toDate();
-    return null;
-  }
-
-  /// DateTime → Timestamp
-  static Timestamp? _toTimestamp(DateTime? value) {
-    if (value == null) return null;
-    return Timestamp.fromDate(value);
-  }
-
-  /// drinkSlots 安全パース
-  static List<Map<String, dynamic>> _parseDrinkSlots(dynamic value) {
-    if (value == null) return [];
-
-    if (value is List) {
-      return value.map<Map<String, dynamic>>((e) {
-        if (e is Map<String, dynamic>) return e;
-        return {};
-      }).toList();
-    }
-
-    return [];
-  }
+  double get latitude => lat;
+  double get longitude => lng;
+  List<Map<String, dynamic>> get drinkSlots => products;
 }

@@ -1,59 +1,132 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    // ユーザー情報：本人のみ読み書き
-    match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    function isString(value) {
+      return value is string;
     }
 
-    // 自販機：全員読み取り可、ログイン済みで書き込み可
+    function isNullableString(value) {
+      return value == null || value is string;
+    }
+
+    function isNumber(value) {
+      return value is int || value is float;
+    }
+
+    function isStringList(value) {
+      return value is list &&
+        value.size() <= 50 &&
+        value.all(tag, tag is string && tag.size() <= 30);
+    }
+
+    function isMachineTagList(value) {
+      return value is list &&
+        value.size() <= 50 &&
+        value.all(tag, tag is string && tag.size() <= 50);
+    }
+
+    function isValidProductMap(product) {
+      return product is map
+        && product.keys().hasOnly(['name', 'tags'])
+        && product.name is string
+        && product.name.size() > 0
+        && product.name.size() <= 100
+        && (
+          !('tags' in product) ||
+          isStringList(product.tags)
+        );
+    }
+
+    function isValidProducts(value) {
+      return value is list
+        && value.size() <= 100
+        && value.all(product, isValidProductMap(product));
+    }
+
+    function validManufacturer(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 50;
+    }
+
+    function validName(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 100;
+    }
+
+    function validLatLng(lat, lng) {
+      return isNumber(lat)
+        && isNumber(lng)
+        && lat >= -90
+        && lat <= 90
+        && lng >= -180
+        && lng <= 180;
+    }
+
+    function validMachineBase() {
+      return request.resource.data.keys().hasOnly([
+        'name',
+        'manufacturer',
+        'lat',
+        'lng',
+        'locationName',
+        'address',
+        'imageUrl',
+        'tags',
+        'cashlessSupported',
+        'products',
+        'createdAt',
+        'updatedAt'
+      ])
+      && validName(request.resource.data.name)
+      && validManufacturer(request.resource.data.manufacturer)
+      && validLatLng(request.resource.data.lat, request.resource.data.lng)
+      && (
+        !('locationName' in request.resource.data) ||
+        isNullableString(request.resource.data.locationName)
+      )
+      && (
+        !('address' in request.resource.data) ||
+        isNullableString(request.resource.data.address)
+      )
+      && (
+        !('imageUrl' in request.resource.data) ||
+        isNullableString(request.resource.data.imageUrl)
+      )
+      && (
+        !('tags' in request.resource.data) ||
+        isMachineTagList(request.resource.data.tags)
+      )
+      && (
+        !('cashlessSupported' in request.resource.data) ||
+        request.resource.data.cashlessSupported is bool
+      )
+      && (
+        !('products' in request.resource.data) ||
+        isValidProducts(request.resource.data.products)
+      )
+      && request.resource.data.createdAt is timestamp
+      && request.resource.data.updatedAt is timestamp;
+    }
+
     match /vending_machines/{machineId} {
       allow read: if true;
-      allow write: if isAuthenticated();
-    }
 
-    // 自販機の商品情報：全員読み取り可、ログイン済みで書き込み可
-    match /machine_items/{itemId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
+      allow create: if signedIn()
+        && validMachineBase();
 
-    // 商品マスター：全員読み取り可、ログイン済みで書き込み可（シード投入用）
-    match /product_master/{productId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
+      allow update: if signedIn()
+        && validMachineBase()
+        && request.resource.data.createdAt == resource.data.createdAt;
 
-    // チェックイン：ログイン済みで読み書き可
-    match /checkins/{checkinId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-
-    // お気に入り：ログイン済みで読み書き可
-    match /favorites/{favoriteId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // 称号マスター：全員読み取り可、書き込み不可（管理者がコンソールから操作）
-    match /title_master/{titleId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // ユーザー称号：ログイン済みで読み書き可
-    match /user_titles/{userTitleId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // お気に入りドリンク通知：ログイン済みで読み書き可
-    match /favorite_drink_notifications/{notifId} {
-      allow read, write: if isAuthenticated();
+      allow delete: if false;
     }
   }
 }

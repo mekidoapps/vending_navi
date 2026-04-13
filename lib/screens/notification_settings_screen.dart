@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/nearby_favorite_notification_service.dart';
-import '../services/notification_settings_service.dart';
-
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -13,275 +10,125 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  bool _isLoading = true;
-  bool _isSaving = false;
-
-  bool _enabled = true;
-  double _radiusMeters = 300;
-
-  static const List<double> _radiusOptions = <double>[100, 300, 500];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final settings = await NotificationSettingsService.load();
-    if (!mounted) return;
-
-    setState(() {
-      _enabled = settings.enabled;
-      _radiusMeters = settings.radiusMeters;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _save() async {
-    setState(() {
-      _isSaving = true;
-    });
-
-    await NotificationSettingsService.save(
-      enabled: _enabled,
-      radiusMeters: _radiusMeters,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _isSaving = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('通知設定を保存しました')),
-    );
-  }
-
-  void _clearCache() {
-    NearbyFavoriteNotificationService.clearNotifiedCache();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('通知済みキャッシュをリセットしました')),
-    );
-  }
-
-  Widget _buildRadiusCard(double radius) {
-    final selected = _radiusMeters == radius;
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _radiusMeters = radius;
-        });
-      },
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEAF6F7) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : const Color(0xFFE3E7EB),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Icon(
-              Icons.near_me_rounded,
-              color: selected
-                  ? Theme.of(context).colorScheme.primary
-                  : const Color(0xFF60707A),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${radius.toInt()}m 以内',
-                style: TextStyle(
-                  fontFamily: 'Noto Sans JP',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : const Color(0xFF334148),
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(
-                Icons.check_circle_rounded,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  bool _favoriteDrinkNearby = false;
+  bool _checkedMachineUpdated = false;
+  bool _appNews = true;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('通知設定'),
+        title: const Text('お知らせ / 通知'),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Color(0xFFEAEFF2)),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading || _isSaving ? null : _save,
-              icon: _isSaving
-                  ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFFE3E7EB),
                 ),
-              )
-                  : const Icon(Icons.save_rounded),
-              label: Text(_isSaving ? '保存中...' : '設定を保存'),
-            ),
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFFE3E7EB)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'お気に入りドリンク通知',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '近くにお気に入りドリンクがある自販機を見つけたときに通知します。',
-                  style: TextStyle(
-                    fontFamily: 'Noto Sans JP',
-                    fontSize: 13,
-                    color: Color(0xFF60707A),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
                   ),
-                ),
-                const SizedBox(height: 10),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _enabled,
-                  title: const Text(
-                    '通知を有効にする',
-                    style: TextStyle(
-                      fontFamily: 'Noto Sans JP',
-                      fontWeight: FontWeight.w700,
-                    ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '通知設定',
+                    style: theme.textTheme.titleLarge,
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      _enabled = value;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Opacity(
-            opacity: _enabled ? 1 : 0.5,
-            child: IgnorePointer(
-              ignoring: !_enabled,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: const Color(0xFFE3E7EB)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      '通知距離',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'まずは300mがおすすめです。',
-                      style: TextStyle(
-                        fontFamily: 'Noto Sans JP',
-                        fontSize: 13,
-                        color: Color(0xFF60707A),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ..._radiusOptions.map((radius) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _buildRadiusCard(radius),
-                      );
-                    }),
-                  ],
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '今後の近所通知や更新通知の入口です。まずは画面だけ先に用意しています。',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('お気に入りドリンク近所通知'),
+                    subtitle: const Text('近くで見つかった時に知らせる'),
+                    value: _favoriteDrinkNearby,
+                    onChanged: (value) {
+                      setState(() {
+                        _favoriteDrinkNearby = value;
+                      });
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('チェックインした自販機更新通知'),
+                    subtitle: const Text('登録内容の更新を知らせる'),
+                    value: _checkedMachineUpdated,
+                    onChanged: (value) {
+                      setState(() {
+                        _checkedMachineUpdated = value;
+                      });
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('アプリからのお知らせ'),
+                    subtitle: const Text('新機能やお知らせを表示'),
+                    value: _appNews,
+                    onChanged: (value) {
+                      setState(() {
+                        _appNews = value;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFFE3E7EB)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '通知キャッシュ',
-                  style: Theme.of(context).textTheme.titleMedium,
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7FBFC),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFFE3E7EB),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  '同じ自販機から何度も通知されないように一時保存しています。',
-                  style: TextStyle(
-                    fontFamily: 'Noto Sans JP',
-                    fontSize: 13,
-                    color: Color(0xFF60707A),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'メモ',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _clearCache,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('通知済みキャッシュをリセット'),
+                  SizedBox(height: 8),
+                  Text(
+                    '・通知の実配信処理は次段階で接続します。\n'
+                        '・今はオンオフのUIと導線を先に用意しています。',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.6,
+                      color: Color(0xFF60707A),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
