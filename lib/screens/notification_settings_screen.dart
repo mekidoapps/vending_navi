@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'auth_gate.dart';
+
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -12,216 +14,429 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  bool _isSavingFavorite = false;
-  bool _isSavingMachine = false;
+  static const List<int> _distanceOptions = <int>[50, 100, 300, 500];
 
-  Future<void> _updateSetting({
-    required String uid,
-    required String key,
-    required bool value,
-    required void Function(bool saving) setSaving,
-  }) async {
-    setSaving(true);
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  bool _notificationsEnabled = true;
+  bool _favoriteNearbyEnabled = true;
+  bool _machineUpdateEnabled = true;
+  int _notifyDistanceMeters = 100;
+
+  bool get _isLoggedIn => FirebaseAuth.instance.currentUser != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!_isLoggedIn) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).set(
+      final user = FirebaseAuth.instance.currentUser!;
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      final data = snapshot.data() ?? <String, dynamic>{};
+
+      if (!mounted) return;
+      setState(() {
+        _notificationsEnabled =
+            _readBool(data['notificationsEnabled'], defaultValue: true);
+        _favoriteNearbyEnabled =
+            _readBool(data['favoriteNearbyNotificationEnabled'],
+                defaultValue: true);
+        _machineUpdateEnabled =
+            _readBool(data['machineUpdateNotificationEnabled'],
+                defaultValue: true);
+        _notifyDistanceMeters = _sanitizeDistance(
+          _readNullableInt(data['notificationDistanceMeters']) ?? 100,
+        );
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notificationsEnabled = true;
+        _favoriteNearbyEnabled = true;
+        _machineUpdateEnabled = true;
+        _notifyDistanceMeters = 100;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _save({
+    bool? notificationsEnabled,
+    bool? favoriteNearbyEnabled,
+    bool? machineUpdateEnabled,
+    int? notifyDistanceMeters,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final nextNotificationsEnabled =
+        notificationsEnabled ?? _notificationsEnabled;
+    final nextFavoriteNearbyEnabled =
+        favoriteNearbyEnabled ?? _favoriteNearbyEnabled;
+    final nextMachineUpdateEnabled =
+        machineUpdateEnabled ?? _machineUpdateEnabled;
+    final nextDistance =
+    _sanitizeDistance(notifyDistanceMeters ?? _notifyDistanceMeters);
+
+    setState(() {
+      _isSaving = true;
+      _notificationsEnabled = nextNotificationsEnabled;
+      _favoriteNearbyEnabled = nextFavoriteNearbyEnabled;
+      _machineUpdateEnabled = nextMachineUpdateEnabled;
+      _notifyDistanceMeters = nextDistance;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
         <String, dynamic>{
-          key: value,
+          'notificationsEnabled': nextNotificationsEnabled,
+          'favoriteNearbyNotificationEnabled': nextFavoriteNearbyEnabled,
+          'machineUpdateNotificationEnabled': nextMachineUpdateEnabled,
+          'notificationDistanceMeters': nextDistance,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('保存に失敗しました: $e'),
+          content: Text('通知設定の保存に失敗しました: $e'),
         ),
       );
     } finally {
       if (!mounted) return;
-      setSaving(false);
+      setState(() {
+        _isSaving = false;
+      });
     }
+  }
+
+  Future<void> _openLoginRequired() async {
+    await LoginRequiredSheet.show(context);
+    if (!mounted) return;
+    await _load();
+  }
+
+  int _sanitizeDistance(int value) {
+    if (_distanceOptions.contains(value)) return value;
+    return 100;
+  }
+
+  bool _readBool(dynamic value, {required bool defaultValue}) {
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    return defaultValue;
+  }
+
+  int? _readNullableInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final favoriteTileEnabled = _notificationsEnabled;
+    final updateTileEnabled = _notificationsEnabled;
+    final distanceEnabled = _notificationsEnabled && _favoriteNearbyEnabled;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFD6ECFF),
       appBar: AppBar(
         title: const Text('通知設定'),
       ),
       body: SafeArea(
-        child: user == null
-            ? const _LoggedOutView()
-            : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            }
-
-            final data = snapshot.data?.data() ?? <String, dynamic>{};
-
-            final favoriteDrinkNoticeEnabled =
-            _readBoolWithFallback(
-              data['favoriteDrinkNoticeEnabled'],
-              fallback: true,
-            );
-
-            final machineUpdateNoticeEnabled =
-            _readBoolWithFallback(
-              data['machineUpdateNoticeEnabled'],
-              fallback: false,
-            );
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-              children: [
-                const _SectionCard(
-                  title: '通知について',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: _isLoading
+            ? const Center(
+          child: CircularProgressIndicator(),
+        )
+            : !_isLoggedIn
+            ? _GuestNotificationView(
+          onLogin: _openLoginRequired,
+        )
+            : ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        '今後、近くの自販機情報や更新情報を受け取りやすくするための設定です。',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF60707A),
-                          height: 1.6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _SectionCard(
-                  title: '通知項目',
-                  child: Column(
-                    children: [
-                      _NotificationToggleCard(
-                        icon: Icons.notifications_active_rounded,
-                        title: 'お気に入りドリンク近く通知',
-                        description:
-                        'お気に入り登録したドリンクが近くで見つかった時に知らせます。',
-                        value: favoriteDrinkNoticeEnabled,
-                        isSaving: _isSavingFavorite,
-                        onChanged: (value) async {
-                          await _updateSetting(
-                            uid: user.uid,
-                            key: 'favoriteDrinkNoticeEnabled',
-                            value: value,
-                            setSaving: (saving) {
-                              setState(() {
-                                _isSavingFavorite = saving;
-                              });
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      _NotificationToggleCard(
-                        icon: Icons.update_rounded,
-                        title: 'チェックイン自販機更新通知',
-                        description:
-                        '登録した自販機の内容が更新された時に知らせます。',
-                        value: machineUpdateNoticeEnabled,
-                        isSaving: _isSavingMachine,
-                        onChanged: (value) async {
-                          await _updateSetting(
-                            uid: user.uid,
-                            key: 'machineUpdateNoticeEnabled',
-                            value: value,
-                            setSaving: (saving) {
-                              setState(() {
-                                _isSavingMachine = saving;
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7E8),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFF0D8A8)),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 20,
-                        color: Color(0xFF7A5A17),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          '通知そのものの配信ロジックはこのあと実装します。今は設定値の保存までを先に整えています。',
+                          '通知',
                           style: TextStyle(
-                            fontSize: 12,
-                            height: 1.5,
-                            color: Color(0xFF6B5420),
-                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF334148),
                           ),
                         ),
                       ),
+                      if (_isSaving)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        ),
                     ],
                   ),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 8),
+                  const Text(
+                    'お気に入りドリンクが近くにある時や、登録した自販機の更新を通知します。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF60707A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    value: _notificationsEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      '通知を受け取る',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      '通知全体のON/OFF',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF60707A),
+                      ),
+                    ),
+                    onChanged: (value) => _save(
+                      notificationsEnabled: value,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '通知の種類',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    value: _favoriteNearbyEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'お気に入りドリンク近く通知',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      '近くにお気に入りドリンクがある自販機が見つかった時',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF60707A),
+                      ),
+                    ),
+                    onChanged: favoriteTileEnabled
+                        ? (value) => _save(
+                      favoriteNearbyEnabled: value,
+                    )
+                        : null,
+                  ),
+                  const Divider(height: 18),
+                  SwitchListTile.adaptive(
+                    value: _machineUpdateEnabled,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      '自販機更新通知',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'チェックインした自販機の内容が更新された時',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF60707A),
+                      ),
+                    ),
+                    onChanged: updateTileEnabled
+                        ? (value) => _save(
+                      machineUpdateEnabled: value,
+                    )
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '通知距離',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'お気に入りドリンク近く通知の対象距離です。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF60707A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _distanceOptions.map((meters) {
+                      final selected =
+                          _notifyDistanceMeters == meters;
+                      return ChoiceChip(
+                        label: Text('${meters}m'),
+                        selected: selected,
+                        onSelected: distanceEnabled
+                            ? (_) => _save(
+                          notifyDistanceMeters: meters,
+                        )
+                            : null,
+                      );
+                    }).toList(),
+                  ),
+                  if (!distanceEnabled) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'この設定は「通知を受け取る」と「お気に入りドリンク近く通知」がONの時に使われます。',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF60707A),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'メモ',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '通知の実配信処理は、この設定をもとに動作します。MVPではまず基本の通知導線を通す想定です。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF60707A),
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-
-  static bool _readBoolWithFallback(
-      dynamic value, {
-        required bool fallback,
-      }) {
-    if (value is bool) return value;
-    return fallback;
-  }
 }
 
-class _LoggedOutView extends StatelessWidget {
-  const _LoggedOutView();
+class _GuestNotificationView extends StatelessWidget {
+  const _GuestNotificationView({
+    required this.onLogin,
+  });
+
+  final Future<void> Function() onLogin;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        const _SectionCard(
-          title: '通知設定',
+        _SectionCard(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.lock_outline_rounded, size: 40),
-              SizedBox(height: 10),
-              Text(
-                'ログインすると通知設定を保存できます。',
-                textAlign: TextAlign.center,
+              const Text(
+                '通知設定',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334148),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '通知設定はログイン後に使えます。',
+                style: TextStyle(
+                  fontSize: 12,
                   color: Color(0xFF60707A),
-                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onLogin,
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('ログイン / 新規登録'),
                 ),
               ),
             ],
@@ -234,11 +449,9 @@ class _LoggedOutView extends StatelessWidget {
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
-    required this.title,
     required this.child,
   });
 
-  final String title;
   final Widget child;
 
   @override
@@ -249,114 +462,18 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
+        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            blurRadius: 12,
+            offset: Offset(0, 5),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationToggleCard extends StatelessWidget {
-  const _NotificationToggleCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.isSaving,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool value;
-  final bool isSaving;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FBFC),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE3E7EB)),
-            ),
-            child: Icon(icon, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF60707A),
-                    height: 1.5,
-                  ),
-                ),
-                if (isSaving) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    '保存中...',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF60707A),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Switch(
-            value: value,
-            onChanged: isSaving ? null : onChanged,
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }

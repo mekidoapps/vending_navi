@@ -1,23 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VendingMachine {
-  final String id;
-  final double lat;
-  final double lng;
-  final String name;
-  final String manufacturer;
-  final List<Map<String, dynamic>> products;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? lastCheckedAt;
-  final int checkinCount;
-  final String? address;
-  final String? locationName;
-  final String? imageUrl;
-  final String? note;
-  final List<String> tags;
-  final bool cashlessSupported;
-
   const VendingMachine({
     required this.id,
     required this.lat,
@@ -37,26 +20,48 @@ class VendingMachine {
     this.cashlessSupported = false,
   });
 
+  final String id;
+  final double lat;
+  final double lng;
+  final String name;
+  final String manufacturer;
+
+  /// 現段階では Map ベースで保持
+  /// Step 2 以降で Product ID ベースへ寄せる前提
+  final List<Map<String, dynamic>> products;
+
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? lastCheckedAt;
+  final int checkinCount;
+
+  final String? address;
+  final String? locationName;
+  final String? imageUrl;
+  final String? note;
+  final List<String> tags;
+  final bool cashlessSupported;
+
   factory VendingMachine.fromFirestore(DocumentSnapshot doc) {
     final data = (doc.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-    final createdAtTs = data['createdAt'] as Timestamp?;
-    final updatedAtTs =
-        (data['updatedAt'] as Timestamp?) ?? (data['createdAt'] as Timestamp?);
-    final lastCheckedAtTs =
-        (data['lastCheckedAt'] as Timestamp?) ??
-            (data['updatedAt'] as Timestamp?);
+    final createdAtTs = data['createdAt'];
+    final updatedAtTs = data['updatedAt'];
+    final lastCheckedAtTs = data['lastCheckedAt'];
 
     return VendingMachine(
       id: doc.id,
       lat: _readDouble(data['lat'] ?? data['latitude']),
       lng: _readDouble(data['lng'] ?? data['longitude']),
-      name: (data['name'] ?? '自販機').toString(),
-      manufacturer: (data['manufacturer'] ?? '不明').toString(),
+      name: _readNonEmptyString(data['name'], fallback: '自販機'),
+      manufacturer: _readNonEmptyString(data['manufacturer'], fallback: '不明'),
       products: _readProducts(data),
-      createdAt: createdAtTs?.toDate() ?? DateTime.now(),
-      updatedAt: updatedAtTs?.toDate() ?? DateTime.now(),
-      lastCheckedAt: lastCheckedAtTs?.toDate(),
+      createdAt: _readDateTime(createdAtTs) ?? DateTime.now(),
+      updatedAt: _readDateTime(updatedAtTs) ??
+          _readDateTime(createdAtTs) ??
+          DateTime.now(),
+      lastCheckedAt:
+      _readDateTime(lastCheckedAtTs) ?? _readDateTime(updatedAtTs),
       checkinCount: _readInt(data['checkinCount']),
       address: _readNullableString(data['address']),
       locationName: _readNullableString(data['locationName']),
@@ -65,70 +70,6 @@ class VendingMachine {
       tags: _readStringList(data['tags']),
       cashlessSupported: data['cashlessSupported'] == true,
     );
-  }
-
-  static double _readDouble(dynamic value) {
-    if (value is int) return value.toDouble();
-    if (value is double) return value;
-    if (value is num) return value.toDouble();
-    return 0;
-  }
-
-  static int _readInt(dynamic value) {
-    if (value is int) return value;
-    if (value is double) return value.toInt();
-    if (value is num) return value.toInt();
-    return 0;
-  }
-
-  static String? _readNullableString(dynamic value) {
-    if (value == null) return null;
-    final text = value.toString().trim();
-    if (text.isEmpty) return null;
-    return text;
-  }
-
-  static List<String> _readStringList(dynamic value) {
-    if (value is! List) return const <String>[];
-    return value
-        .map((e) => e.toString())
-        .where((e) => e.trim().isNotEmpty)
-        .toList();
-  }
-
-  static List<Map<String, dynamic>> _readProducts(Map<String, dynamic> data) {
-    final rawProducts = data['products'];
-
-    if (rawProducts is List) {
-      return rawProducts
-          .whereType<Map>()
-          .map((e) {
-        final map = Map<String, dynamic>.from(e);
-        return <String, dynamic>{
-          'name': (map['name'] ?? '').toString(),
-          'tags': _readStringList(map['tags']),
-        };
-      })
-          .where((e) => (e['name'] as String).trim().isNotEmpty)
-          .toList();
-    }
-
-    final rawDrinkSlots = data['drinkSlots'];
-    if (rawDrinkSlots is List) {
-      return rawDrinkSlots
-          .whereType<Map>()
-          .map((e) {
-        final map = Map<String, dynamic>.from(e);
-        return <String, dynamic>{
-          'name': (map['name'] ?? '').toString(),
-          'tags': _readStringList(map['tags']),
-        };
-      })
-          .where((e) => (e['name'] as String).trim().isNotEmpty)
-          .toList();
-    }
-
-    return <Map<String, dynamic>>[];
   }
 
   Map<String, dynamic> toMap() {
@@ -145,8 +86,8 @@ class VendingMachine {
       'note': note,
       'tags': tags,
       'cashlessSupported': cashlessSupported,
-      'products': products,
-      'drinkSlots': products,
+      'products': products.map(_normalizeProductMap).toList(),
+      'drinkSlots': products.map(_normalizeProductMap).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'lastCheckedAt': Timestamp.fromDate(lastCheckedAt ?? updatedAt),
@@ -154,9 +95,7 @@ class VendingMachine {
     };
   }
 
-  Map<String, dynamic> toFirestore() {
-    return toMap();
-  }
+  Map<String, dynamic> toFirestore() => toMap();
 
   VendingMachine copyWith({
     String? id,
@@ -198,5 +137,152 @@ class VendingMachine {
 
   double get latitude => lat;
   double get longitude => lng;
+
+  /// 旧名互換
   List<Map<String, dynamic>> get drinkSlots => products;
+
+  bool get hasProducts => products.isNotEmpty;
+  bool get hasLocationName => (locationName?.trim().isNotEmpty ?? false);
+  bool get hasAddress => (address?.trim().isNotEmpty ?? false);
+  bool get hasNote => (note?.trim().isNotEmpty ?? false);
+  bool get hasImage => (imageUrl?.trim().isNotEmpty ?? false);
+
+  List<String> get productNames {
+    final result = <String>[];
+    final used = <String>{};
+
+    for (final product in products) {
+      final name = _readNullableString(product['name']) ?? '';
+      if (name.isEmpty) continue;
+
+      final key = _normalize(name);
+      if (used.contains(key)) continue;
+
+      used.add(key);
+      result.add(name);
+    }
+
+    return result;
+  }
+
+  List<String> get productTags {
+    final result = <String>[];
+    final used = <String>{};
+
+    for (final product in products) {
+      final tags = _readStringList(product['tags']);
+      for (final tag in tags) {
+        final trimmed = tag.trim();
+        if (trimmed.isEmpty) continue;
+
+        final key = _normalize(trimmed);
+        if (used.contains(key)) continue;
+
+        used.add(key);
+        result.add(trimmed);
+      }
+    }
+
+    return result;
+  }
+
+  static List<Map<String, dynamic>> _readProducts(Map<String, dynamic> data) {
+    final rawProducts = data['products'];
+    if (rawProducts is List) {
+      return rawProducts
+          .whereType<Map>()
+          .map((e) => _normalizeProductMap(Map<String, dynamic>.from(e)))
+          .where((e) => (_readNullableString(e['name']) ?? '').isNotEmpty)
+          .toList();
+    }
+
+    final rawDrinkSlots = data['drinkSlots'];
+    if (rawDrinkSlots is List) {
+      return rawDrinkSlots
+          .whereType<Map>()
+          .map((e) => _normalizeProductMap(Map<String, dynamic>.from(e)))
+          .where((e) => (_readNullableString(e['name']) ?? '').isNotEmpty)
+          .toList();
+    }
+
+    final stringProducts = data['drinks'];
+    if (stringProducts is List) {
+      return stringProducts
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .map((name) => <String, dynamic>{
+        'name': name,
+        'tags': const <String>[],
+      })
+          .toList();
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  static Map<String, dynamic> _normalizeProductMap(Map<String, dynamic> map) {
+    return <String, dynamic>{
+      'name': _readNullableString(map['name']) ?? '',
+      'tags': _readStringList(map['tags']),
+    };
+  }
+
+  static DateTime? _readDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value.trim());
+    return null;
+  }
+
+  static double _readDouble(dynamic value) {
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.trim()) ?? 0;
+    return 0;
+  }
+
+  static int _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim()) ?? 0;
+    return 0;
+  }
+
+  static String _readNonEmptyString(
+      dynamic value, {
+        required String fallback,
+      }) {
+    final text = _readNullableString(value);
+    if (text == null || text.isEmpty) return fallback;
+    return text;
+  }
+
+  static String? _readNullableString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+    return text;
+  }
+
+  static List<String> _readStringList(dynamic value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  static String _normalize(String input) {
+    return input
+        .trim()
+        .toLowerCase()
+        .replaceAll('　', '')
+        .replaceAll(' ', '')
+        .replaceAll('〜', 'ー')
+        .replaceAll('～', 'ー')
+        .replaceAll('-', 'ー');
+  }
 }

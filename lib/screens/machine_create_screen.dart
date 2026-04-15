@@ -345,7 +345,7 @@ class _MachineCreateScreenState extends State<MachineCreateScreen> {
         SetOptions(merge: true),
       );
 
-      await UserProgressService.applyMachineRegisterProgress(
+      await UserProgressService.instance.applyMachineRegisterProgress(
         uid: user.uid,
         displayName: displayName,
         addedDrinkCount: _selectedProducts.length,

@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../services/favorite_drink_service.dart';
 
 class FavoriteDrinksScreen extends StatefulWidget {
   const FavoriteDrinksScreen({super.key});
@@ -10,608 +11,341 @@ class FavoriteDrinksScreen extends StatefulWidget {
 }
 
 class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
-  final TextEditingController _addController = TextEditingController();
-  bool _isSaving = false;
+  final TextEditingController _inputController = TextEditingController();
 
-  static const int _freeFavoriteLimit = 10;
-  static const int _premiumDefaultFavoriteLimit = 100;
+  bool _isLoading = true;
+  bool _isSubmitting = false;
 
-  static const List<String> _suggestions = <String>[
-    '綾鷹',
-    'お〜いお茶 緑茶',
-    'お〜いお茶 濃い茶',
-    '生茶',
-    '伊右衛門',
-    '爽健美茶',
-    '午後の紅茶 ミルクティー',
-    '午後の紅茶 ストレート',
-    'クラフトボス ブラック',
-    'クラフトボス ラテ',
-    'ジョージア ブラック',
-    'ジョージア カフェオレ',
-    'ワンダ モーニングショット',
-    'ワンダ 金の微糖',
-    'FIRE ブラック',
-    'FIRE 微糖',
-    'コカ・コーラ',
-    'ゼロシュガー',
-    '三ツ矢サイダー',
-    'ウィルキンソン タンサン',
-    'アクエリアス',
-    'ポカリスエット',
-    'いろはす',
-    '天然水',
-    'リアルゴールド',
-    'ドデカミン',
-    'カルピスウォーター',
-    'カルピスソーダ',
-  ];
+  int _limit = FavoriteDrinkService.freeLimit;
+  List<String> _favorites = <String>[];
+
+  bool get _isLoggedIn => FirebaseAuth.instance.currentUser != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
-    _addController.dispose();
+    _inputController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveFavoriteDrinks({
-    required String uid,
-    required List<String> values,
-  }) async {
+  Future<void> _load() async {
+    if (!_isLoggedIn) {
+      if (!mounted) return;
+      setState(() {
+        _favorites = <String>[];
+        _limit = FavoriteDrinkService.freeLimit;
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
-      _isSaving = true;
+      _isLoading = true;
     });
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).set(
-        <String, dynamic>{
-          'favoriteDrinkNames': values,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      final service = FavoriteDrinkService.instance;
+      final favorites = await service.getFavoriteDrinkNames();
+      final limit = await service.getLimit();
+
+      if (!mounted) return;
+      setState(() {
+        _favorites = favorites;
+        _limit = limit;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favorites = <String>[];
+        _limit = FavoriteDrinkService.freeLimit;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _addFavorite() async {
+    if (_isSubmitting) return;
+
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final result = await FavoriteDrinkService.instance.addFavorite(text);
+
+      if (!mounted) return;
+
+      switch (result.reason) {
+        case FavoriteDrinkMutationReason.added:
+          _inputController.clear();
+          setState(() {
+            _favorites = result.favorites;
+            _limit = result.limit ?? _limit;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('お気に入りに追加しました。'),
+            ),
+          );
+          break;
+
+        case FavoriteDrinkMutationReason.alreadyExists:
+          _inputController.clear();
+          setState(() {
+            _favorites = result.favorites;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('すでに登録されています。'),
+            ),
+          );
+          break;
+
+        case FavoriteDrinkMutationReason.limitReached:
+          setState(() {
+            _favorites = result.favorites;
+            _limit = result.limit ?? _limit;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('お気に入りは最大${result.limit ?? _limit}件までです。'),
+            ),
+          );
+          break;
+
+        case FavoriteDrinkMutationReason.notLoggedIn:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('お気に入り保存にはログインが必要です。'),
+            ),
+          );
+          break;
+
+        case FavoriteDrinkMutationReason.invalidName:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ドリンク名を入力してください。'),
+            ),
+          );
+          break;
+
+        case FavoriteDrinkMutationReason.removed:
+        case FavoriteDrinkMutationReason.notFound:
+          break;
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('保存に失敗しました: $e'),
+          content: Text('追加に失敗しました: $e'),
         ),
       );
     } finally {
       if (!mounted) return;
       setState(() {
-        _isSaving = false;
+        _isSubmitting = false;
       });
     }
   }
 
-  Future<void> _addDrink({
-    required String uid,
-    required List<String> current,
-    required int limit,
-    required String rawValue,
-  }) async {
-    final value = rawValue.trim();
-    if (value.isEmpty) return;
-
-    final normalizedCurrent = current.map(_normalize).toSet();
-    if (normalizedCurrent.contains(_normalize(value))) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('すでにお気に入りに入っています。'),
-        ),
-      );
-      return;
-    }
-
-    if (current.length >= limit) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('お気に入りは最大$limit件までです。'),
-        ),
-      );
-      return;
-    }
-
-    final next = <String>[...current, value]..sort(_sortJaLike);
-    await _saveFavoriteDrinks(uid: uid, values: next);
-
-    if (!mounted) return;
-    _addController.clear();
-  }
-
-  Future<void> _removeDrink({
-    required String uid,
-    required List<String> current,
-    required String value,
-  }) async {
-    final next = current
-        .where((e) => _normalize(e) != _normalize(value))
-        .toList()
-      ..sort(_sortJaLike);
-
-    await _saveFavoriteDrinks(uid: uid, values: next);
-  }
-
-  String _normalize(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll('　', '')
-        .replaceAll(' ', '')
-        .replaceAll('〜', 'ー')
-        .replaceAll('～', 'ー')
-        .replaceAll('-', 'ー');
-  }
-
-  static int _sortJaLike(String a, String b) {
-    return a.toLowerCase().compareTo(b.toLowerCase());
-  }
-
-  int _resolveFavoriteLimit(Map<String, dynamic> data) {
-    final explicit = _readNullableInt(data['favoriteDrinkLimit']);
-    if (explicit != null && explicit > 0) return explicit;
-
-    final isPremium = data['isPremium'] == true;
-    if (isPremium) return _premiumDefaultFavoriteLimit;
-
-    return _freeFavoriteLimit;
-  }
-
-  bool _isPremium(Map<String, dynamic> data) {
-    return data['isPremium'] == true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      return const _LoggedOutFavoriteView();
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        final data = snapshot.data?.data() ?? <String, dynamic>{};
-        final favorites = _readStringList(data['favoriteDrinkNames'])
-          ..sort(_sortJaLike);
-
-        final limit = _resolveFavoriteLimit(data);
-        final isPremium = _isPremium(data);
-        final remaining = (limit - favorites.length).clamp(0, limit);
-        final isAtLimit = favorites.length >= limit;
-
-        final normalizedFavorites = favorites.map(_normalize).toSet();
-        final visibleSuggestions = _suggestions
-            .where((e) => !normalizedFavorites.contains(_normalize(e)))
-            .toList();
-
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionCard(
-                title: 'お気に入りドリンク',
-                subtitle: '近くで見つけたい飲み物を登録しておきます',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _LimitInfoCard(
-                      currentCount: favorites.length,
-                      limit: limit,
-                      remaining: remaining,
-                      isPremium: isPremium,
-                    ),
-                    if (isAtLimit) ...[
-                      const SizedBox(height: 10),
-                      _PremiumUpsellCard(
-                        limit: limit,
-                        isPremium: isPremium,
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _addController,
-                            enabled: !_isSaving && !isAtLimit,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (value) async {
-                              await _addDrink(
-                                uid: user.uid,
-                                current: favorites,
-                                limit: limit,
-                                rawValue: value,
-                              );
-                            },
-                            decoration: InputDecoration(
-                              hintText: isAtLimit
-                                  ? 'お気に入り上限に達しています'
-                                  : '例: 綾鷹 / ワンダ モーニングショット',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: _isSaving || isAtLimit
-                              ? null
-                              : () async {
-                            await _addDrink(
-                              uid: user.uid,
-                              current: favorites,
-                              limit: limit,
-                              rawValue: _addController.text,
-                            );
-                          },
-                          child: _isSaving
-                              ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                              : const Text('追加'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      isPremium
-                          ? 'プレミアム枠が有効です。'
-                          : isAtLimit
-                          ? '無料枠の上限に達しています。プレミアムでは上限拡張を予定しています。'
-                          : '今は無料枠で登録できます。あとでプレミアムで上限拡張予定です。',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF60707A),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SectionCard(
-                title: '登録中',
-                subtitle: favorites.isEmpty ? 'まだ登録がありません' : '${favorites.length}件',
-                child: favorites.isEmpty
-                    ? const _EmptyPanel(
-                  icon: Icons.favorite_border_rounded,
-                  title: 'お気に入りはまだありません',
-                  message: 'よく探したいドリンクを追加しておくと、あとで通知や検索強化につなげやすくなります。',
-                )
-                    : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: favorites.map((drink) {
-                    return _FavoriteChip(
-                      label: drink,
-                      onDeleted: _isSaving
-                          ? null
-                          : () async {
-                        await _removeDrink(
-                          uid: user.uid,
-                          current: favorites,
-                          value: drink,
-                        );
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SectionCard(
-                title: '候補から追加',
-                subtitle: isAtLimit ? '上限に達しています' : 'よくありそうな飲み物',
-                child: visibleSuggestions.isEmpty
-                    ? const Text(
-                  '追加候補はありません。',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF60707A),
-                  ),
-                )
-                    : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isAtLimit) ...[
-                      const Text(
-                        'いまは追加できません。不要な項目を外すか、将来のプレミアム拡張を想定した状態です。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF60707A),
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: visibleSuggestions.map((drink) {
-                        return ActionChip(
-                          label: Text(drink),
-                          onPressed: _isSaving || isAtLimit
-                              ? null
-                              : () async {
-                            await _addDrink(
-                              uid: user.uid,
-                              current: favorites,
-                              limit: limit,
-                              rawValue: drink,
-                            );
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7E8),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFF0D8A8)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      size: 20,
-                      color: Color(0xFF7A5A17),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'この一覧は今後、「近くにあるか通知」「お気に入りから検索」につなげる前提の土台です。プレミアムでは上限拡張を想定しています。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.5,
-                          color: Color(0xFF6B5420),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+  Future<void> _removeFavorite(String drinkName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('お気に入りから削除'),
+          content: Text('「$drinkName」をお気に入りから外しますか？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('削除'),
+            ),
+          ],
         );
       },
     );
-  }
 
-  List<String> _readStringList(dynamic value) {
-    if (value is List) {
-      return value
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final result =
+      await FavoriteDrinkService.instance.removeFavorite(drinkName);
+
+      if (!mounted) return;
+
+      setState(() {
+        _favorites = result.favorites;
+      });
+
+      if (result.reason == FavoriteDrinkMutationReason.removed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('お気に入りから削除しました。'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('削除に失敗しました: $e'),
+        ),
+      );
     }
-    return <String>[];
   }
-
-  int? _readNullableInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value);
-    return null;
-  }
-}
-
-class _LoggedOutFavoriteView extends StatelessWidget {
-  const _LoggedOutFavoriteView();
 
   @override
   Widget build(BuildContext context) {
-    return const _EmptyPanel(
-      icon: Icons.lock_outline_rounded,
-      title: 'お気に入り',
-      message: 'ログインすると、お気に入りドリンクを保存できます。',
-    );
-  }
-}
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.subtitle,
-  });
+    if (!_isLoggedIn) {
+      return const _FavoriteGuestView();
+    }
 
-  final String title;
-  final Widget child;
-  final String? subtitle;
+    final remaining = (_limit - _favorites.length).clamp(0, _limit);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FBFC),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF60707A),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _LimitInfoCard extends StatelessWidget {
-  const _LimitInfoCard({
-    required this.currentCount,
-    required this.limit,
-    required this.remaining,
-    required this.isPremium,
-  });
-
-  final int currentCount;
-  final int limit;
-  final int remaining;
-  final bool isPremium;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isPremium ? const Color(0xFFF3F8FF) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isPremium
-              ? const Color(0xFFD7E6FF)
-              : const Color(0xFFE3E7EB),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isPremium ? 'プレミアム枠' : '無料枠',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: isPremium
-                  ? const Color(0xFF355C9A)
-                  : const Color(0xFF60707A),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$currentCount / $limit 件',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '残り $remaining 件',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF60707A),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PremiumUpsellCard extends StatelessWidget {
-  const _PremiumUpsellCard({
-    required this.limit,
-    required this.isPremium,
-  });
-
-  final int limit;
-  final bool isPremium;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isPremium ? const Color(0xFFF3F8FF) : const Color(0xFFFFF2D9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isPremium
-              ? const Color(0xFFD7E6FF)
-              : const Color(0xFFFFD18B),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isPremium
-                ? Icons.workspace_premium_rounded
-                : Icons.lock_outline_rounded,
-            size: 20,
-            color: isPremium
-                ? const Color(0xFF355C9A)
-                : const Color(0xFF8A5A00),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
+          _SectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isPremium ? 'プレミアム枠を利用中' : '無料枠の上限に達しました',
+                const Text(
+                  'お気に入りドリンク',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: isPremium
-                        ? const Color(0xFF355C9A)
-                        : const Color(0xFF8A5A00),
+                    color: Color(0xFF334148),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  isPremium
-                      ? 'お気に入り登録をさらに使いやすくする前提で動いています。'
-                      : '現在の無料枠は最大$limit件です。将来のプレミアムではお気に入り上限増加を予定しています。',
+                const SizedBox(height: 6),
+                const Text(
+                  'お気に入りに入れたドリンクをもとに、近くの自販機を見つけやすくします。',
                   style: TextStyle(
                     fontSize: 12,
-                    height: 1.5,
-                    color: isPremium
-                        ? const Color(0xFF4C658A)
-                        : const Color(0xFF6B5420),
+                    color: Color(0xFF60707A),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _CountBadge(
+                      label: '登録数',
+                      value: '${_favorites.length}/$_limit',
+                    ),
+                    const SizedBox(width: 8),
+                    _CountBadge(
+                      label: '残り',
+                      value: '$remaining件',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _inputController,
+                  enabled: !_isSubmitting && _favorites.length < _limit,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _addFavorite(),
+                  decoration: InputDecoration(
+                    hintText: '例：綾鷹 / BOSS / お〜いお茶',
+                    labelText: 'お気に入りを追加',
+                    suffixIcon: IconButton(
+                      onPressed: (_isSubmitting || _favorites.length >= _limit)
+                          ? null
+                          : _addFavorite,
+                      icon: _isSubmitting
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : const Icon(Icons.add_rounded),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _favorites.length >= _limit
+                      ? '上限に達しています。プレミアムで上限を増やせる予定です。'
+                      : '現段階では手入力追加です。次の段階でドリンクDB選択式へ置き換えます。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _favorites.length >= _limit
+                        ? const Color(0xFF8A5A00)
+                        : const Color(0xFF60707A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_favorites.isEmpty)
+            const _EmptyFavoriteCard()
+          else
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '登録済み',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._favorites.map((drinkName) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _FavoriteRow(
+                        drinkName: drinkName,
+                        onDelete: () => _removeFavorite(drinkName),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '今後の拡張',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF334148),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _BulletRow(text: '近くにあるお気に入りドリンク通知'),
+                _BulletRow(text: 'ドリンクDBからの選択式登録'),
+                _BulletRow(text: '検索精度の向上'),
               ],
             ),
           ),
@@ -621,84 +355,287 @@ class _PremiumUpsellCard extends StatelessWidget {
   }
 }
 
-class _FavoriteChip extends StatelessWidget {
-  const _FavoriteChip({
-    required this.label,
-    required this.onDeleted,
-  });
-
-  final String label;
-  final VoidCallback? onDeleted;
+class _FavoriteGuestView extends StatelessWidget {
+  const _FavoriteGuestView();
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: const [
+        _SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'お気に入りドリンク',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334148),
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'お気に入りを登録すると、近くにある自販機を探しやすくなります。',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF60707A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 14),
+              _GuestInfoCard(
+                title: 'ログインすると使えます',
+                subtitle: '登録・保存・通知はログイン後に使えるようになります。',
+              ),
+            ],
+          ),
         ),
-      ),
-      deleteIcon: const Icon(Icons.close_rounded, size: 18),
-      onDeleted: onDeleted,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-        side: const BorderSide(color: Color(0xFFE3E7EB)),
-      ),
-      backgroundColor: Colors.white,
+      ],
     );
   }
 }
 
-class _EmptyPanel extends StatelessWidget {
-  const _EmptyPanel({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
+class _EmptyFavoriteCard extends StatelessWidget {
+  const _EmptyFavoriteCard();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE3E7EB)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 38),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-              textAlign: TextAlign.center,
+    return const _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'まだ登録されていません',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334148),
             ),
-            const SizedBox(height: 6),
-            Text(
-              message,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'よく飲むドリンクを登録すると、近くにある自販機を見つけやすくなります。',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF60707A),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FavoriteRow extends StatelessWidget {
+  const _FavoriteRow({
+    required this.drinkName,
+    required this.onDelete,
+  });
+
+  final String drinkName;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF2),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFFFD18B),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.favorite_rounded,
+            size: 18,
+            color: Color(0xFFB56B00),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              drinkName,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF334148),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+            tooltip: '削除',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF60707A),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF334148),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletRow extends StatelessWidget {
+  const _BulletRow({
+    required this.text,
+  });
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 3),
+            child: Icon(
+              Icons.circle,
+              size: 8,
+              color: Color(0xFF60707A),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
               style: const TextStyle(
                 fontSize: 13,
                 color: Color(0xFF60707A),
-                height: 1.5,
+                fontWeight: FontWeight.w600,
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestInfoCard extends StatelessWidget {
+  const _GuestInfoCard({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
         ),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334148),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF60707A),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFE3E7EB),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

@@ -25,13 +25,15 @@ class LocationServiceException implements Exception {
 }
 
 class LocationService {
+  const LocationService();
+
   Future<CurrentLocationResult> getCurrentLocation() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw const LocationServiceException('位置情報サービスがオフです');
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -83,7 +85,8 @@ class LocationService {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return null;
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
@@ -101,6 +104,42 @@ class LocationService {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<bool> ensurePermission() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return false;
+
+      var permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      return permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> reverseGeocode({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isEmpty) return '';
+
+      return _formatPlacemark(placemarks.first);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String formatPlacemark(Placemark placemark) {
+    return _formatPlacemark(placemark);
   }
 
   String _formatPlacemark(Placemark placemark) {

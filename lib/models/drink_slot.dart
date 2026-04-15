@@ -1,92 +1,71 @@
-import 'package:flutter/foundation.dart';
-
-enum DrinkShelfMode {
-  create,
-  checkin,
-  view,
-}
-
-@immutable
 class DrinkSlot {
+  final int position; // 0〜11
+  final String? drinkId;
+  final String? drinkName;
+  final String? brand;
+  final bool isHot;
+  final int? price;
+  final String? imageUrl;
+
   const DrinkSlot({
-    required this.id,
-    required this.page,
-    required this.indexInPage,
-    this.manufacturer,
-    this.category,
-    this.name,
-    this.isSoldOut = false,
+    required this.position,
+    this.drinkId,
+    this.drinkName,
+    this.brand,
+    this.isHot = false,
+    this.price,
+    this.imageUrl,
   });
 
-  final String id;
-  final int page;
-  final int indexInPage;
-  final String? manufacturer;
-  final String? category;
-  final String? name;
-  final bool isSoldOut;
+  bool get isEmpty => drinkId == null;
 
-  bool get isEmpty =>
-      (manufacturer == null || manufacturer!.trim().isEmpty) &&
-          (category == null || category!.trim().isEmpty) &&
-          (name == null || name!.trim().isEmpty);
-
-  DrinkSlot copyWith({
-    String? id,
-    int? page,
-    int? indexInPage,
-    String? manufacturer,
-    String? category,
-    String? name,
-    bool? isSoldOut,
-    bool clearManufacturer = false,
-    bool clearCategory = false,
-    bool clearName = false,
-  }) {
+  factory DrinkSlot.empty({required int position}) {
     return DrinkSlot(
-      id: id ?? this.id,
-      page: page ?? this.page,
-      indexInPage: indexInPage ?? this.indexInPage,
-      manufacturer:
-      clearManufacturer ? null : (manufacturer ?? this.manufacturer),
-      category: clearCategory ? null : (category ?? this.category),
-      name: clearName ? null : (name ?? this.name),
-      isSoldOut: isSoldOut ?? this.isSoldOut,
+      position: position,
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'id': id,
-      'page': page,
-      'indexInPage': indexInPage,
-      'manufacturer': manufacturer,
-      'category': category,
-      'name': name,
-      'isSoldOut': isSoldOut,
-    };
   }
 
   factory DrinkSlot.fromMap(Map<String, dynamic> map) {
     return DrinkSlot(
-      id: map['id'] as String? ?? '',
-      page: map['page'] as int? ?? 0,
-      indexInPage: map['indexInPage'] as int? ?? 0,
-      manufacturer: map['manufacturer'] as String?,
-      category: map['category'] as String?,
-      name: map['name'] as String?,
-      isSoldOut: map['isSoldOut'] as bool? ?? false,
+      position: map['position'] ?? 0,
+      drinkId: map['drinkId'],
+      drinkName: map['drinkName'],
+      brand: map['brand'],
+      isHot: map['isHot'] ?? false,
+      price: map['price'],
+      imageUrl: map['imageUrl'],
     );
   }
 
-  static List<DrinkSlot> createInitialPage({int page = 0}) {
-    return List<DrinkSlot>.generate(
-      12,
-          (index) => DrinkSlot(
-        id: 'p${page}_$index',
-        page: page,
-        indexInPage: index,
-      ),
+  Map<String, dynamic> toMap() {
+    return {
+      'position': position,
+      'drinkId': drinkId,
+      'drinkName': drinkName,
+      'brand': brand,
+      'isHot': isHot,
+      'price': price,
+      'imageUrl': imageUrl,
+    };
+  }
+
+  DrinkSlot copyWith({
+    int? position,
+    String? drinkId,
+    String? drinkName,
+    String? brand,
+    bool? isHot,
+    int? price,
+    String? imageUrl,
+  }) {
+    return DrinkSlot(
+      position: position ?? this.position,
+      drinkId: drinkId ?? this.drinkId,
+      drinkName: drinkName ?? this.drinkName,
+      brand: brand ?? this.brand,
+      isHot: isHot ?? this.isHot,
+      price: price ?? this.price,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }

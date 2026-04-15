@@ -1,35 +1,36 @@
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
 
 import '../models/position_data.dart';
 
 class DistanceUtil {
-  static const double _earthRadiusKm = 6371.0;
+  DistanceUtil._();
 
+  static const double _earthRadiusMeters = 6371000.0;
+
+  /// km単位で返す旧互換メソッド
   static double calculateDistance(
       double lat1,
       double lon1,
       double lat2,
       double lon2,
       ) {
-    if (!_isValidLatLng(lat1, lon1) || !_isValidLatLng(lat2, lon2)) {
+    final meters = calculateDistanceMeters(
+      fromLat: lat1,
+      fromLng: lon1,
+      toLat: lat2,
+      toLng: lon2,
+    );
+
+    if (!meters.isFinite) {
       return 9999;
     }
 
-    final dLat = _deg2rad(lat2 - lat1);
-    final dLon = _deg2rad(lon2 - lon1);
-
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_deg2rad(lat1)) *
-            cos(_deg2rad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return _earthRadiusKm * c;
+    return meters / 1000.0;
   }
 
+  /// meter単位で返す主力メソッド
   static double calculateDistanceMeters({
     required double? fromLat,
     required double? fromLng,
@@ -41,12 +42,21 @@ class DistanceUtil {
       return double.infinity;
     }
 
-    return Geolocator.distanceBetween(
-      fromLat!,
-      fromLng!,
-      toLat!,
-      toLng!,
-    );
+    final dLat = _degToRad(toLat! - fromLat!);
+    final dLng = _degToRad(toLng! - fromLng!);
+
+    final a = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(_degToRad(fromLat)) *
+            math.cos(_degToRad(toLat)) *
+            math.pow(math.sin(dLng / 2), 2);
+
+    final c = 2 *
+        math.atan2(
+          math.sqrt(a.toDouble()),
+          math.sqrt(1 - a.toDouble()),
+        );
+
+    return _earthRadiusMeters * c;
   }
 
   static String formatDistance(double? meters) {
@@ -86,6 +96,7 @@ class DistanceUtil {
 
     if (value is double) return value;
     if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
 
     if (value is String) {
       return double.tryParse(value.trim());
@@ -96,12 +107,12 @@ class DistanceUtil {
 
   static Future<PositionData?> getCurrentPositionSafe() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return null;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -125,6 +136,24 @@ class DistanceUtil {
     }
   }
 
+  static Future<bool> ensureLocationPermission() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return false;
+
+      var permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      return permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static bool _isValidLatLng(double lat, double lng) {
     if (lat == 0 && lng == 0) return false;
     if (lat < -90 || lat > 90) return false;
@@ -132,7 +161,7 @@ class DistanceUtil {
     return true;
   }
 
-  static double _deg2rad(double deg) {
-    return deg * (pi / 180);
+  static double _degToRad(double deg) {
+    return deg * (math.pi / 180.0);
   }
 }
