@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
+import 'onboarding_screen.dart';
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     this.initialMachineId,
@@ -13,7 +15,67 @@ class AuthGate extends StatelessWidget {
   final String? initialMachineId;
 
   @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  static const String _onboardingSeenKey = 'onboarding_seen_v1';
+
+  bool _isCheckingOnboarding = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareOnboarding();
+  }
+
+  Future<void> _prepareOnboarding() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(_onboardingSeenKey) ?? false;
+
+      if (!mounted) return;
+      setState(() {
+        _isCheckingOnboarding = false;
+      });
+
+      if (!seen) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await _openOnboarding();
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isCheckingOnboarding = false;
+      });
+    }
+  }
+
+  Future<void> _openOnboarding() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const OnboardingScreen(),
+      ),
+    );
+
+    if (result == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_onboardingSeenKey, true);
+      } catch (_) {
+        // 継続
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isCheckingOnboarding) {
+      return const _AuthLoadingScreen();
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -22,7 +84,7 @@ class AuthGate extends StatelessWidget {
         }
 
         return MainShellScreen(
-          initialMachineId: initialMachineId,
+          initialMachineId: widget.initialMachineId,
         );
       },
     );
@@ -81,10 +143,11 @@ class _LoginRequiredSheetBodyState extends State<_LoginRequiredSheetBody> {
         Navigator.of(context).pop();
       }
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isOpeningLogin = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isOpeningLogin = false;
+        });
+      }
     }
   }
 

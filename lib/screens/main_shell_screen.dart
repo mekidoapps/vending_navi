@@ -6,14 +6,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../data/drink_master_data.dart';
+import '../models/product.dart';
 import '../models/vending_machine.dart';
 import '../utils/distance_util.dart';
 import 'auth_gate.dart';
 import 'favorite_drinks_screen.dart';
-import 'register_vending_machine_screen.dart';
 import 'machine_detail_screen.dart';
 import 'my_page_screen.dart';
 import 'notification_settings_screen.dart';
+import 'register_vending_machine_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
@@ -63,39 +65,38 @@ class _MainShellScreenState extends State<MainShellScreen> {
     'コカ・コーラ': <Map<String, dynamic>>[
       {'name': 'コカ・コーラ', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': '綾鷹', 'tags': <String>['お茶', '無糖']},
-      {'name': 'いろはす', 'tags': <String>['水']},
-      {'name': 'ジョージア', 'tags': <String>['コーヒー', 'カフェイン']},
-      {'name': 'ファンタ', 'tags': <String>['炭酸', 'ジュース', '加糖']},
+      {'name': 'い・ろ・は・す', 'tags': <String>['水']},
+      {'name': 'ジョージア ブラック', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'ファンタ グレープ', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': 'アクエリアス', 'tags': <String>['スポーツ', 'スッキリ']},
     ],
     'サントリー': <Map<String, dynamic>>[
-      {'name': 'BOSS', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'BOSS ブラック', 'tags': <String>['コーヒー', 'カフェイン']},
       {'name': '伊右衛門', 'tags': <String>['お茶', '無糖']},
       {'name': 'C.C.レモン', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': '天然水', 'tags': <String>['水']},
-      {'name': 'DAKARA', 'tags': <String>['スポーツ', 'スッキリ']},
-      {'name': 'クラフトボス', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'GREEN DA・KA・RA', 'tags': <String>['スポーツ', 'スッキリ']},
     ],
     '伊藤園': <Map<String, dynamic>>[
-      {'name': 'お〜いお茶', 'tags': <String>['お茶', '無糖']},
+      {'name': 'お〜いお茶 緑茶', 'tags': <String>['お茶', '無糖']},
       {'name': '健康ミネラルむぎ茶', 'tags': <String>['お茶', 'スッキリ']},
-      {'name': 'TULLY\'S COFFEE', 'tags': <String>['コーヒー', 'カフェイン']},
-      {'name': '天然水', 'tags': <String>['水']},
+      {'name': 'TULLY\'S COFFEE ブラック', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': '磨かれて、澄みきった日本の水', 'tags': <String>['水']},
       {'name': '充実野菜', 'tags': <String>['ジュース']},
     ],
     'キリン': <Map<String, dynamic>>[
-      {'name': '午後の紅茶', 'tags': <String>['紅茶', '加糖']},
+      {'name': '午後の紅茶 ミルクティー', 'tags': <String>['紅茶', '加糖']},
       {'name': '生茶', 'tags': <String>['お茶', '無糖']},
-      {'name': 'FIRE', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'FIRE ブラック', 'tags': <String>['コーヒー', 'カフェイン']},
       {'name': 'キリンレモン', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': 'アルカリイオンの水', 'tags': <String>['水']},
     ],
     'アサヒ': <Map<String, dynamic>>[
-      {'name': 'WONDA', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'ワンダ ブラック', 'tags': <String>['コーヒー', 'カフェイン']},
       {'name': '十六茶', 'tags': <String>['お茶', '無糖']},
       {'name': '三ツ矢サイダー', 'tags': <String>['炭酸', 'ジュース', '加糖']},
-      {'name': 'おいしい水', 'tags': <String>['水']},
-      {'name': 'カルピス', 'tags': <String>['ジュース', '加糖']},
+      {'name': 'おいしい水 天然水', 'tags': <String>['水']},
+      {'name': 'カルピスウォーター', 'tags': <String>['ジュース', '加糖']},
     ],
     'ダイドー': <Map<String, dynamic>>[
       {'name': 'ダイドーブレンド', 'tags': <String>['コーヒー', 'カフェイン']},
@@ -201,10 +202,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     if (_didLoadDistancePreference && !force) return;
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       final data = snapshot.data() ?? <String, dynamic>{};
       final saved = _readNullableInt(data['defaultDistanceMeters']);
@@ -248,10 +247,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
     } catch (_) {
       // 継続
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSavingDistancePreference = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSavingDistancePreference = false;
+        });
+      }
     }
   }
 
@@ -358,6 +358,41 @@ class _MainShellScreenState extends State<MainShellScreen> {
         .replaceAll('〜', 'ー')
         .replaceAll('～', 'ー')
         .replaceAll('-', 'ー');
+  }
+
+  Product? _resolveFavoriteProduct(String drinkName) {
+    final normalized = _normalize(drinkName);
+
+    for (final product in DrinkMasterData.products) {
+      if (_normalize(product.name) == normalized) {
+        return product;
+      }
+    }
+
+    for (final product in DrinkMasterData.products) {
+      for (final keyword in product.searchKeywords) {
+        if (_normalize(keyword) == normalized) {
+          return product;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  List<Product> _resolveFavoriteProducts(List<String> favoriteDrinkNames) {
+    final result = <Product>[];
+    final used = <String>{};
+
+    for (final name in favoriteDrinkNames) {
+      final product = _resolveFavoriteProduct(name);
+      if (product == null) continue;
+      if (used.contains(product.id)) continue;
+      used.add(product.id);
+      result.add(product);
+    }
+
+    return result;
   }
 
   List<Map<String, dynamic>> _productsOf(VendingMachine machine) {
@@ -669,20 +704,44 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return views[_selectedMachineIndex];
   }
 
-  List<_MachineViewData> _favoritePickupViews(List<String> favoriteDrinkNames) {
-    if (favoriteDrinkNames.isEmpty) return const <_MachineViewData>[];
+  List<_FavoriteMatch> _favoriteMatchesForView(
+      _MachineViewData view,
+      List<Product> favoriteProducts,
+      ) {
+    final result = <_FavoriteMatch>[];
+    final used = <String>{};
 
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) _normalize(item): item,
-    };
+    for (final favorite in favoriteProducts) {
+      final favoriteKey = _normalize(favorite.name);
 
-    bool matchesFavorite(_MachineViewData view) {
+      bool matched = false;
       for (final product in view.displayProductNames) {
-        if (favoriteMap.containsKey(_normalize(product))) {
-          return true;
+        if (_normalize(product) == favoriteKey) {
+          matched = true;
+          break;
         }
       }
-      return false;
+
+      if (!matched) continue;
+      if (used.contains(favorite.id)) continue;
+      used.add(favorite.id);
+
+      result.add(
+        _FavoriteMatch(
+          product: favorite,
+          confirmed: !view.isEstimated,
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  List<_MachineViewData> _favoritePickupViews(List<Product> favoriteProducts) {
+    if (favoriteProducts.isEmpty) return const <_MachineViewData>[];
+
+    bool matchesFavorite(_MachineViewData view) {
+      return _favoriteMatchesForView(view, favoriteProducts).isNotEmpty;
     }
 
     final result = _machineViews.where(matchesFavorite).toList();
@@ -889,7 +948,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
       _pendingCreatedMachineId = createdMachineId;
     });
 
-    // Firestore反映後の一覧更新を待つ
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
     final index = _machineViews.indexWhere((e) => e.machine.id == createdMachineId);
@@ -914,7 +972,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Future<void> _openDetail(_MachineViewData view) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => MachineDetailScreen(machine: view.machine),
+        builder: (_) => MachineDetailScreen(
+          machine: view.machine,
+          currentLat: _currentLat,
+          currentLng: _currentLng,
+        ),
       ),
     );
 
@@ -999,10 +1061,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final snapshot =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       final data = snapshot.data() ?? <String, dynamic>{};
       final favorites = _readStringList(data['favoriteDrinkNames']);
@@ -1017,6 +1077,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
         );
         return;
       }
+
+      final products = _resolveFavoriteProducts(favorites);
 
       final selected = await showModalBottomSheet<String>(
         context: context,
@@ -1075,9 +1137,60 @@ class _MainShellScreenState extends State<MainShellScreen> {
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
-                      itemCount: favorites.length,
+                      itemCount: products.isNotEmpty ? products.length : favorites.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
+                        if (products.isNotEmpty) {
+                          final product = products[index];
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => Navigator.of(context).pop(product.name),
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FBFC),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: const Color(0xFFE3E7EB),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.favorite_rounded, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product.name,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            '${product.manufacturer} ・ ${product.category}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF60707A),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.chevron_right_rounded),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
                         final drink = favorites[index];
                         return Material(
                           color: Colors.transparent,
@@ -1326,7 +1439,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
 
     if (!_isLoggedIn || FirebaseAuth.instance.currentUser == null) {
-      return _buildHomeContent(const <String>[], selected);
+      return _buildHomeContent(const <String>[], const <Product>[], selected);
     }
 
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -1336,6 +1449,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       builder: (context, snapshot) {
         final data = snapshot.data?.data() ?? <String, dynamic>{};
         final favoriteDrinkNames = _readStringList(data['favoriteDrinkNames']);
+        final favoriteProducts = _resolveFavoriteProducts(favoriteDrinkNames);
 
         final savedDistance = _readNullableInt(data['defaultDistanceMeters']);
         final sanitizedSavedDistance = savedDistance == null
@@ -1355,13 +1469,18 @@ class _MainShellScreenState extends State<MainShellScreen> {
           });
         }
 
-        return _buildHomeContent(favoriteDrinkNames, selected);
+        return _buildHomeContent(
+          favoriteDrinkNames,
+          favoriteProducts,
+          selected,
+        );
       },
     );
   }
 
   Widget _buildHomeContent(
       List<String> favoriteDrinkNames,
+      List<Product> favoriteProducts,
       _MachineViewData? selected,
       ) {
     switch (_bottomPanelState) {
@@ -1369,9 +1488,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
         return _IdlePanelContent(
           isLoggedIn: _isLoggedIn,
           favoriteDrinkNames: favoriteDrinkNames,
-          pickupViews: _favoritePickupViews(favoriteDrinkNames),
+          favoriteProducts: favoriteProducts,
+          pickupViews: _favoritePickupViews(favoriteProducts),
           normalize: _normalize,
           distanceLabelBuilder: _distanceLabel,
+          favoriteMatchesForView: _favoriteMatchesForView,
           onTapFavoriteSearch: _openFavoriteDrinkPicker,
           onOpenLoginRequired: _showLoginRequiredDialog,
           onTapPickup: (view) async {
@@ -1390,9 +1511,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
           machineViews: _machineViews,
           selectedMachineIndex: _selectedMachineIndex,
           favoriteDrinkNames: favoriteDrinkNames,
+          favoriteProducts: favoriteProducts,
           normalize: _normalize,
           distanceLabelBuilder: _distanceLabel,
           searchKeyword: _selectedKeyword,
+          favoriteMatchesForView: _favoriteMatchesForView,
           onSelectMachine: (index) async {
             setState(() {
               _selectedMachineIndex = index;
@@ -1413,8 +1536,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
         return _MachineDetailPanelContent(
           selectedView: selected,
           favoriteDrinkNames: favoriteDrinkNames,
+          favoriteProducts: favoriteProducts,
           normalize: _normalize,
           distanceLabelBuilder: _distanceLabel,
+          favoriteMatchesForView: _favoriteMatchesForView,
           onOpenDetail: _openDetail,
           onShowList: () {
             setState(() {
@@ -1561,6 +1686,16 @@ class _MachineViewData {
 
   List<String> get displayProductTags =>
       confirmedProductTags.isNotEmpty ? confirmedProductTags : estimatedProductTags;
+}
+
+class _FavoriteMatch {
+  const _FavoriteMatch({
+    required this.product,
+    required this.confirmed,
+  });
+
+  final Product product;
+  final bool confirmed;
 }
 
 class _TopHeaderSection extends StatelessWidget {
@@ -2103,9 +2238,11 @@ class _IdlePanelContent extends StatelessWidget {
   const _IdlePanelContent({
     required this.isLoggedIn,
     required this.favoriteDrinkNames,
+    required this.favoriteProducts,
     required this.pickupViews,
     required this.normalize,
     required this.distanceLabelBuilder,
+    required this.favoriteMatchesForView,
     required this.onTapFavoriteSearch,
     required this.onOpenLoginRequired,
     required this.onTapPickup,
@@ -2113,34 +2250,15 @@ class _IdlePanelContent extends StatelessWidget {
 
   final bool isLoggedIn;
   final List<String> favoriteDrinkNames;
+  final List<Product> favoriteProducts;
   final List<_MachineViewData> pickupViews;
   final String Function(String value) normalize;
   final String Function(double? meters) distanceLabelBuilder;
+  final List<_FavoriteMatch> Function(_MachineViewData, List<Product>)
+  favoriteMatchesForView;
   final Future<void> Function() onTapFavoriteSearch;
   final Future<void> Function() onOpenLoginRequired;
   final Future<void> Function(_MachineViewData view) onTapPickup;
-
-  List<String> _matchingFavorites(
-      List<String> products,
-      List<String> favorites,
-      ) {
-    final favoriteMap = <String, String>{
-      for (final item in favorites) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2220,10 +2338,7 @@ class _IdlePanelContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ...pickupViews.map((view) {
-            final matching = _matchingFavorites(
-              view.displayProductNames,
-              favoriteDrinkNames,
-            );
+            final matches = favoriteMatchesForView(view, favoriteProducts);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -2281,12 +2396,12 @@ class _IdlePanelContent extends StatelessWidget {
                                 _DrinkStateBadge(isEstimated: view.isEstimated),
                               ],
                             ),
-                            if (matching.isNotEmpty) ...[
+                            if (matches.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               Text(
                                 view.isEstimated
-                                    ? '候補: ${matching.join(' / ')} かも'
-                                    : '一致: ${matching.join(' / ')}',
+                                    ? '候補: ${matches.map((e) => e.product.name).join(' / ')} かも'
+                                    : '一致: ${matches.map((e) => e.product.name).join(' / ')}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -2374,40 +2489,26 @@ class _MachineListPanelContent extends StatelessWidget {
     required this.machineViews,
     required this.selectedMachineIndex,
     required this.favoriteDrinkNames,
+    required this.favoriteProducts,
     required this.onSelectMachine,
     required this.onOpenDetail,
     required this.normalize,
     required this.distanceLabelBuilder,
     required this.searchKeyword,
+    required this.favoriteMatchesForView,
   });
 
   final List<_MachineViewData> machineViews;
   final int selectedMachineIndex;
   final List<String> favoriteDrinkNames;
+  final List<Product> favoriteProducts;
   final Future<void> Function(int index) onSelectMachine;
   final Future<void> Function(_MachineViewData view) onOpenDetail;
   final String Function(String value) normalize;
   final String Function(double? meters) distanceLabelBuilder;
   final String searchKeyword;
-
-  List<String> _matchingFavorites(List<String> products) {
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
+  final List<_FavoriteMatch> Function(_MachineViewData, List<Product>)
+  favoriteMatchesForView;
 
   @override
   Widget build(BuildContext context) {
@@ -2432,8 +2533,8 @@ class _MachineListPanelContent extends StatelessWidget {
               final view = machineViews[index];
               final machine = view.machine;
               final selected = index == selectedMachineIndex;
-              final matchingFavorites = _matchingFavorites(view.displayProductNames);
-              final hasFavorite = matchingFavorites.isNotEmpty;
+              final favoriteMatches = favoriteMatchesForView(view, favoriteProducts);
+              final hasFavorite = favoriteMatches.isNotEmpty;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -2548,44 +2649,30 @@ class _MachineDetailPanelContent extends StatelessWidget {
   const _MachineDetailPanelContent({
     required this.selectedView,
     required this.favoriteDrinkNames,
+    required this.favoriteProducts,
     required this.normalize,
     required this.distanceLabelBuilder,
+    required this.favoriteMatchesForView,
     required this.onOpenDetail,
     required this.onShowList,
   });
 
   final _MachineViewData selectedView;
   final List<String> favoriteDrinkNames;
+  final List<Product> favoriteProducts;
   final String Function(String value) normalize;
   final String Function(double? meters) distanceLabelBuilder;
+  final List<_FavoriteMatch> Function(_MachineViewData, List<Product>)
+  favoriteMatchesForView;
   final Future<void> Function(_MachineViewData view) onOpenDetail;
   final VoidCallback onShowList;
-
-  List<String> _matchingFavorites(List<String> products) {
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
 
   @override
   Widget build(BuildContext context) {
     final machine = selectedView.machine;
     final displayProducts = selectedView.displayProductNames;
-    final matchingFavorites = _matchingFavorites(displayProducts);
-    final favoriteKeys = matchingFavorites.map(normalize).toSet();
+    final favoriteMatches = favoriteMatchesForView(selectedView, favoriteProducts);
+    final favoriteKeys = favoriteMatches.map((e) => e.product.id).toSet();
 
     return SingleChildScrollView(
       child: Column(
@@ -2619,7 +2706,7 @@ class _MachineDetailPanelContent extends StatelessWidget {
                 color: const Color(0xFFF7FBFC),
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: matchingFavorites.isNotEmpty
+                  color: favoriteMatches.isNotEmpty
                       ? const Color(0xFFFFC56D)
                       : const Color(0xFFD8E7EA),
                 ),
@@ -2714,8 +2801,18 @@ class _MachineDetailPanelContent extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: displayProducts.map((product) {
-                        final isFavorite = favoriteKeys.contains(normalize(product));
+                      children: displayProducts.map((productName) {
+                        final matchedProduct = favoriteMatches
+                            .map((e) => e.product)
+                            .where((e) => normalize(e.name) == normalize(productName))
+                            .cast<Product?>()
+                            .firstWhere(
+                              (e) => e != null,
+                          orElse: () => null,
+                        );
+
+                        final isFavorite =
+                            matchedProduct != null && favoriteKeys.contains(matchedProduct.id);
 
                         return Container(
                           padding: const EdgeInsets.symmetric(
@@ -2757,7 +2854,7 @@ class _MachineDetailPanelContent extends StatelessWidget {
                                 const SizedBox(width: 4),
                               ],
                               Text(
-                                product,
+                                productName,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight:

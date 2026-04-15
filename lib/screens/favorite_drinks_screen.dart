@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/product.dart';
 import '../services/favorite_drink_service.dart';
+import '../widgets/drink_picker_sheet.dart';
 
 class FavoriteDrinksScreen extends StatefulWidget {
   const FavoriteDrinksScreen({super.key});
@@ -11,8 +13,6 @@ class FavoriteDrinksScreen extends StatefulWidget {
 }
 
 class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
-  final TextEditingController _inputController = TextEditingController();
-
   bool _isLoading = true;
   bool _isSubmitting = false;
 
@@ -25,12 +25,6 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _inputController.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -69,43 +63,47 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
     }
   }
 
-  Future<void> _addFavorite() async {
+  Future<void> _pickAndAddFavorite() async {
     if (_isSubmitting) return;
+    if (!_isLoggedIn) return;
 
-    final text = _inputController.text.trim();
-    if (text.isEmpty) return;
+    final Product? selected = await DrinkPickerSheet.show(
+      context,
+      title: 'お気に入りに追加',
+    );
+
+    if (selected == null) return;
 
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      final result = await FavoriteDrinkService.instance.addFavorite(text);
+      final result =
+      await FavoriteDrinkService.instance.addFavorite(selected.name);
 
       if (!mounted) return;
 
       switch (result.reason) {
         case FavoriteDrinkMutationReason.added:
-          _inputController.clear();
           setState(() {
             _favorites = result.favorites;
             _limit = result.limit ?? _limit;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('お気に入りに追加しました。'),
+            SnackBar(
+              content: Text('「${selected.name}」をお気に入りに追加しました。'),
             ),
           );
           break;
 
         case FavoriteDrinkMutationReason.alreadyExists:
-          _inputController.clear();
           setState(() {
             _favorites = result.favorites;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('すでに登録されています。'),
+            SnackBar(
+              content: Text('「${selected.name}」はすでに登録されています。'),
             ),
           );
           break;
@@ -133,7 +131,7 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
         case FavoriteDrinkMutationReason.invalidName:
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('ドリンク名を入力してください。'),
+              content: Text('ドリンクを選んでください。'),
             ),
           );
           break;
@@ -150,7 +148,9 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
         ),
       );
     } finally {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isSubmitting = false;
       });
@@ -261,26 +261,26 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _inputController,
-                  enabled: !_isSubmitting && _favorites.length < _limit,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _addFavorite(),
-                  decoration: InputDecoration(
-                    hintText: '例：綾鷹 / BOSS / お〜いお茶',
-                    labelText: 'お気に入りを追加',
-                    suffixIcon: IconButton(
-                      onPressed: (_isSubmitting || _favorites.length >= _limit)
-                          ? null
-                          : _addFavorite,
-                      icon: _isSubmitting
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                          : const Icon(Icons.add_rounded),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                    (_isSubmitting || _favorites.length >= _limit)
+                        ? null
+                        : _pickAndAddFavorite,
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Icon(Icons.add_rounded),
+                    label: Text(
+                      _isSubmitting ? '追加中…' : 'ドリンクを選んで追加',
                     ),
                   ),
                 ),
@@ -288,7 +288,7 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                 Text(
                   _favorites.length >= _limit
                       ? '上限に達しています。プレミアムで上限を増やせる予定です。'
-                      : '現段階では手入力追加です。次の段階でドリンクDB選択式へ置き換えます。',
+                      : 'メーカーやドリンク名から選んで追加できます。',
                   style: TextStyle(
                     fontSize: 12,
                     color: _favorites.length >= _limit
@@ -333,8 +333,8 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
           _SectionCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
+              children: const [
+                Text(
                   '今後の拡張',
                   style: TextStyle(
                     fontSize: 16,
@@ -342,9 +342,9 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                     color: Color(0xFF334148),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _BulletRow(text: '近くにあるお気に入りドリンク通知'),
-                _BulletRow(text: 'ドリンクDBからの選択式登録'),
+                _BulletRow(text: 'Product IDベース保存への移行'),
                 _BulletRow(text: '検索精度の向上'),
               ],
             ),

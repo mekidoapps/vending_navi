@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/user_progress_service.dart';
 import 'auth_gate.dart';
 import 'notification_settings_screen.dart';
+import 'onboarding_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({
@@ -21,9 +22,11 @@ class MyPageScreen extends StatefulWidget {
 class _MyPageScreenState extends State<MyPageScreen> {
   bool _isLoading = true;
   bool _isSavingDistance = false;
+  bool _isSavingDisplayName = false;
 
   UserProgressSnapshot? _progress;
   String _displayName = 'ユーザー';
+  String _email = '';
   int _defaultDistanceMeters = 100;
   bool _isPremium = false;
 
@@ -50,6 +53,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _isLoading = false;
         _progress = null;
         _displayName = 'ユーザー';
+        _email = '';
         _defaultDistanceMeters = 100;
         _isPremium = false;
       });
@@ -77,13 +81,16 @@ class _MyPageScreenState extends State<MyPageScreen> {
       setState(() {
         _progress = progress;
         _displayName = _readDisplayName(userData, user);
-        _defaultDistanceMeters =
-            _sanitizeDistance(_readNullableInt(userData['defaultDistanceMeters']) ?? 100);
+        _email = (user.email ?? '').trim();
+        _defaultDistanceMeters = _sanitizeDistance(
+          _readNullableInt(userData['defaultDistanceMeters']) ?? 100,
+        );
         _isPremium = userData['isPremium'] == true;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
+      final user = FirebaseAuth.instance.currentUser;
       setState(() {
         _progress = const UserProgressSnapshot(
           exp: 0,
@@ -94,9 +101,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
           registeredDrinkCount: 0,
           checkinCount: 0,
         );
-        _displayName = FirebaseAuth.instance.currentUser?.displayName?.trim().isNotEmpty == true
-            ? FirebaseAuth.instance.currentUser!.displayName!.trim()
-            : 'ユーザー';
+        _displayName = user == null ? 'ユーザー' : _fallbackDisplayName(user);
+        _email = user?.email?.trim() ?? '';
         _defaultDistanceMeters = 100;
         _isPremium = false;
         _isLoading = false;
@@ -141,10 +147,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSavingDistance = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSavingDistance = false;
+        });
+      }
     }
   }
 
@@ -160,6 +167,101 @@ class _MyPageScreenState extends State<MyPageScreen> {
     await LoginRequiredSheet.show(context);
   }
 
+  Future<void> _openOnboardingAgain() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const OnboardingScreen(),
+      ),
+    );
+  }
+
+  Future<void> _editDisplayName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _isSavingDisplayName) return;
+
+    final controller = TextEditingController(text: _displayName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('表示名を変更'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 24,
+            decoration: const InputDecoration(
+              hintText: '表示名を入力',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (result == null) return;
+
+    final trimmed = result.trim();
+    if (trimmed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('表示名を入力してください。'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSavingDisplayName = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        <String, dynamic>{
+          'displayName': trimmed,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      await user.updateDisplayName(trimmed);
+
+      if (!mounted) return;
+      setState(() {
+        _displayName = trimmed;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('表示名を更新しました。'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('表示名の更新に失敗しました: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingDisplayName = false;
+        });
+      }
+    }
+  }
+
   void _showFeedbackInfo() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -168,10 +270,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
+  void _showContactInfo() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('お問い合わせ導線は次の段階で接続します。'),
+      ),
+    );
+  }
+
   void _showPremiumInfo() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('プレミアム導線は今後追加予定です。'),
+      ),
+    );
+  }
+
+  Future<void> _openSafetyGuide() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const _SafetyGuideScreen(),
       ),
     );
   }
@@ -195,9 +313,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final authName = (user.displayName ?? '').trim();
     if (authName.isNotEmpty) return authName;
 
-    final email = (user.email ?? '').trim();
-    if (email.isNotEmpty) return email;
+    return _fallbackDisplayName(user);
+  }
 
+  String _fallbackDisplayName(User user) {
+    final email = (user.email ?? '').trim();
+    if (email.isNotEmpty && email.contains('@')) {
+      return email.split('@').first;
+    }
+    if (email.isNotEmpty) return email;
     return 'ユーザー';
   }
 
@@ -237,8 +361,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           _SectionCard(
+            title: 'プロフィール',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
@@ -270,6 +394,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
+                            _email.isEmpty ? 'メール未設定' : _email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF60707A),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             progress.currentTitle,
                             style: const TextStyle(
                               fontSize: 12,
@@ -280,11 +413,33 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         ],
                       ),
                     ),
-                    if (_isPremium)
-                      const _PremiumBadge(),
+                    if (_isPremium) const _PremiumBadge(),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isSavingDisplayName ? null : _editDisplayName,
+                    icon: _isSavingDisplayName
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : const Icon(Icons.edit_rounded),
+                    label: Text(_isSavingDisplayName ? '保存中…' : '表示名を変更'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            title: 'ステータス',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   children: [
                     _CountBadge(
@@ -315,23 +470,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ステータス',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
@@ -359,41 +498,23 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                const SizedBox(height: 14),
                 const Text(
                   '称号',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF334148),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  progress.titles.isEmpty
-                      ? 'まだ称号はありません。登録やチェックインで増えていきます。'
-                      : '獲得済み ${progress.titles.length}件',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF60707A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
                 if (progress.titles.isEmpty)
                   const Text(
-                    '最初の称号獲得を目指しましょう。',
+                    'まだ称号はありません。登録やチェックインで増えていきます。',
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF334148),
+                      fontSize: 12,
+                      color: Color(0xFF60707A),
+                      fontWeight: FontWeight.w600,
                     ),
                   )
                 else
@@ -413,18 +534,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
           ),
           const SizedBox(height: 12),
           _SectionCard(
+            title: '設定',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '設定',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Row(
                   children: [
                     const Expanded(
@@ -487,38 +599,52 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
                 const SizedBox(height: 8),
                 _MenuRow(
-                  icon: Icons.feedback_outlined,
-                  title: 'フィードバック',
-                  subtitle: '改善要望や感想を送る',
-                  onTap: _showFeedbackInfo,
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'プレミアム（予定）',
+                  subtitle: '上限拡張・広告非表示・編集期限延長',
+                  onTap: _showPremiumInfo,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
           _SectionCard(
+            title: 'サポート / 運営',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'プレミアム（予定）',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
-                  ),
+                _MenuRow(
+                  icon: Icons.feedback_outlined,
+                  title: 'フィードバック',
+                  subtitle: '改善要望や感想を送る',
+                  onTap: _showFeedbackInfo,
                 ),
-                const SizedBox(height: 10),
-                const _BulletRow(text: 'お気に入り上限アップ'),
-                const _BulletRow(text: '広告の非表示'),
-                const _BulletRow(text: '編集期限の延長'),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
-                    onPressed: _showPremiumInfo,
-                    child: const Text('くわしく見る'),
-                  ),
+                const SizedBox(height: 8),
+                _MenuRow(
+                  icon: Icons.mail_outline_rounded,
+                  title: 'お問い合わせ',
+                  subtitle: '不具合や相談の連絡先（今後接続）',
+                  onTap: _showContactInfo,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            title: 'ガイド / 注意事項',
+            child: Column(
+              children: [
+                _MenuRow(
+                  icon: Icons.menu_book_rounded,
+                  title: '使い方を見る',
+                  subtitle: '初回チュートリアルをもう一度確認',
+                  onTap: _openOnboardingAgain,
+                ),
+                const SizedBox(height: 8),
+                _MenuRow(
+                  icon: Icons.shield_outlined,
+                  title: '注意事項を見る',
+                  subtitle: '私有地・危険場所・周囲配慮の確認',
+                  onTap: _openSafetyGuide,
                 ),
               ],
             ),
@@ -542,18 +668,10 @@ class _GuestMyPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SectionCard(
+          title: 'マイページ',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'マイページ',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF334148),
-                ),
-              ),
-              const SizedBox(height: 8),
               const Text(
                 'ログインすると、経験値・称号・通知設定・お気に入り保存が使えるようになります。',
                 style: TextStyle(
@@ -579,12 +697,84 @@ class _GuestMyPage extends StatelessWidget {
   }
 }
 
+class _SafetyGuideScreen extends StatelessWidget {
+  const _SafetyGuideScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('注意事項'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: const [
+          _SectionCard(
+            title: '安全に使うために',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _GuideBullet(text: '私有地には立ち入らない'),
+                SizedBox(height: 10),
+                _GuideBullet(text: '危険な場所や通行の妨げになる場所で操作しない'),
+                SizedBox(height: 10),
+                _GuideBullet(text: '周囲の迷惑にならないように利用する'),
+                SizedBox(height: 10),
+                _GuideBullet(text: '登録内容は見かけた範囲で無理なく入力する'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideBullet extends StatelessWidget {
+  const _GuideBullet({
+    required this.text,
+  });
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 3),
+          child: Icon(
+            Icons.circle,
+            size: 8,
+            color: Color(0xFF60707A),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF334148),
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.child,
+    this.title,
   });
 
   final Widget child;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -605,7 +795,23 @@ class _SectionCard extends StatelessWidget {
           ),
         ],
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((title ?? '').trim().isNotEmpty) ...[
+            Text(
+              title!,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF334148),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          child,
+        ],
+      ),
     );
   }
 }
@@ -801,45 +1007,6 @@ class _MenuRow extends StatelessWidget {
             const Icon(Icons.chevron_right_rounded),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BulletRow extends StatelessWidget {
-  const _BulletRow({
-    required this.text,
-  });
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 3),
-            child: Icon(
-              Icons.circle,
-              size: 8,
-              color: Color(0xFF60707A),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF60707A),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
