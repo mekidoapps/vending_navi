@@ -9,6 +9,8 @@ class AppBottomInfoCard extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 16, 16, 16),
     this.margin = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.showSafeArea = true,
+    this.accentColor,
+    this.showAccentBar = false,
   });
 
   final Widget child;
@@ -18,9 +20,13 @@ class AppBottomInfoCard extends StatelessWidget {
   final EdgeInsets margin;
   final bool showSafeArea;
 
+  /// メーカー色などを上部アクセントに使う
+  final Color? accentColor;
+  final bool showAccentBar;
+
   @override
   Widget build(BuildContext context) {
-    final content = Padding(
+    final Widget content = Padding(
       padding: padding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -76,12 +82,28 @@ class AppBottomInfoCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: showSafeArea
-            ? SafeArea(
-          top: false,
-          child: content,
-        )
-            : content,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showAccentBar)
+              Container(
+                height: 5,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: accentColor ?? const Color(0xFFD5E8F5),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+              ),
+            showSafeArea
+                ? SafeArea(
+              top: false,
+              child: content,
+            )
+                : content,
+          ],
+        ),
       ),
     );
   }

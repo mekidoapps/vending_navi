@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,13 +6,39 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/vending_machine.dart';
+import '../services/firestore_service.dart';
 import '../utils/distance_util.dart';
+import '../utils/map_marker_factory.dart';
 import 'auth_gate.dart';
 import 'favorite_drinks_screen.dart';
-import 'register_vending_machine_screen.dart';
 import 'machine_detail_screen.dart';
 import 'my_page_screen.dart';
 import 'notification_settings_screen.dart';
+import 'register_vending_machine_screen.dart';
+
+Color _manufacturerAccentColorOf(String manufacturer) {
+  switch (manufacturer.trim()) {
+    case 'コカコーラ':
+    case 'コカ・コーラ':
+      return const Color(0xFFE53935);
+    case 'サントリー':
+      return const Color(0xFF1E88E5);
+    case '伊藤園':
+      return const Color(0xFF43A047);
+    case 'キリン':
+      return const Color(0xFFF9A825);
+    case 'アサヒ':
+      return const Color(0xFFFB8C00);
+    case '大塚製薬':
+      return const Color(0xFF3949AB);
+    case 'AQUO':
+      return const Color(0xFF00ACC1);
+    case 'ダイドー':
+      return const Color(0xFF8E24AA);
+    default:
+      return const Color(0xFF60707A);
+  }
+}
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
@@ -27,7 +52,13 @@ class MainShellScreen extends StatefulWidget {
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-enum _BottomPanelState {
+enum _MainTab {
+  map,
+  favorites,
+  myPage,
+}
+
+enum _MapPanelMode {
   idle,
   list,
   detail,
@@ -56,6 +87,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     '微糖',
     '加糖',
     'カフェイン',
+    'スポーツ',
+    '紅茶',
   ];
 
   static const Map<String, List<Map<String, dynamic>>> _manufacturerPresets =
@@ -63,7 +96,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     'コカ・コーラ': <Map<String, dynamic>>[
       {'name': 'コカ・コーラ', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': '綾鷹', 'tags': <String>['お茶', '無糖']},
-      {'name': 'いろはす', 'tags': <String>['水']},
+      {'name': 'い・ろ・は・す', 'tags': <String>['水']},
       {'name': 'ジョージア', 'tags': <String>['コーヒー', 'カフェイン']},
       {'name': 'ファンタ', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': 'アクエリアス', 'tags': <String>['スポーツ', 'スッキリ']},
@@ -73,8 +106,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       {'name': '伊右衛門', 'tags': <String>['お茶', '無糖']},
       {'name': 'C.C.レモン', 'tags': <String>['炭酸', 'ジュース', '加糖']},
       {'name': '天然水', 'tags': <String>['水']},
-      {'name': 'DAKARA', 'tags': <String>['スポーツ', 'スッキリ']},
-      {'name': 'クラフトボス', 'tags': <String>['コーヒー', 'カフェイン']},
+      {'name': 'GREEN DA・KA・RA', 'tags': <String>['スポーツ', 'スッキリ']},
     ],
     '伊藤園': <Map<String, dynamic>>[
       {'name': 'お〜いお茶', 'tags': <String>['お茶', '無糖']},
@@ -94,13 +126,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
       {'name': 'WONDA', 'tags': <String>['コーヒー', 'カフェイン']},
       {'name': '十六茶', 'tags': <String>['お茶', '無糖']},
       {'name': '三ツ矢サイダー', 'tags': <String>['炭酸', 'ジュース', '加糖']},
-      {'name': 'おいしい水', 'tags': <String>['水']},
       {'name': 'カルピス', 'tags': <String>['ジュース', '加糖']},
-    ],
-    'ダイドー': <Map<String, dynamic>>[
-      {'name': 'ダイドーブレンド', 'tags': <String>['コーヒー', 'カフェイン']},
-      {'name': 'miu', 'tags': <String>['水']},
-      {'name': '葉の茶', 'tags': <String>['お茶', '無糖']},
+      {'name': 'おいしい水', 'tags': <String>['水']},
     ],
     '大塚製薬': <Map<String, dynamic>>[
       {'name': 'ポカリスエット', 'tags': <String>['スポーツ', 'スッキリ']},
@@ -112,70 +139,87 @@ class _MainShellScreenState extends State<MainShellScreen> {
       {'name': 'お茶', 'tags': <String>['お茶', '無糖']},
       {'name': 'コーヒー', 'tags': <String>['コーヒー', 'カフェイン']},
     ],
+    'その他': <Map<String, dynamic>>[
+      {'name': '水', 'tags': <String>['水']},
+      {'name': 'お茶', 'tags': <String>['お茶', '無糖']},
+      {'name': 'コーヒー', 'tags': <String>['コーヒー', 'カフェイン']},
+    ],
   };
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _machineListScrollController = ScrollController();
+  final Map<String, GlobalKey> _machineItemKeys = <String, GlobalKey>{};
+  final Map<String, BitmapDescriptor> _markerCache =
+  <String, BitmapDescriptor>{};
+  final Set<String> _loadingMarkerKeys = <String>{};
 
   GoogleMapController? _mapController;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   StreamSubscription<User?>? _authSubscription;
 
-  bool _isLoading = true;
+  _MainTab _currentTab = _MainTab.map;
+
   bool _isLoggedIn = false;
-  bool _didHandleInitialMachine = false;
-  bool _isMovingToCurrentLocation = false;
+  bool _isLoadingCurrentLocation = false;
   bool _didLoadDistancePreference = false;
   bool _isSavingDistancePreference = false;
-  bool _hasExplicitSelection = false;
-  bool _isReturningFromCreate = false;
-  bool _isHandlingPendingMachine = false;
+  bool _didMoveToCurrentLocationOnce = false;
+  bool _didHandleInitialMachine = false;
+  bool _isSchedulingPendingSelection = false;
 
-  int _currentTabIndex = 0;
-  int _selectedMachineIndex = 0;
+  bool _showDetailPanel = false;
+
   int _selectedDistanceMeters = 100;
 
   String _selectedKeyword = '';
   String? _selectedMood;
   String? _selectedTag;
-  String? _selectedFavoriteDrink;
-  String? _pendingCreatedMachineId;
 
   double? _currentLat;
   double? _currentLng;
 
-  List<VendingMachine> _machines = <VendingMachine>[];
+  String? _selectedMachineId;
+  String? _pendingMachineId;
+
+  List<VendingMachine> _latestFilteredMachines = <VendingMachine>[];
 
   @override
   void initState() {
     super.initState();
     _isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    _searchController.addListener(_handleSearchTextChanged);
     _listenAuth();
-    _listenMachines();
-    _loadInitialCurrentLocation();
+    _loadCurrentLocation();
     _loadDistancePreferenceIfNeeded();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
     _authSubscription?.cancel();
     _mapController?.dispose();
-    _searchController.dispose();
+    _machineListScrollController.dispose();
+    _searchController
+      ..removeListener(_handleSearchTextChanged)
+      ..dispose();
     super.dispose();
   }
 
-  Future<void> _loadInitialCurrentLocation() async {
-    try {
-      final position = await DistanceUtil.getCurrentPositionSafe();
-      if (!mounted || position == null) return;
+  GlobalKey _keyForMachine(String machineId) {
+    return _machineItemKeys.putIfAbsent(machineId, () => GlobalKey());
+  }
 
-      setState(() {
-        _currentLat = position.latitude;
-        _currentLng = position.longitude;
-      });
-    } catch (_) {
-      // 継続
-    }
+  Future<void> _scrollToMachineCard(String machineId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+
+    final BuildContext? itemContext = _keyForMachine(machineId).currentContext;
+    if (itemContext == null) return;
+
+    await Scrollable.ensureVisible(
+      itemContext,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+      alignment: 0.5,
+    );
   }
 
   void _listenAuth() {
@@ -195,27 +239,56 @@ class _MainShellScreenState extends State<MainShellScreen> {
     });
   }
 
+  Future<void> _loadCurrentLocation() async {
+    if (_isLoadingCurrentLocation) return;
+
+    setState(() {
+      _isLoadingCurrentLocation = true;
+    });
+
+    try {
+      final position = await DistanceUtil.getCurrentPositionSafe();
+      if (!mounted || position == null) return;
+
+      setState(() {
+        _currentLat = position.latitude;
+        _currentLng = position.longitude;
+      });
+
+      if (_mapController != null &&
+          !_didMoveToCurrentLocationOnce &&
+          _selectedMachineId == null) {
+        _didMoveToCurrentLocationOnce = true;
+        await _moveCamera(
+          LatLng(position.latitude, position.longitude),
+          _zoomForDistance(_selectedDistanceMeters),
+        );
+      }
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingCurrentLocation = false;
+      });
+    }
+  }
+
   Future<void> _loadDistancePreferenceIfNeeded({bool force = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     if (_didLoadDistancePreference && !force) return;
 
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
+      final snapshot =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final data = snapshot.data() ?? <String, dynamic>{};
+
       final saved = _readNullableInt(data['defaultDistanceMeters']);
-      final sanitized = _sanitizeDistanceMeters(saved ?? _selectedDistanceMeters);
+      final sanitized = _sanitizeDistance(saved ?? _selectedDistanceMeters);
 
       if (!mounted) return;
-
       setState(() {
         _selectedDistanceMeters = sanitized;
         _didLoadDistancePreference = true;
-        _selectedMachineIndex = 0;
       });
     } catch (_) {
       if (!mounted) return;
@@ -229,24 +302,18 @@ class _MainShellScreenState extends State<MainShellScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final sanitized = _sanitizeDistanceMeters(meters);
-
-    if (mounted) {
-      setState(() {
-        _isSavingDistancePreference = true;
-      });
-    }
+    setState(() {
+      _isSavingDistancePreference = true;
+    });
 
     try {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
         <String, dynamic>{
-          'defaultDistanceMeters': sanitized,
+          'defaultDistanceMeters': meters,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    } catch (_) {
-      // 継続
     } finally {
       if (!mounted) return;
       setState(() {
@@ -255,98 +322,27 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
   }
 
-  int _sanitizeDistanceMeters(int value) {
+  int _sanitizeDistance(int value) {
     if (_distanceOptions.contains(value)) return value;
     return 100;
   }
 
-  void _listenMachines() {
-    _subscription?.cancel();
-
-    _subscription = FirebaseFirestore.instance
-        .collection('vending_machines')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .listen(
-          (snapshot) {
-        final items = snapshot.docs.map(VendingMachine.fromFirestore).toList();
-
-        if (!mounted) return;
-
-        setState(() {
-          _machines = items;
-          _isLoading = false;
-
-          final views = _machineViews;
-          if (_selectedMachineIndex >= views.length) {
-            _selectedMachineIndex = 0;
-            if (views.isEmpty) {
-              _hasExplicitSelection = false;
-            }
-          }
-        });
-
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await _jumpToInitialMachineIfNeeded();
-          await _handlePendingCreatedMachineIfNeeded();
-        });
-      },
-      onError: (_) {
-        if (!mounted) return;
-        setState(() {
-          _machines = <VendingMachine>[];
-          _isLoading = false;
-        });
-      },
-    );
+  int? _readNullableInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
-  Future<void> _jumpToInitialMachineIfNeeded() async {
-    if (_didHandleInitialMachine) return;
-
-    final targetId = widget.initialMachineId;
-    if (targetId == null || targetId.isEmpty) return;
-
-    final views = _machineViews;
-    final index = views.indexWhere((e) => e.machine.id == targetId);
-    if (index == -1) return;
+  void _handleSearchTextChanged() {
+    final next = _searchController.text.trim();
+    if (_selectedKeyword == next) return;
 
     setState(() {
-      _selectedMachineIndex = index;
-      _didHandleInitialMachine = true;
-      _currentTabIndex = 0;
-      _hasExplicitSelection = true;
+      _selectedKeyword = next;
+      _selectedMachineId = null;
+      _showDetailPanel = false;
     });
-
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    await _moveCameraToSelectedMachine(animated: true);
-  }
-
-  Future<void> _handlePendingCreatedMachineIfNeeded() async {
-    final targetId = _pendingCreatedMachineId;
-    if (targetId == null || targetId.isEmpty) return;
-    if (_isHandlingPendingMachine) return;
-
-    final index = _machineViews.indexWhere((e) => e.machine.id == targetId);
-    if (index == -1) return;
-
-    _isHandlingPendingMachine = true;
-
-    try {
-      if (!mounted) return;
-      setState(() {
-        _selectedMachineIndex = index;
-        _currentTabIndex = 0;
-        _hasExplicitSelection = true;
-        _pendingCreatedMachineId = null;
-        _isReturningFromCreate = false;
-      });
-
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-      await _moveCameraToSelectedMachine(animated: true);
-    } finally {
-      _isHandlingPendingMachine = false;
-    }
   }
 
   String _normalize(String input) {
@@ -360,40 +356,38 @@ class _MainShellScreenState extends State<MainShellScreen> {
         .replaceAll('-', 'ー');
   }
 
-  List<Map<String, dynamic>> _productsOf(VendingMachine machine) {
-    return machine.products;
-  }
-
-  List<String> _productNamesOf(VendingMachine machine) {
+  List<String> _confirmedProductNames(VendingMachine machine) {
     final result = <String>[];
     final used = <String>{};
 
-    for (final product in _productsOf(machine)) {
+    for (final product in machine.products) {
       final name = (product['name'] ?? '').toString().trim();
       if (name.isEmpty) continue;
 
-      final normalized = _normalize(name);
-      if (used.contains(normalized)) continue;
-      used.add(normalized);
+      final key = _normalize(name);
+      if (used.contains(key)) continue;
+
+      used.add(key);
       result.add(name);
     }
 
     return result;
   }
 
-  List<String> _productTagsOf(VendingMachine machine) {
+  List<String> _confirmedProductTags(VendingMachine machine) {
     final result = <String>[];
     final used = <String>{};
 
-    for (final product in _productsOf(machine)) {
+    for (final product in machine.products) {
       final tags = List<String>.from(product['tags'] ?? const <String>[]);
       for (final tag in tags) {
         final trimmed = tag.trim();
         if (trimmed.isEmpty) continue;
 
-        final normalized = _normalize(trimmed);
-        if (used.contains(normalized)) continue;
-        used.add(normalized);
+        final key = _normalize(trimmed);
+        if (used.contains(key)) continue;
+
+        used.add(key);
         result.add(trimmed);
       }
     }
@@ -401,44 +395,48 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return result;
   }
 
-  List<Map<String, dynamic>> _estimatedProductsOf(VendingMachine machine) {
-    if (_productNamesOf(machine).isNotEmpty) {
+  List<Map<String, dynamic>> _estimatedProducts(VendingMachine machine) {
+    if (_confirmedProductNames(machine).isNotEmpty) {
       return const <Map<String, dynamic>>[];
     }
+
     return _manufacturerPresets[machine.manufacturer] ??
+        _manufacturerPresets['その他'] ??
         const <Map<String, dynamic>>[];
   }
 
-  List<String> _estimatedProductNamesOf(VendingMachine machine) {
+  List<String> _estimatedProductNames(VendingMachine machine) {
     final result = <String>[];
     final used = <String>{};
 
-    for (final product in _estimatedProductsOf(machine)) {
+    for (final product in _estimatedProducts(machine)) {
       final name = (product['name'] ?? '').toString().trim();
       if (name.isEmpty) continue;
 
-      final normalized = _normalize(name);
-      if (used.contains(normalized)) continue;
-      used.add(normalized);
+      final key = _normalize(name);
+      if (used.contains(key)) continue;
+
+      used.add(key);
       result.add(name);
     }
 
     return result;
   }
 
-  List<String> _estimatedProductTagsOf(VendingMachine machine) {
+  List<String> _estimatedProductTags(VendingMachine machine) {
     final result = <String>[];
     final used = <String>{};
 
-    for (final product in _estimatedProductsOf(machine)) {
+    for (final product in _estimatedProducts(machine)) {
       final tags = List<String>.from(product['tags'] ?? const <String>[]);
       for (final tag in tags) {
         final trimmed = tag.trim();
         if (trimmed.isEmpty) continue;
 
-        final normalized = _normalize(trimmed);
-        if (used.contains(normalized)) continue;
-        used.add(normalized);
+        final key = _normalize(trimmed);
+        if (used.contains(key)) continue;
+
+        used.add(key);
         result.add(trimmed);
       }
     }
@@ -446,61 +444,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return result;
   }
 
-  bool _matchesKeyword(VendingMachine machine, String keyword) {
-    final normalizedKeyword = _normalize(keyword);
-    if (normalizedKeyword.isEmpty) return true;
-
-    if (_normalize(machine.name).contains(normalizedKeyword)) return true;
-    if (_normalize(machine.manufacturer).contains(normalizedKeyword)) {
-      return true;
-    }
-    if (_normalize(machine.locationName ?? '').contains(normalizedKeyword)) {
-      return true;
-    }
-    if (_normalize(machine.note ?? '').contains(normalizedKeyword)) return true;
-
-    for (final productName in _productNamesOf(machine)) {
-      if (_normalize(productName).contains(normalizedKeyword)) {
-        return true;
-      }
-    }
-
-    for (final tag in _productTagsOf(machine)) {
-      if (_normalize(tag).contains(normalizedKeyword)) {
-        return true;
-      }
-    }
-
-    for (final productName in _estimatedProductNamesOf(machine)) {
-      if (_normalize(productName).contains(normalizedKeyword)) {
-        return true;
-      }
-    }
-
-    for (final tag in _estimatedProductTagsOf(machine)) {
-      if (_normalize(tag).contains(normalizedKeyword)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   bool _matchesTag(VendingMachine machine, String tag) {
-    final normalizedTag = _normalize(tag);
+    final key = _normalize(tag);
 
-    for (final value in _productTagsOf(machine)) {
-      if (_normalize(value) == normalizedTag) {
-        return true;
-      }
+    for (final value in _confirmedProductTags(machine)) {
+      if (_normalize(value) == key) return true;
     }
-
-    for (final value in _estimatedProductTagsOf(machine)) {
-      if (_normalize(value) == normalizedTag) {
-        return true;
-      }
+    for (final value in _estimatedProductTags(machine)) {
+      if (_normalize(value) == key) return true;
     }
-
     return false;
   }
 
@@ -518,409 +470,308 @@ class _MainShellScreenState extends State<MainShellScreen> {
       case '甘い':
         return _matchesAnyTag(
           machine,
-          const <String>['ジュース', '炭酸', '甘い', '加糖'],
+          const <String>['ジュース', '炭酸', '加糖'],
         );
       case '眠気覚まし':
         return _matchesAnyTag(
           machine,
-          const <String>['コーヒー', '眠気覚まし', 'カフェイン'],
+          const <String>['コーヒー', 'カフェイン'],
         );
       case 'あたたまりたい':
         return _matchesAnyTag(
           machine,
-          const <String>['ホット', 'あたたまりたい'],
+          const <String>['ホット'],
         );
       default:
         return true;
     }
   }
 
-  double? _distanceMetersToMachine(VendingMachine machine) {
+  bool _matchesKeyword(VendingMachine machine, String keyword) {
+    final key = _normalize(keyword);
+    if (key.isEmpty) return true;
+
+    if (_normalize(machine.name).contains(key)) return true;
+    if (_normalize(machine.manufacturer).contains(key)) return true;
+    if (_normalize(machine.locationName ?? '').contains(key)) return true;
+    if (_normalize(machine.note ?? '').contains(key)) return true;
+
+    for (final value in _confirmedProductNames(machine)) {
+      if (_normalize(value).contains(key)) return true;
+    }
+
+    for (final value in _confirmedProductTags(machine)) {
+      if (_normalize(value).contains(key)) return true;
+    }
+
+    for (final value in _estimatedProductNames(machine)) {
+      if (_normalize(value).contains(key)) return true;
+    }
+
+    for (final value in _estimatedProductTags(machine)) {
+      if (_normalize(value).contains(key)) return true;
+    }
+
+    return false;
+  }
+
+  double? _distanceToMachine(VendingMachine machine) {
     if (_currentLat == null || _currentLng == null) return null;
 
-    return _haversineMeters(
-      _currentLat!,
-      _currentLng!,
-      machine.lat,
-      machine.lng,
+    final meters = DistanceUtil.calculateDistanceMeters(
+      fromLat: _currentLat!,
+      fromLng: _currentLng!,
+      toLat: machine.lat,
+      toLng: machine.lng,
     );
-  }
 
-  double _haversineMeters(
-      double lat1,
-      double lng1,
-      double lat2,
-      double lng2,
-      ) {
-    const earthRadius = 6371000.0;
-
-    final dLat = _degreesToRadians(lat2 - lat1);
-    final dLng = _degreesToRadians(lng2 - lng1);
-
-    final a = math.pow(math.sin(dLat / 2), 2) +
-        math.cos(_degreesToRadians(lat1)) *
-            math.cos(_degreesToRadians(lat2)) *
-            math.pow(math.sin(dLng / 2), 2);
-
-    final c =
-        2 * math.atan2(math.sqrt(a.toDouble()), math.sqrt(1 - a.toDouble()));
-    return earthRadius * c;
-  }
-
-  double _degreesToRadians(double degrees) {
-    return degrees * math.pi / 180.0;
+    if (!meters.isFinite) return null;
+    return meters;
   }
 
   String _distanceLabel(double? meters) {
-    if (meters == null) return '距離不明';
-    if (meters < 1000) return '${meters.round()}m';
-    return '${(meters / 1000).toStringAsFixed(1)}km';
+    return DistanceUtil.formatDistance(meters);
   }
 
-  bool get _hasActiveFilters {
-    return _selectedKeyword.trim().isNotEmpty ||
-        _selectedMood != null ||
-        _selectedTag != null ||
-        _selectedFavoriteDrink != null;
-  }
+  List<_MachineView> _buildViews(List<VendingMachine> machines) {
+    final views = <_MachineView>[];
 
-  _BottomPanelState get _bottomPanelState {
-    if (_hasExplicitSelection && _selectedView != null) {
-      return _BottomPanelState.detail;
-    }
-    if (_hasActiveFilters || _isReturningFromCreate) {
-      return _BottomPanelState.list;
-    }
-    return _BottomPanelState.idle;
-  }
+    for (final machine in machines) {
+      final distance = _distanceToMachine(machine);
 
-  List<_MachineViewData> get _machineViews {
-    final filtered = _machines.where((machine) {
-      final keywordOk = _selectedKeyword.trim().isEmpty
-          ? true
-          : _matchesKeyword(machine, _selectedKeyword.trim());
+      if (distance != null && distance > _selectedDistanceMeters) {
+        continue;
+      }
 
-      final moodOk =
-      _selectedMood == null ? true : _matchesMood(machine, _selectedMood!);
+      if (_selectedKeyword.trim().isNotEmpty &&
+          !_matchesKeyword(machine, _selectedKeyword.trim())) {
+        continue;
+      }
 
-      final tagOk =
-      _selectedTag == null ? true : _matchesTag(machine, _selectedTag!);
+      if (_selectedMood != null && !_matchesMood(machine, _selectedMood!)) {
+        continue;
+      }
 
-      final distanceMeters = _distanceMetersToMachine(machine);
-      final distanceOk = distanceMeters == null
-          ? true
-          : distanceMeters <= _selectedDistanceMeters;
+      if (_selectedTag != null && !_matchesTag(machine, _selectedTag!)) {
+        continue;
+      }
 
-      return keywordOk && moodOk && tagOk && distanceOk;
-    }).map((machine) {
-      final confirmedNames = _productNamesOf(machine);
-      final confirmedTags = _productTagsOf(machine);
-      final estimatedNames = _estimatedProductNamesOf(machine);
-      final estimatedTags = _estimatedProductTagsOf(machine);
+      final confirmedNames = _confirmedProductNames(machine);
+      final estimatedNames = _estimatedProductNames(machine);
 
-      return _MachineViewData(
-        machine: machine,
-        confirmedProductNames: confirmedNames,
-        confirmedProductTags: confirmedTags,
-        estimatedProductNames: estimatedNames,
-        estimatedProductTags: estimatedTags,
-        distanceMeters: _distanceMetersToMachine(machine),
+      views.add(
+        _MachineView(
+          machine: machine,
+          confirmedProductNames: confirmedNames,
+          estimatedProductNames: estimatedNames,
+          distanceMeters: distance,
+        ),
       );
-    }).toList();
-
-    filtered.sort((a, b) {
-      final aHasConfirmed = a.confirmedProductNames.isNotEmpty;
-      final bHasConfirmed = b.confirmedProductNames.isNotEmpty;
-
-      if (aHasConfirmed != bHasConfirmed) {
-        return aHasConfirmed ? -1 : 1;
-      }
-
-      final aHasAny = a.displayProductNames.isNotEmpty;
-      final bHasAny = b.displayProductNames.isNotEmpty;
-      if (aHasAny != bHasAny) {
-        return aHasAny ? -1 : 1;
-      }
-
-      if (a.distanceMeters != null && b.distanceMeters != null) {
-        final distanceCompare = a.distanceMeters!.compareTo(b.distanceMeters!);
-        if (distanceCompare != 0) return distanceCompare;
-      } else if (a.distanceMeters != null || b.distanceMeters != null) {
-        return a.distanceMeters != null ? -1 : 1;
-      }
-
-      final createdCompare = b.machine.createdAt.compareTo(a.machine.createdAt);
-      if (createdCompare != 0) return createdCompare;
-
-      return a.machine.name.compareTo(b.machine.name);
-    });
-
-    return filtered;
-  }
-
-  _MachineViewData? get _selectedView {
-    final views = _machineViews;
-    if (views.isEmpty) return null;
-
-    if (_selectedMachineIndex < 0 || _selectedMachineIndex >= views.length) {
-      return views.first;
     }
 
-    return views[_selectedMachineIndex];
-  }
+    views.sort((a, b) {
+      final ad = a.distanceMeters;
+      final bd = b.distanceMeters;
 
-  List<_MachineViewData> _favoritePickupViews(List<String> favoriteDrinkNames) {
-    if (favoriteDrinkNames.isEmpty) return const <_MachineViewData>[];
-
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) _normalize(item): item,
-    };
-
-    bool matchesFavorite(_MachineViewData view) {
-      for (final product in view.displayProductNames) {
-        if (favoriteMap.containsKey(_normalize(product))) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    final result = _machineViews.where(matchesFavorite).toList();
-
-    result.sort((a, b) {
-      final aConfirmed = !a.isEstimated;
-      final bConfirmed = !b.isEstimated;
-      if (aConfirmed != bConfirmed) {
-        return aConfirmed ? -1 : 1;
+      if (ad != null && bd != null) {
+        final cmp = ad.compareTo(bd);
+        if (cmp != 0) return cmp;
+      } else if (ad != null || bd != null) {
+        return ad != null ? -1 : 1;
       }
 
-      if (a.distanceMeters != null && b.distanceMeters != null) {
-        final distanceCompare = a.distanceMeters!.compareTo(b.distanceMeters!);
-        if (distanceCompare != 0) return distanceCompare;
-      } else if (a.distanceMeters != null || b.distanceMeters != null) {
-        return a.distanceMeters != null ? -1 : 1;
-      }
-
-      return b.machine.createdAt.compareTo(a.machine.createdAt);
+      return b.machine.updatedAt.compareTo(a.machine.updatedAt);
     });
 
-    return result.take(3).toList();
+    return views;
   }
 
-  Future<void> _moveCameraToSelectedMachine({required bool animated}) async {
+  _MachineView? _selectedView(List<_MachineView> views) {
+    final selectedId = _selectedMachineId ?? widget.initialMachineId;
+    if (selectedId == null || selectedId.isEmpty) return null;
+
+    for (final view in views) {
+      if (view.machine.id == selectedId) {
+        return view;
+      }
+    }
+    return null;
+  }
+
+  _MapPanelMode _panelMode(List<_MachineView> views) {
+    final selectedView = _selectedView(views);
+
+    if (_showDetailPanel && selectedView != null) {
+      return _MapPanelMode.detail;
+    }
+
+    if (_selectedMachineId != null ||
+        _selectedKeyword.isNotEmpty ||
+        _selectedMood != null ||
+        _selectedTag != null) {
+      return _MapPanelMode.list;
+    }
+
+    return _MapPanelMode.idle;
+  }
+
+  Future<void> _moveCamera(LatLng target, double zoom) async {
     final controller = _mapController;
-    final selected = _selectedView;
-    if (controller == null || selected == null) return;
+    if (controller == null) return;
 
-    final update = CameraUpdate.newLatLngZoom(
-      LatLng(selected.machine.lat, selected.machine.lng),
-      15.2,
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: target,
+          zoom: zoom,
+        ),
+      ),
     );
+  }
 
-    if (animated) {
-      await controller.animateCamera(update);
-    } else {
-      await controller.moveCamera(update);
+  double _zoomForDistance(int meters) {
+    switch (meters) {
+      case 50:
+        return 18.2;
+      case 100:
+        return 17.2;
+      case 300:
+        return 16.0;
+      case 500:
+        return 15.2;
+      default:
+        return 16.8;
     }
+  }
+
+  Future<void> _moveCameraToMachine(VendingMachine machine) async {
+    await _moveCamera(
+      LatLng(machine.lat, machine.lng),
+      15.4,
+    );
   }
 
   Future<void> _moveToCurrentLocation() async {
-    if (_isMovingToCurrentLocation) return;
+    final position = await DistanceUtil.getCurrentPositionSafe();
+    if (!mounted || position == null) return;
 
     setState(() {
-      _isMovingToCurrentLocation = true;
+      _currentLat = position.latitude;
+      _currentLng = position.longitude;
+      _showDetailPanel = false;
     });
 
-    try {
-      final position = await DistanceUtil.getCurrentPositionSafe();
-      final controller = _mapController;
-
-      if (!mounted || controller == null || position == null) return;
-
-      setState(() {
-        _currentLat = position.latitude;
-        _currentLng = position.longitude;
-      });
-
-      await controller.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(position.latitude, position.longitude),
-          16,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isMovingToCurrentLocation = false;
-        });
-      }
-    }
-  }
-
-  CameraPosition get _initialCameraPosition {
-    final selected = _selectedView;
-    if (_hasExplicitSelection && selected != null) {
-      return CameraPosition(
-        target: LatLng(selected.machine.lat, selected.machine.lng),
-        zoom: 15,
-      );
-    }
-
-    if (_currentLat != null && _currentLng != null) {
-      return CameraPosition(
-        target: LatLng(_currentLat!, _currentLng!),
-        zoom: 15,
-      );
-    }
-
-    return const CameraPosition(
-      target: LatLng(35.681236, 139.767125),
-      zoom: 14,
+    await _moveCamera(
+      LatLng(position.latitude, position.longitude),
+      _zoomForDistance(_selectedDistanceMeters),
     );
   }
 
-  double _manufacturerHue(String manufacturer, {required bool selected}) {
-    final value = manufacturer.trim();
+  void _scheduleSelectionIfNeeded(List<_MachineView> views) {
+    final targetId = _pendingMachineId ??
+        (!_didHandleInitialMachine ? widget.initialMachineId : null);
 
-    switch (value) {
-      case 'コカ・コーラ':
-        return selected ? BitmapDescriptor.hueRose : BitmapDescriptor.hueRed;
-      case 'サントリー':
-        return selected ? BitmapDescriptor.hueCyan : BitmapDescriptor.hueAzure;
-      case '伊藤園':
-        return BitmapDescriptor.hueGreen;
-      case 'キリン':
-        return selected ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueYellow;
-      case 'アサヒ':
-        return BitmapDescriptor.hueOrange;
-      case 'ダイドー':
-        return selected
-            ? BitmapDescriptor.hueViolet
-            : BitmapDescriptor.hueMagenta;
-      case '大塚製薬':
-        return BitmapDescriptor.hueBlue;
-      case 'AQUO':
-        return BitmapDescriptor.hueCyan;
-      default:
-        return selected ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueRed;
+    if (targetId == null || targetId.isEmpty) return;
+    if (_isSchedulingPendingSelection) return;
+
+    final index = views.indexWhere((e) => e.machine.id == targetId);
+    if (index == -1) return;
+
+    _isSchedulingPendingSelection = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final target = views[index];
+
+      setState(() {
+        _selectedMachineId = target.machine.id;
+        _pendingMachineId = null;
+        _didHandleInitialMachine = true;
+        _showDetailPanel = true;
+      });
+
+      await _moveCameraToMachine(target.machine);
+      _isSchedulingPendingSelection = false;
+    });
+  }
+
+  Future<void> _ensureMarkerCached({
+    required String manufacturer,
+    required bool selected,
+  }) async {
+    final String key = MapMarkerFactory.cacheKey(
+      manufacturer: manufacturer,
+      selected: selected,
+    );
+
+    if (_markerCache.containsKey(key)) return;
+    if (_loadingMarkerKeys.contains(key)) return;
+
+    _loadingMarkerKeys.add(key);
+
+    try {
+      final BitmapDescriptor descriptor =
+      await MapMarkerFactory.createMachineMarker(
+        manufacturer: manufacturer,
+        selected: selected,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _markerCache[key] = descriptor;
+      });
+    } finally {
+      _loadingMarkerKeys.remove(key);
     }
   }
 
-  Set<Marker> get _markers {
-    final views = _machineViews;
+  BitmapDescriptor _markerDescriptor({
+    required String manufacturer,
+    required bool selected,
+  }) {
+    final String key = MapMarkerFactory.cacheKey(
+      manufacturer: manufacturer,
+      selected: selected,
+    );
 
-    return views.asMap().entries.map((entry) {
-      final index = entry.key;
-      final view = entry.value;
-      final selected = _hasExplicitSelection && index == _selectedMachineIndex;
+    return _markerCache[key] ?? BitmapDescriptor.defaultMarker;
+  }
 
-      final snippetSource = view.displayProductNames.take(2).join(' / ');
-      final snippet = view.isEstimated
-          ? (snippetSource.isEmpty ? 'メーカー候補あり' : '$snippetSource かも')
-          : snippetSource;
+  Set<Marker> _buildMarkers(List<_MachineView> views) {
+    return views.map((view) {
+      final bool selected = _selectedMachineId == view.machine.id;
+      final List<String> displayProducts = view.displayProducts;
+
+      final String snippet = displayProducts.isEmpty
+          ? 'ドリンク未登録'
+          : displayProducts.take(2).join(' / ');
 
       return Marker(
         markerId: MarkerId(view.machine.id),
         position: LatLng(view.machine.lat, view.machine.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          _manufacturerHue(
-            view.machine.manufacturer,
-            selected: selected,
-          ),
+        icon: _markerDescriptor(
+          manufacturer: view.machine.manufacturer,
+          selected: selected,
         ),
         infoWindow: InfoWindow(
           title: view.machine.name,
-          snippet: snippet,
+          snippet: view.isEstimated ? '$snippet かも' : snippet,
         ),
         onTap: () async {
+          if (!mounted) return;
+
           setState(() {
-            _selectedMachineIndex = index;
-            _currentTabIndex = 0;
-            _hasExplicitSelection = true;
+            _selectedMachineId = view.machine.id;
+            _showDetailPanel = false;
           });
-          await _moveCameraToSelectedMachine(animated: true);
+
+          await _moveCameraToMachine(view.machine);
+          await _scrollToMachineCard(view.machine.id);
         },
       );
     }).toSet();
-  }
-
-  Future<void> _showLoginRequiredDialog() async {
-    await LoginRequiredSheet.show(context);
-    if (!mounted) return;
-    setState(() {
-      _isLoggedIn = FirebaseAuth.instance.currentUser != null;
-    });
-
-    await _loadDistancePreferenceIfNeeded(force: true);
-  }
-
-  Future<void> _openCreate() async {
-    if (!_isLoggedIn) {
-      await _showLoginRequiredDialog();
-      return;
-    }
-
-    final result = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute<Map<String, dynamic>>(
-        builder: (_) => const RegisterVendingMachineScreen(),
-      ),
-    );
-
-    if (!mounted) return;
-    if (result == null) return;
-    if (result['created'] != true) return;
-
-    final createdMachineId = result['machineId']?.toString();
-    final openDetail = result['openDetail'] == true;
-
-    if (createdMachineId == null || createdMachineId.isEmpty) return;
-
-    _searchController.clear();
-
-    setState(() {
-      _selectedKeyword = '';
-      _selectedMood = null;
-      _selectedTag = null;
-      _selectedFavoriteDrink = null;
-      _selectedMachineIndex = 0;
-      _currentTabIndex = 0;
-      _hasExplicitSelection = false;
-      _isReturningFromCreate = true;
-      _pendingCreatedMachineId = createdMachineId;
-    });
-
-    // Firestore反映後の一覧更新を待つ
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-
-    final index = _machineViews.indexWhere((e) => e.machine.id == createdMachineId);
-    if (index != -1 && mounted) {
-      setState(() {
-        _selectedMachineIndex = index;
-        _hasExplicitSelection = true;
-        _isReturningFromCreate = false;
-        _pendingCreatedMachineId = null;
-      });
-      await _moveCameraToSelectedMachine(animated: true);
-
-      if (openDetail) {
-        final selected = _selectedView;
-        if (selected != null && mounted) {
-          await _openDetail(selected);
-        }
-      }
-    }
-  }
-
-  Future<void> _openDetail(_MachineViewData view) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => MachineDetailScreen(machine: view.machine),
-      ),
-    );
-
-    if (changed == true && mounted) {
-      _listenMachines();
-    }
   }
 
   Future<void> _openNotifications() async {
@@ -931,383 +782,291 @@ class _MainShellScreenState extends State<MainShellScreen> {
     );
   }
 
-  void _applySearch(String value) {
-    setState(() {
-      _selectedKeyword = value.trim();
-      _selectedFavoriteDrink = null;
-      _selectedMachineIndex = 0;
-      _currentTabIndex = 0;
-      _hasExplicitSelection = false;
-      _isReturningFromCreate = false;
-      _pendingCreatedMachineId = null;
-    });
-  }
+  Future<void> _openRegister() async {
+    if (!_isLoggedIn) {
+      await LoginRequiredSheet.show(context);
+      return;
+    }
 
-  void _applyFavoriteDrinkSearch(String drinkName) {
-    _searchController.text = drinkName;
-    setState(() {
-      _selectedKeyword = drinkName.trim();
-      _selectedFavoriteDrink = drinkName.trim();
-      _selectedMachineIndex = 0;
-      _currentTabIndex = 0;
-      _hasExplicitSelection = false;
-      _isReturningFromCreate = false;
-      _pendingCreatedMachineId = null;
-    });
-  }
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => const RegisterVendingMachineScreen(),
+      ),
+    );
 
-  void _clearSearch() {
-    _searchController.clear();
+    if (!mounted || result == null) return;
+
+    String? machineId;
+    if (result is String && result.trim().isNotEmpty) {
+      machineId = result.trim();
+    } else if (result is Map) {
+      final created = result['created'] == true || result['machineId'] != null;
+      if (created) {
+        machineId = result['machineId']?.toString().trim();
+      }
+    }
+
+    if (machineId == null || machineId.isEmpty) return;
+
     setState(() {
+      _currentTab = _MainTab.map;
+      _selectedMachineId = machineId;
+      _pendingMachineId = machineId;
       _selectedKeyword = '';
       _selectedMood = null;
       _selectedTag = null;
-      _selectedFavoriteDrink = null;
-      _selectedMachineIndex = 0;
-      _hasExplicitSelection = false;
-      _isReturningFromCreate = false;
-      _pendingCreatedMachineId = null;
+      _showDetailPanel = true;
     });
+    _searchController.clear();
   }
 
-  Future<void> _applyDistanceSelection(int value) async {
-    final sanitized = _sanitizeDistanceMeters(value);
+  Future<void> _openMachineDetail(VendingMachine machine) async {
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => MachineDetailScreen(
+          machine: machine,
+          currentLat: _currentLat,
+          currentLng: _currentLng,
+        ),
+      ),
+    );
 
     if (!mounted) return;
+
+    String targetMachineId = machine.id;
+    if (result is String && result.trim().isNotEmpty) {
+      targetMachineId = result.trim();
+    } else if (result is Map && result['machineId'] != null) {
+      final value = result['machineId'].toString().trim();
+      if (value.isNotEmpty) {
+        targetMachineId = value;
+      }
+    }
+
     setState(() {
-      _selectedDistanceMeters = sanitized;
-      _selectedMachineIndex = 0;
-      _currentTabIndex = 0;
-      _hasExplicitSelection = false;
-      _isReturningFromCreate = false;
-      _pendingCreatedMachineId = null;
+      _selectedMachineId = targetMachineId;
+      _pendingMachineId = targetMachineId;
+      _showDetailPanel = true;
     });
 
-    await _saveDistancePreference(sanitized);
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+
+    final VendingMachine? selectedMachine = _machineForId(targetMachineId);
+    if (selectedMachine == null) return;
+
+    await _moveCameraToMachine(selectedMachine);
+    await _scrollToMachineCard(selectedMachine.id);
   }
 
-  Future<void> _openFavoriteDrinkPicker() async {
-    if (!_isLoggedIn) {
-      await _showLoginRequiredDialog();
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      await _showLoginRequiredDialog();
-      return;
-    }
-
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      final data = snapshot.data() ?? <String, dynamic>{};
-      final favorites = _readStringList(data['favoriteDrinkNames']);
-
-      if (!mounted) return;
-
-      if (favorites.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('お気に入りドリンクがまだ登録されていません。'),
-          ),
-        );
-        return;
+  VendingMachine? _machineForId(String machineId) {
+    for (final machine in _latestFilteredMachines) {
+      if (machine.id == machineId) {
+        return machine;
       }
-
-      final selected = await showModalBottomSheet<String>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3E7EB),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'お気に入りから探す',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '選ぶと、そのドリンク名でマップ検索します。',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF60707A),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: favorites.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final drink = favorites[index];
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () => Navigator.of(context).pop(drink),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF9FBFC),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: const Color(0xFFE3E7EB),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.favorite_rounded, size: 20),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      drink,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(Icons.chevron_right_rounded),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-
-      if (selected == null || selected.trim().isEmpty) return;
-      _applyFavoriteDrinkSearch(selected);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('お気に入り取得に失敗しました: $e'),
-        ),
-      );
     }
-  }
-
-  List<String> _readStringList(dynamic value) {
-    if (value is List) {
-      return value
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-    }
-    return <String>[];
-  }
-
-  int? _readNullableInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value);
     return null;
   }
 
-  Future<void> _openMoodSheet() async {
+  Future<void> _openDrinkEditorForMachine(VendingMachine machine) async {
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => RegisterVendingMachineScreen(
+          machineId: machine.id,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    String? machineId;
+    if (result is String && result.trim().isNotEmpty) {
+      machineId = result.trim();
+    } else if (result is Map && result['machineId'] != null) {
+      machineId = result['machineId']?.toString().trim();
+    }
+
+    if (machineId == null || machineId.isEmpty) return;
+
+    setState(() {
+      _selectedMachineId = machineId;
+      _pendingMachineId = machineId;
+      _showDetailPanel = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+
+    final VendingMachine? selectedMachine = _machineForId(machineId);
+    if (selectedMachine == null) return;
+
+    await _moveCameraToMachine(selectedMachine);
+    await _scrollToMachineCard(selectedMachine.id);
+  }
+
+  Future<void> _showFilterSheet() async {
     String? tempMood = _selectedMood;
     String? tempTag = _selectedTag;
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isScrollControlled: false,
       builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE3E7EB),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.78,
+          minChildSize: 0.52,
+          maxChildSize: 0.92,
+          builder: (context, controller) {
+            return StatefulBuilder(
+              builder: (context, setSheetState) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
                       children: [
-                        const Expanded(
-                          child: Text(
-                            '気分 / 絞り込み',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
+                        const SizedBox(height: 10),
+                        Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3E7EB),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  '気分 / 絞り込み',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF334148),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: controller,
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '気分',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF334148),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _moodChips.map((mood) {
+                                    final selected = tempMood == mood;
+                                    return ChoiceChip(
+                                      label: Text(mood),
+                                      selected: selected,
+                                      onSelected: (_) {
+                                        setSheetState(() {
+                                          tempMood = selected ? null : mood;
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'タグ',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF334148),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _filterTags.map((tag) {
+                                    final selected = tempTag == tag;
+                                    return FilterChip(
+                                      label: Text(tag),
+                                      selected: selected,
+                                      onSelected: (_) {
+                                        setSheetState(() {
+                                          tempTag = selected ? null : tag;
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '気分',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF334148),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _moodChips.map((mood) {
-                        final selected = tempMood == mood;
-                        return ChoiceChip(
-                          label: Text(mood),
-                          selected: selected,
-                          onSelected: (_) {
-                            setSheetState(() {
-                              tempMood = selected ? null : mood;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'タグ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF334148),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _filterTags.map((tag) {
-                        final selected = tempTag == tag;
-                        return FilterChip(
-                          label: Text(tag),
-                          selected: selected,
-                          onSelected: (_) {
-                            setSheetState(() {
-                              tempTag = selected ? null : tag;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              if (!mounted) return;
-                              setState(() {
-                                _selectedMood = null;
-                                _selectedTag = null;
-                                _selectedMachineIndex = 0;
-                                _currentTabIndex = 0;
-                                _hasExplicitSelection = false;
-                                _isReturningFromCreate = false;
-                                _pendingCreatedMachineId = null;
-                              });
-                            },
-                            child: const Text('クリア'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              if (!mounted) return;
-                              setState(() {
-                                _selectedMood = tempMood;
-                                _selectedTag = tempTag;
-                                _selectedMachineIndex = 0;
-                                _currentTabIndex = 0;
-                                _hasExplicitSelection = false;
-                                _isReturningFromCreate = false;
-                                _pendingCreatedMachineId = null;
-                              });
-                            },
-                            child: const Text('適用'),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _selectedMood = null;
+                                      _selectedTag = null;
+                                      _selectedMachineId = null;
+                                      _showDetailPanel = false;
+                                    });
+                                  },
+                                  child: const Text('クリア'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _selectedMood = tempMood;
+                                      _selectedTag = tempTag;
+                                      _selectedMachineId = null;
+                                      _showDetailPanel = false;
+                                    });
+                                  },
+                                  child: const Text('適用'),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await _openFavoriteDrinkPicker();
-                      },
-                      icon: const Icon(Icons.favorite_rounded, size: 18),
-                      label: const Text('お気に入りから探す'),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -1315,114 +1074,162 @@ class _MainShellScreenState extends State<MainShellScreen> {
     );
   }
 
-  Widget _buildMapTabBody() {
-    final selected = _selectedView;
-
-    if (_machineViews.isEmpty) {
-      return _EmptyState(
-        title: '見つかりませんでした',
-        message: _hasActiveFilters ? '条件に合う自販機がありません。' : 'まだ自販機データがありません。',
-      );
-    }
-
-    if (!_isLoggedIn || FirebaseAuth.instance.currentUser == null) {
-      return _buildHomeContent(const <String>[], selected);
-    }
-
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+  Widget _buildMapTab() {
+    return StreamBuilder<List<VendingMachine>>(
+      stream: FirestoreService.instance.watchMachines(),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data() ?? <String, dynamic>{};
-        final favoriteDrinkNames = _readStringList(data['favoriteDrinkNames']);
+        final machines = snapshot.data ?? const <VendingMachine>[];
+        final views = _buildViews(machines);
+        _latestFilteredMachines = views
+            .map((view) => view.machine)
+            .toList(growable: false);
 
-        final savedDistance = _readNullableInt(data['defaultDistanceMeters']);
-        final sanitizedSavedDistance = savedDistance == null
-            ? null
-            : _sanitizeDistanceMeters(savedDistance);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          for (final view in views) {
+            _ensureMarkerCached(
+              manufacturer: view.machine.manufacturer,
+              selected: false,
+            );
+            _ensureMarkerCached(
+              manufacturer: view.machine.manufacturer,
+              selected: true,
+            );
+          }
+        });
 
-        if (sanitizedSavedDistance != null &&
-            sanitizedSavedDistance != _selectedDistanceMeters &&
-            !_isSavingDistancePreference) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            setState(() {
-              _selectedDistanceMeters = sanitizedSavedDistance;
-              _selectedMachineIndex = 0;
-              _hasExplicitSelection = false;
-            });
-          });
-        }
+        final selectedView = _selectedView(views);
+        final panelMode = _panelMode(views);
 
-        return _buildHomeContent(favoriteDrinkNames, selected);
+        _scheduleSelectionIfNeeded(views);
+
+        return Column(
+          children: [
+            Expanded(
+              flex: 11,
+              child: Stack(
+                children: [
+                  _MapCard(
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: _currentLat != null && _currentLng != null
+                            ? LatLng(_currentLat!, _currentLng!)
+                            : const LatLng(35.681236, 139.767125),
+                        zoom: _currentLat != null && _currentLng != null
+                            ? _zoomForDistance(_selectedDistanceMeters)
+                            : 14.0,
+                      ),
+                      onMapCreated: (controller) async {
+                        _mapController = controller;
+
+                        if (_currentLat != null &&
+                            _currentLng != null &&
+                            !_didMoveToCurrentLocationOnce &&
+                            _selectedMachineId == null) {
+                          _didMoveToCurrentLocationOnce = true;
+                          await _moveCamera(
+                            LatLng(_currentLat!, _currentLng!),
+                            _zoomForDistance(_selectedDistanceMeters),
+                          );
+                        }
+                      },
+                      onTap: (_) {
+                        if (_selectedMachineId == null) return;
+                        setState(() {
+                          _selectedMachineId = null;
+                          _showDetailPanel = false;
+                        });
+                      },
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      markers: _buildMarkers(views),
+                    ),
+                  ),
+                  Positioned(
+                    right: 24,
+                    bottom: 84,
+                    child: _CircleMapButton(
+                      icon: Icons.my_location_rounded,
+                      isLoading: _isLoadingCurrentLocation,
+                      onPressed: _moveToCurrentLocation,
+                    ),
+                  ),
+                  Positioned(
+                    right: 24,
+                    bottom: 20,
+                    child: _RegisterMapButton(
+                      isLoggedIn: _isLoggedIn,
+                      onPressed: _openRegister,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              flex: 8,
+              child: _PanelCard(
+                child: switch (panelMode) {
+                  _MapPanelMode.idle => _MapIdlePanel(
+                    onTapFilter: _showFilterSheet,
+                  ),
+                  _MapPanelMode.list => _MachineListPanel(
+                    views: views,
+                    selectedMachineId: _selectedMachineId,
+                    distanceLabelBuilder: _distanceLabel,
+                    scrollController: _machineListScrollController,
+                    keyForMachine: _keyForMachine,
+                    onTapMachine: (view) async {
+                      setState(() {
+                        _selectedMachineId = view.machine.id;
+                        _showDetailPanel = true;
+                      });
+                      await _moveCameraToMachine(view.machine);
+                    },
+                  ),
+                  _MapPanelMode.detail => selectedView == null
+                      ? const _EmptyPanel(
+                    title: '見つかりませんでした',
+                    message: '自販機情報がありません。',
+                  )
+                      : _MachineDetailPanel(
+                    view: selectedView,
+                    distanceLabel:
+                    _distanceLabel(selectedView.distanceMeters),
+                    onTapClose: () {
+                      setState(() {
+                        _selectedMachineId = null;
+                        _showDetailPanel = false;
+                      });
+                    },
+                    onTapDetail: () async {
+                      await _openMachineDetail(selectedView.machine);
+                    },
+                    onTapEditDrinks: () async {
+                      await _openDrinkEditorForMachine(selectedView.machine);
+                    },
+                  ),
+                },
+              ),
+            ),
+          ],
+        );
       },
     );
   }
 
-  Widget _buildHomeContent(
-      List<String> favoriteDrinkNames,
-      _MachineViewData? selected,
-      ) {
-    switch (_bottomPanelState) {
-      case _BottomPanelState.idle:
-        return _IdlePanelContent(
-          isLoggedIn: _isLoggedIn,
-          favoriteDrinkNames: favoriteDrinkNames,
-          pickupViews: _favoritePickupViews(favoriteDrinkNames),
-          normalize: _normalize,
-          distanceLabelBuilder: _distanceLabel,
-          onTapFavoriteSearch: _openFavoriteDrinkPicker,
-          onOpenLoginRequired: _showLoginRequiredDialog,
-          onTapPickup: (view) async {
-            final index = _machineViews.indexOf(view);
-            if (index == -1) return;
-            setState(() {
-              _selectedMachineIndex = index;
-              _hasExplicitSelection = true;
-            });
-            await _moveCameraToSelectedMachine(animated: true);
-          },
-        );
+  Widget _buildNonMapTabContent() {
+    final child = switch (_currentTab) {
+      _MainTab.favorites => const FavoriteDrinksScreen(),
+      _MainTab.myPage => MyPageScreen(isLoggedIn: _isLoggedIn),
+      _MainTab.map => const SizedBox.shrink(),
+    };
 
-      case _BottomPanelState.list:
-        return _MachineListPanelContent(
-          machineViews: _machineViews,
-          selectedMachineIndex: _selectedMachineIndex,
-          favoriteDrinkNames: favoriteDrinkNames,
-          normalize: _normalize,
-          distanceLabelBuilder: _distanceLabel,
-          searchKeyword: _selectedKeyword,
-          onSelectMachine: (index) async {
-            setState(() {
-              _selectedMachineIndex = index;
-              _hasExplicitSelection = true;
-            });
-            await _moveCameraToSelectedMachine(animated: true);
-          },
-          onOpenDetail: _openDetail,
-        );
-
-      case _BottomPanelState.detail:
-        if (selected == null) {
-          return const _EmptyState(
-            title: '見つかりませんでした',
-            message: '選択中の自販機がありません。',
-          );
-        }
-        return _MachineDetailPanelContent(
-          selectedView: selected,
-          favoriteDrinkNames: favoriteDrinkNames,
-          normalize: _normalize,
-          distanceLabelBuilder: _distanceLabel,
-          onOpenDetail: _openDetail,
-          onShowList: () {
-            setState(() {
-              _hasExplicitSelection = false;
-            });
-          },
-        );
-    }
+    return _PanelCard(
+      child: child,
+      padding: EdgeInsets.zero,
+    );
   }
 
   @override
@@ -1430,172 +1237,130 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return Scaffold(
       backgroundColor: _appBackground,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
+        child: Column(
           children: [
-            _TopHeaderSection(
+            _TopHeader(
               controller: _searchController,
-              selectedKeyword: _selectedKeyword,
-              selectedMood: _selectedMood,
-              selectedTag: _selectedTag,
               selectedDistanceMeters: _selectedDistanceMeters,
+              hasActiveFilters: _selectedMood != null || _selectedTag != null,
               isSavingDistancePreference: _isSavingDistancePreference,
-              onSubmitted: _applySearch,
-              onClear: _clearSearch,
               onTapNotifications: _openNotifications,
-              onTapMood: _openMoodSheet,
-              onTapDistance: _applyDistanceSelection,
+              onTapFilters: _showFilterSheet,
+              onSelectedDistance: (value) async {
+                final sanitized = _sanitizeDistance(value);
+                setState(() {
+                  _selectedDistanceMeters = sanitized;
+                  _selectedMachineId = null;
+                  _showDetailPanel = false;
+                });
+                await _saveDistancePreference(sanitized);
+
+                if (_currentLat != null &&
+                    _currentLng != null &&
+                    _currentTab == _MainTab.map &&
+                    _selectedMachineId == null) {
+                  await _moveCamera(
+                    LatLng(_currentLat!, _currentLng!),
+                    _zoomForDistance(_selectedDistanceMeters),
+                  );
+                }
+              },
             ),
+            const SizedBox(height: 10),
             Expanded(
-              child: Column(
-                children: [
-                  if (_currentTabIndex == 0)
-                    Expanded(
-                      flex: 11,
-                      child: Stack(
-                        children: [
-                          _MapSection(
-                            initialCameraPosition: _initialCameraPosition,
-                            markers: _markers,
-                            onMapCreated: (controller) {
-                              _mapController = controller;
-                            },
-                            onMapTap: (_) {
-                              if (!_hasExplicitSelection) return;
-                              setState(() {
-                                _hasExplicitSelection = false;
-                              });
-                            },
-                          ),
-                          Positioned(
-                            right: 24,
-                            bottom: 84,
-                            child: _MapCircleButton(
-                              icon: _isMovingToCurrentLocation
-                                  ? null
-                                  : Icons.my_location_rounded,
-                              onPressed: _isMovingToCurrentLocation
-                                  ? null
-                                  : _moveToCurrentLocation,
-                              child: _isMovingToCurrentLocation
-                                  ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                                  : null,
-                            ),
-                          ),
-                          Positioned(
-                            right: 24,
-                            bottom: 20,
-                            child: _MapRegisterButton(
-                              isLoggedIn: _isLoggedIn,
-                              onPressed: _openCreate,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Expanded(
-                    flex: 12,
-                    child: _BottomArea(
-                      currentTabIndex: _currentTabIndex,
-                      onTabChanged: (index) {
-                        setState(() {
-                          _currentTabIndex = index;
-                        });
-                      },
-                      content: _buildTabBody(),
-                    ),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _currentTab == _MainTab.map
+                    ? _buildMapTab()
+                    : _buildNonMapTabContent(),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTabBody() {
-    if (_currentTabIndex == 0) {
-      return _buildMapTabBody();
-    }
-
-    if (_currentTabIndex == 1) {
-      return const FavoriteDrinksScreen();
-    }
-
-    return MyPageScreen(
-      isLoggedIn: _isLoggedIn,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: const Color(0xFFDCE9F3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _AdBanner(),
+              const SizedBox(height: 10),
+              _BottomNavBar(
+                currentTab: _currentTab,
+                onChanged: (tab) {
+                  setState(() {
+                    _currentTab = tab;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _MachineViewData {
-  const _MachineViewData({
+class _MachineView {
+  const _MachineView({
     required this.machine,
     required this.confirmedProductNames,
-    required this.confirmedProductTags,
     required this.estimatedProductNames,
-    required this.estimatedProductTags,
     required this.distanceMeters,
   });
 
   final VendingMachine machine;
   final List<String> confirmedProductNames;
-  final List<String> confirmedProductTags;
   final List<String> estimatedProductNames;
-  final List<String> estimatedProductTags;
   final double? distanceMeters;
 
   bool get isEstimated =>
       confirmedProductNames.isEmpty && estimatedProductNames.isNotEmpty;
 
-  List<String> get displayProductNames =>
-      confirmedProductNames.isNotEmpty ? confirmedProductNames : estimatedProductNames;
-
-  List<String> get displayProductTags =>
-      confirmedProductTags.isNotEmpty ? confirmedProductTags : estimatedProductTags;
+  List<String> get displayProducts =>
+      confirmedProductNames.isNotEmpty
+          ? confirmedProductNames
+          : estimatedProductNames;
 }
 
-class _TopHeaderSection extends StatelessWidget {
-  const _TopHeaderSection({
+class _TopHeader extends StatelessWidget {
+  const _TopHeader({
     required this.controller,
-    required this.selectedKeyword,
-    required this.selectedMood,
-    required this.selectedTag,
     required this.selectedDistanceMeters,
+    required this.hasActiveFilters,
     required this.isSavingDistancePreference,
-    required this.onSubmitted,
-    required this.onClear,
     required this.onTapNotifications,
-    required this.onTapMood,
-    required this.onTapDistance,
+    required this.onTapFilters,
+    required this.onSelectedDistance,
   });
 
   final TextEditingController controller;
-  final String selectedKeyword;
-  final String? selectedMood;
-  final String? selectedTag;
   final int selectedDistanceMeters;
+  final bool hasActiveFilters;
   final bool isSavingDistancePreference;
-  final ValueChanged<String> onSubmitted;
-  final VoidCallback onClear;
   final VoidCallback onTapNotifications;
-  final VoidCallback onTapMood;
-  final ValueChanged<int> onTapDistance;
+  final VoidCallback onTapFilters;
+  final ValueChanged<int> onSelectedDistance;
 
   @override
   Widget build(BuildContext context) {
-    final hasMoodOrTag = selectedMood != null || selectedTag != null;
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Column(
         children: [
           Container(
@@ -1628,6 +1393,7 @@ class _TopHeaderSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: const Color(0xFFDCE9F3)),
                     ),
+                    alignment: Alignment.center,
                     child: const Icon(
                       Icons.notifications_none_rounded,
                       size: 19,
@@ -1637,7 +1403,7 @@ class _TopHeaderSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -1656,60 +1422,86 @@ class _TopHeaderSection extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  flex: 6,
                   child: TextField(
                     controller: controller,
-                    onSubmitted: onSubmitted,
+                    textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
                       hintText: '飲みたいドリンクを検索',
                       prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: selectedKeyword.isNotEmpty
-                          ? IconButton(
-                        onPressed: onClear,
-                        icon: const Icon(Icons.close_rounded),
-                      )
-                          : null,
                       isDense: true,
                       filled: true,
                       fillColor: const Color(0xFFF7FBFC),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                        const BorderSide(color: Color(0xFFE3E7EB)),
+                        borderSide: const BorderSide(color: Color(0xFFE3E7EB)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                        const BorderSide(color: Color(0xFFE3E7EB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFE3E7EB)),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: _HeaderActionButton(
-                    icon: Icons.tune_rounded,
-                    label: hasMoodOrTag ? '気分中' : '気分',
-                    selected: hasMoodOrTag,
-                    onTap: onTapMood,
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 88,
+                  height: 46,
+                  child: FilledButton.tonal(
+                    onPressed: onTapFilters,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      hasActiveFilters ? '絞込中' : '気分',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: _DistanceMenuButton(
-                    value: selectedDistanceMeters,
-                    isSaving: isSavingDistancePreference,
-                    onChanged: onTapDistance,
-                    options: _MainShellScreenState._distanceOptions,
+                const SizedBox(width: 10),
+                PopupMenuButton<int>(
+                  onSelected: onSelectedDistance,
+                  itemBuilder: (_) => _MainShellScreenState._distanceOptions
+                      .map(
+                        (e) => PopupMenuItem<int>(
+                      value: e,
+                      child: Text('${e}m'),
+                    ),
+                  )
+                      .toList(),
+                  child: Container(
+                    width: 96,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7FBFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE3E7EB)),
+                    ),
+                    alignment: Alignment.center,
+                    child: isSavingDistancePreference
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : Text(
+                      '${selectedDistanceMeters}m',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -1721,198 +1513,111 @@ class _TopHeaderSection extends StatelessWidget {
   }
 }
 
-class _HeaderActionButton extends StatelessWidget {
-  const _HeaderActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.selected = false,
+class _MapCard extends StatelessWidget {
+  const _MapCard({
+    required this.child,
   });
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderColor = selected
-        ? Theme.of(context).colorScheme.primary
-        : const Color(0xFFE3E7EB);
-
-    final backgroundColor =
-    selected ? const Color(0xFFEAF6FF) : const Color(0xFFF7FBFC);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DistanceMenuButton extends StatelessWidget {
-  const _DistanceMenuButton({
-    required this.value,
-    required this.isSaving,
-    required this.onChanged,
-    required this.options,
-  });
-
-  final int value;
-  final bool isSaving;
-  final ValueChanged<int> onChanged;
-  final List<int> options;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
-      onSelected: onChanged,
-      itemBuilder: (context) {
-        return options.map((meters) {
-          return PopupMenuItem<int>(
-            value: meters,
-            child: Text('${meters}m'),
-          );
-        }).toList();
-      },
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7FBFC),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE3E7EB)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            isSaving
-                ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-                : const Icon(Icons.near_me_rounded, size: 18),
-            const SizedBox(height: 2),
-            Text(
-              '${value}m',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MapSection extends StatelessWidget {
-  const _MapSection({
-    required this.initialCameraPosition,
-    required this.markers,
-    required this.onMapCreated,
-    required this.onMapTap,
-  });
-
-  final CameraPosition initialCameraPosition;
-  final Set<Marker> markers;
-  final ValueChanged<GoogleMapController> onMapCreated;
-  final ValueChanged<LatLng> onMapTap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
+        border: Border.all(color: const Color(0xFFDCE9F3)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
+            color: Color(0x14000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
-        child: GoogleMap(
-          initialCameraPosition: initialCameraPosition,
-          onMapCreated: onMapCreated,
-          onTap: onMapTap,
-          markers: markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          mapToolbarEnabled: false,
-        ),
+        child: child,
       ),
     );
   }
 }
 
-class _MapCircleButton extends StatelessWidget {
-  const _MapCircleButton({
-    required this.onPressed,
-    this.icon,
-    this.child,
+class _PanelCard extends StatelessWidget {
+  const _PanelCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
   });
 
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final Widget? child;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFDCE9F3)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CircleMapButton extends StatelessWidget {
+  const _CircleMapButton({
+    required this.icon,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool isLoading;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
       elevation: 2,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
-        onTap: onPressed,
+        onTap: isLoading ? null : onPressed,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          width: 48,
-          height: 48,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: const Color(0xFFE3E7EB)),
           ),
           alignment: Alignment.center,
-          child: child ?? Icon(icon),
+          child: isLoading
+              ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : Icon(icon),
         ),
       ),
     );
   }
 }
 
-class _MapRegisterButton extends StatelessWidget {
-  const _MapRegisterButton({
+class _RegisterMapButton extends StatelessWidget {
+  const _RegisterMapButton({
     required this.isLoggedIn,
     required this.onPressed,
   });
@@ -1923,14 +1628,14 @@ class _MapRegisterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
       elevation: 2,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(999),
@@ -1947,8 +1652,9 @@ class _MapRegisterButton extends StatelessWidget {
               Text(
                 isLoggedIn ? '登録' : 'ログインで登録',
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
+                  color: Color(0xFF334148),
                 ),
               ),
             ],
@@ -1959,45 +1665,685 @@ class _MapRegisterButton extends StatelessWidget {
   }
 }
 
-class _BottomArea extends StatelessWidget {
-  const _BottomArea({
-    required this.currentTabIndex,
-    required this.onTabChanged,
-    required this.content,
+class _MapIdlePanel extends StatelessWidget {
+  const _MapIdlePanel({
+    required this.onTapFilter,
   });
 
-  final int currentTabIndex;
-  final ValueChanged<int> onTabChanged;
-  final Widget content;
+  final VoidCallback onTapFilter;
 
   @override
   Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '近くの自販機を探す',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334148),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '飲みたいドリンクから検索したり、気分 / タグで絞り込めます。',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF60707A),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _SimpleInfoBlock(
+            title: '絞り込みを使う',
+            message: 'スッキリ・甘い・眠気覚ましなどから探せます。',
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: onTapFilter,
+              child: const Text('気分 / タグを選ぶ'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MachineListPanel extends StatelessWidget {
+  const _MachineListPanel({
+    required this.views,
+    required this.selectedMachineId,
+    required this.distanceLabelBuilder,
+    required this.scrollController,
+    required this.keyForMachine,
+    required this.onTapMachine,
+  });
+
+  final List<_MachineView> views;
+  final String? selectedMachineId;
+  final String Function(double? meters) distanceLabelBuilder;
+  final ScrollController scrollController;
+  final GlobalKey Function(String machineId) keyForMachine;
+  final Future<void> Function(_MachineView view) onTapMachine;
+
+  @override
+  Widget build(BuildContext context) {
+    if (views.isEmpty) {
+      return const _EmptyPanel(
+        title: '見つかりませんでした',
+        message: '条件に合う自販機がありません。',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '検索結果 ${views.length}件',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF334148),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.separated(
+            controller: scrollController,
+            itemCount: views.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final view = views[index];
+              final selected = selectedMachineId == view.machine.id;
+
+              return KeyedSubtree(
+                key: keyForMachine(view.machine.id),
+                child: _MachineRowCard(
+                  title: view.machine.name,
+                  subtitle:
+                  '${view.machine.manufacturer} ・ ${distanceLabelBuilder(view.distanceMeters)}',
+                  products: view.displayProducts,
+                  isEstimated: view.isEstimated,
+                  selected: selected,
+                  accentColor: _manufacturerAccentColorOf(
+                    view.machine.manufacturer,
+                  ),
+                  onTap: () => onTapMachine(view),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MachineDetailPanel extends StatelessWidget {
+  const _MachineDetailPanel({
+    required this.view,
+    required this.distanceLabel,
+    required this.onTapClose,
+    required this.onTapDetail,
+    required this.onTapEditDrinks,
+  });
+
+  final _MachineView view;
+  final String distanceLabel;
+  final VoidCallback onTapClose;
+  final Future<void> Function() onTapDetail;
+  final Future<void> Function() onTapEditDrinks;
+
+  Color _manufacturerAccentColor(String manufacturer) {
+    switch (manufacturer.trim()) {
+      case 'コカコーラ':
+      case 'コカ・コーラ':
+        return const Color(0xFFE53935);
+      case 'サントリー':
+        return const Color(0xFF1E88E5);
+      case '伊藤園':
+        return const Color(0xFF43A047);
+      case 'キリン':
+        return const Color(0xFFF9A825);
+      case 'アサヒ':
+        return const Color(0xFFFB8C00);
+      case '大塚製薬':
+        return const Color(0xFF3949AB);
+      case 'AQUO':
+        return const Color(0xFF00ACC1);
+      case 'ダイドー':
+        return const Color(0xFF8E24AA);
+      default:
+        return const Color(0xFF60707A);
+    }
+  }
+
+  Widget _infoChip({
+    required IconData icon,
+    required String label,
+  }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: const Color(0xFF60707A),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF334148),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _productChip(String name, bool isEstimated, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: isEstimated
+            ? const Color(0xFFF7F2E8)
+            : accentColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isEstimated
+              ? const Color(0xFFE4D3AF)
+              : accentColor.withOpacity(0.22),
+        ),
+      ),
+      child: Text(
+        isEstimated ? '$name かも' : name,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF334148),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = _manufacturerAccentColor(view.machine.manufacturer);
+    final locationName = (view.machine.locationName ?? '').trim();
+    final hasLocation = locationName.isNotEmpty;
+    final products = view.displayProducts;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFDCE9F3)),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x14000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          Expanded(child: content),
-          const SizedBox(height: 10),
-          const _AdBanner(),
-          const SizedBox(height: 10),
-          _BottomNavBar(
-            currentTabIndex: currentTabIndex,
-            onTabChanged: onTabChanged,
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              view.machine.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF334148),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accentColor.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: accentColor.withOpacity(0.22),
+                                ),
+                              ),
+                              child: Text(
+                                view.machine.manufacturer,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: accentColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: onTapClose,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF7FBFC),
+                            borderRadius: BorderRadius.circular(999),
+                            border:
+                            Border.all(color: const Color(0xFFE3E7EB)),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 20,
+                            color: Color(0xFF60707A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _infoChip(
+                        icon: Icons.near_me_rounded,
+                        label: distanceLabel,
+                      ),
+                      if (hasLocation)
+                        _infoChip(
+                          icon: Icons.place_outlined,
+                          label: locationName,
+                        ),
+                      _infoChip(
+                        icon: Icons.local_drink_outlined,
+                        label: products.isEmpty ? 'ドリンク未登録' : '${products.length}件',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'ドリンク',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (products.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FBFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFE3E7EB),
+                        ),
+                      ),
+                      child: const Text(
+                        'まだドリンク情報は登録されていません。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF60707A),
+                        ),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: products
+                          .map(
+                            (name) => _productChip(
+                          name,
+                          view.isEstimated,
+                          accentColor,
+                        ),
+                      )
+                          .toList(),
+                    ),
+                  if (view.isEstimated) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      '※ 推定候補を含んでいます',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8A6A2F),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: onTapEditDrinks,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.local_drink_rounded),
+                          label: Text(
+                            view.displayProducts.isEmpty ? 'この自販機にドリンクを登録' : 'ドリンクを編集する',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: onTapClose,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                                side: const BorderSide(
+                                  color: Color(0xFFE3E7EB),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text('閉じる'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: onTapDetail,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                                backgroundColor: accentColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: const Icon(Icons.open_in_new_rounded),
+                              label: const Text('詳細を見る'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MachineRowCard extends StatefulWidget {
+  const _MachineRowCard({
+    required this.title,
+    required this.subtitle,
+    required this.products,
+    required this.isEstimated,
+    required this.selected,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<String> products;
+  final bool isEstimated;
+  final bool selected;
+  final Color accentColor;
+  final Future<void> Function() onTap;
+
+  @override
+  State<_MachineRowCard> createState() => _MachineRowCardState();
+}
+
+class _MachineRowCardState extends State<_MachineRowCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.selected;
+
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) async {
+        setState(() => _pressed = false);
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        await widget.onTap();
+      },
+      onTapCancel: () {
+        setState(() => _pressed = false);
+      },
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 120),
+        scale: _pressed ? 0.96 : (selected ? 1.02 : 1.0),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color:
+            selected ? widget.accentColor.withOpacity(0.10) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? widget.accentColor
+                  : const Color(0xFFE3E7EB),
+              width: selected ? 2 : 1,
+            ),
+            boxShadow: selected
+                ? [
+              BoxShadow(
+                color: widget.accentColor.withOpacity(0.20),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+              const BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ]
+                : const [
+              BoxShadow(
+                color: Color(0x0D000000),
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: selected ? 8 : 6,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: widget.accentColor,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(20),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF60707A),
+                        ),
+                      ),
+                      if (widget.products.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: widget.products.take(4).map((name) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: widget.isEstimated
+                                    ? const Color(0xFFF7F2E8)
+                                    : const Color(0xFFF7FBFC),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                widget.isEstimated ? '$name かも' : name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SimpleInfoBlock extends StatelessWidget {
+  const _SimpleInfoBlock({
+    required this.title,
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334148),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF60707A),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPanel extends StatelessWidget {
+  const _EmptyPanel({
+    required this.title,
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: _SimpleInfoBlock(
+        title: title,
+        message: message,
       ),
     );
   }
@@ -2031,35 +2377,33 @@ class _AdBanner extends StatelessWidget {
 
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({
-    required this.currentTabIndex,
-    required this.onTabChanged,
+    required this.currentTab,
+    required this.onChanged,
   });
 
-  final int currentTabIndex;
-  final ValueChanged<int> onTabChanged;
+  final _MainTab currentTab;
+  final ValueChanged<_MainTab> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    const tabs = <({IconData icon, String label})>[
-      (icon: Icons.map_rounded, label: 'マップ'),
-      (icon: Icons.favorite_rounded, label: 'お気に入り'),
-      (icon: Icons.person_rounded, label: 'マイページ'),
+    const tabs = <({IconData icon, String label, _MainTab tab})>[
+      (icon: Icons.map_rounded, label: 'マップ', tab: _MainTab.map),
+      (icon: Icons.favorite_rounded, label: 'お気に入り', tab: _MainTab.favorites),
+      (icon: Icons.person_rounded, label: 'マイページ', tab: _MainTab.myPage),
     ];
 
     return SizedBox(
       height: 64,
       child: Row(
         children: List<Widget>.generate(tabs.length, (index) {
-          final tab = tabs[index];
-          final selected = currentTabIndex == index;
+          final item = tabs[index];
+          final selected = currentTab == item.tab;
 
           return Expanded(
             child: Padding(
-              padding: EdgeInsets.only(
-                right: index == tabs.length - 1 ? 0 : 8,
-              ),
+              padding: EdgeInsets.only(right: index == tabs.length - 1 ? 0 : 8),
               child: InkWell(
-                onTap: () => onTabChanged(index),
+                onTap: () => onChanged(item.tab),
                 borderRadius: BorderRadius.circular(18),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -2074,13 +2418,13 @@ class _BottomNavBar extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        tab.icon,
+                        item.icon,
                         size: 22,
                         color: selected ? Colors.white : Colors.black54,
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        tab.label,
+                        item.label,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -2094,854 +2438,6 @@ class _BottomNavBar extends StatelessWidget {
             ),
           );
         }),
-      ),
-    );
-  }
-}
-
-class _IdlePanelContent extends StatelessWidget {
-  const _IdlePanelContent({
-    required this.isLoggedIn,
-    required this.favoriteDrinkNames,
-    required this.pickupViews,
-    required this.normalize,
-    required this.distanceLabelBuilder,
-    required this.onTapFavoriteSearch,
-    required this.onOpenLoginRequired,
-    required this.onTapPickup,
-  });
-
-  final bool isLoggedIn;
-  final List<String> favoriteDrinkNames;
-  final List<_MachineViewData> pickupViews;
-  final String Function(String value) normalize;
-  final String Function(double? meters) distanceLabelBuilder;
-  final Future<void> Function() onTapFavoriteSearch;
-  final Future<void> Function() onOpenLoginRequired;
-  final Future<void> Function(_MachineViewData view) onTapPickup;
-
-  List<String> _matchingFavorites(
-      List<String> products,
-      List<String> favorites,
-      ) {
-    final favoriteMap = <String, String>{
-      for (final item in favorites) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!isLoggedIn) {
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _InlineInfoCard(
-              title: '近くの自販機を探す',
-              subtitle: '上の検索バーから、今飲みたいドリンクを探せます。',
-            ),
-            const SizedBox(height: 12),
-            _ActionInfoCard(
-              title: 'ログインでお気に入りから探せます',
-              subtitle: 'お気に入りに入れたドリンクで、近くの自販機を見つけやすくなります。',
-              buttonLabel: 'ログインする',
-              onPressed: onOpenLoginRequired,
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (favoriteDrinkNames.isEmpty) {
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _InlineInfoCard(
-              title: '近くの自販機を探す',
-              subtitle: '上の検索バーから、今飲みたいドリンクを探せます。',
-            ),
-            const SizedBox(height: 12),
-            _ActionInfoCard(
-              title: 'お気に入り登録で探しやすくなります',
-              subtitle: 'よく飲むドリンクをお気に入りに入れると、近くにある自販機をここに表示します。',
-              buttonLabel: 'お気に入りから探す',
-              onPressed: onTapFavoriteSearch,
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (pickupViews.isEmpty) {
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _InlineInfoCard(
-              title: '近くにお気に入り候補がありません',
-              subtitle: '距離を広げるか、検索バーから別のドリンクを探してみてください。',
-            ),
-            const SizedBox(height: 12),
-            _ActionInfoCard(
-              title: 'お気に入りを見直す',
-              subtitle: 'お気に入りドリンクを変えると、ここに近くの候補が表示されます。',
-              buttonLabel: 'お気に入りから探す',
-              onPressed: onTapFavoriteSearch,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'お気に入りから近くの自販機',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...pickupViews.map((view) {
-            final matching = _matchingFavorites(
-              view.displayProductNames,
-              favoriteDrinkNames,
-            );
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => onTapPickup(view),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: view.isEstimated
-                        ? const Color(0xFFF7FBFC)
-                        : const Color(0xFFFFFBF2),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: view.isEstimated
-                          ? const Color(0xFFD8E7EA)
-                          : const Color(0xFFFFD18B),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        view.isEstimated
-                            ? Icons.help_outline_rounded
-                            : Icons.favorite_rounded,
-                        color: view.isEstimated
-                            ? const Color(0xFF60707A)
-                            : const Color(0xFFB56B00),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              view.machine.name,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                Text(
-                                  '${view.machine.manufacturer} ・ ${distanceLabelBuilder(view.distanceMeters)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF60707A),
-                                  ),
-                                ),
-                                _DrinkStateBadge(isEstimated: view.isEstimated),
-                              ],
-                            ),
-                            if (matching.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                view.isEstimated
-                                    ? '候補: ${matching.join(' / ')} かも'
-                                    : '一致: ${matching.join(' / ')}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: view.isEstimated
-                                      ? const Color(0xFF60707A)
-                                      : const Color(0xFF8A5A00),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionInfoCard extends StatelessWidget {
-  const _ActionInfoCard({
-    required this.title,
-    required this.subtitle,
-    required this.buttonLabel,
-    required this.onPressed,
-  });
-
-  final String title;
-  final String subtitle;
-  final String buttonLabel;
-  final Future<void> Function() onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF60707A),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton(
-              onPressed: () => onPressed(),
-              child: Text(buttonLabel),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MachineListPanelContent extends StatelessWidget {
-  const _MachineListPanelContent({
-    required this.machineViews,
-    required this.selectedMachineIndex,
-    required this.favoriteDrinkNames,
-    required this.onSelectMachine,
-    required this.onOpenDetail,
-    required this.normalize,
-    required this.distanceLabelBuilder,
-    required this.searchKeyword,
-  });
-
-  final List<_MachineViewData> machineViews;
-  final int selectedMachineIndex;
-  final List<String> favoriteDrinkNames;
-  final Future<void> Function(int index) onSelectMachine;
-  final Future<void> Function(_MachineViewData view) onOpenDetail;
-  final String Function(String value) normalize;
-  final String Function(double? meters) distanceLabelBuilder;
-  final String searchKeyword;
-
-  List<String> _matchingFavorites(List<String> products) {
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final title =
-    searchKeyword.trim().isEmpty ? '候補一覧' : '「$searchKeyword」検索結果 ${machineViews.length}件';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: ListView.builder(
-            itemCount: machineViews.length,
-            itemBuilder: (context, index) {
-              final view = machineViews[index];
-              final machine = view.machine;
-              final selected = index == selectedMachineIndex;
-              final matchingFavorites = _matchingFavorites(view.displayProductNames);
-              final hasFavorite = matchingFavorites.isNotEmpty;
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: InkWell(
-                  onTap: () => onSelectMachine(index),
-                  onLongPress: () => onOpenDetail(view),
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0xFFEAF6F7)
-                          : hasFavorite
-                          ? const Color(0xFFFFFBF2)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : hasFavorite
-                            ? const Color(0xFFFFD18B)
-                            : const Color(0xFFE3E7EB),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          hasFavorite
-                              ? Icons.favorite_rounded
-                              : view.isEstimated
-                              ? Icons.help_outline_rounded
-                              : Icons.local_drink_rounded,
-                          color: hasFavorite ? const Color(0xFFB56B00) : null,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                machine.name,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    machine.manufacturer,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF60707A),
-                                    ),
-                                  ),
-                                  _DrinkStateBadge(isEstimated: view.isEstimated),
-                                  if (hasFavorite) const _MiniFavoriteBadge(),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '距離: ${distanceLabelBuilder(view.distanceMeters)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF60707A),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (view.displayProductNames.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  view.isEstimated
-                                      ? '${view.displayProductNames.take(3).join(' / ')} かも'
-                                      : view.displayProductNames.take(3).join(' / '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: view.isEstimated
-                                        ? const Color(0xFF6D7B84)
-                                        : const Color(0xFF60707A),
-                                    fontWeight: view.isEstimated
-                                        ? FontWeight.w600
-                                        : FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.chevron_right_rounded),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MachineDetailPanelContent extends StatelessWidget {
-  const _MachineDetailPanelContent({
-    required this.selectedView,
-    required this.favoriteDrinkNames,
-    required this.normalize,
-    required this.distanceLabelBuilder,
-    required this.onOpenDetail,
-    required this.onShowList,
-  });
-
-  final _MachineViewData selectedView;
-  final List<String> favoriteDrinkNames;
-  final String Function(String value) normalize;
-  final String Function(double? meters) distanceLabelBuilder;
-  final Future<void> Function(_MachineViewData view) onOpenDetail;
-  final VoidCallback onShowList;
-
-  List<String> _matchingFavorites(List<String> products) {
-    final favoriteMap = <String, String>{
-      for (final item in favoriteDrinkNames) normalize(item): item,
-    };
-
-    final result = <String>[];
-    final used = <String>{};
-
-    for (final product in products) {
-      final key = normalize(product);
-      if (favoriteMap.containsKey(key) && !used.contains(key)) {
-        result.add(product);
-        used.add(key);
-      }
-    }
-
-    return result;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final machine = selectedView.machine;
-    final displayProducts = selectedView.displayProductNames;
-    final matchingFavorites = _matchingFavorites(displayProducts);
-    final favoriteKeys = matchingFavorites.map(normalize).toSet();
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '選択中の自販機',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: onShowList,
-                icon: const Icon(Icons.view_list_rounded, size: 18),
-                label: const Text('一覧へ'),
-              ),
-            ],
-          ),
-          InkWell(
-            onTap: () => onOpenDetail(selectedView),
-            borderRadius: BorderRadius.circular(22),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7FBFC),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: matchingFavorites.isNotEmpty
-                      ? const Color(0xFFFFC56D)
-                      : const Color(0xFFD8E7EA),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          machine.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      _DrinkStateBadge(isEstimated: selectedView.isEstimated),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'メーカー: ${machine.manufacturer}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF60707A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '距離: ${distanceLabelBuilder(selectedView.distanceMeters)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF60707A),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if ((machine.locationName ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      machine.locationName!,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF60707A),
-                      ),
-                    ),
-                  ],
-                  if ((machine.note ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      '備考: ${machine.note!}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF60707A),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    selectedView.isEstimated
-                        ? 'このメーカーで見かけることがあるドリンク'
-                        : '確認されているドリンク',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: selectedView.isEstimated
-                          ? const Color(0xFF60707A)
-                          : const Color(0xFF334148),
-                    ),
-                  ),
-                  if (selectedView.isEstimated) ...[
-                    const SizedBox(height: 4),
-                    const Text(
-                      'まだドリンク登録がないため、メーカー情報から候補を表示しています。',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF60707A),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  if (displayProducts.isEmpty)
-                    const Text(
-                      'ドリンク未登録',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF60707A),
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: displayProducts.map((product) {
-                        final isFavorite = favoriteKeys.contains(normalize(product));
-
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selectedView.isEstimated
-                                ? const Color(0xFFF7FBFC)
-                                : isFavorite
-                                ? const Color(0xFFFFF2D9)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: selectedView.isEstimated
-                                  ? const Color(0xFFD8E7EA)
-                                  : isFavorite
-                                  ? const Color(0xFFFFD18B)
-                                  : const Color(0xFFE3E7EB),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isFavorite && !selectedView.isEstimated) ...[
-                                const Icon(
-                                  Icons.favorite_rounded,
-                                  size: 13,
-                                  color: Color(0xFFB56B00),
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                              if (selectedView.isEstimated) ...[
-                                const Icon(
-                                  Icons.help_outline_rounded,
-                                  size: 13,
-                                  color: Color(0xFF60707A),
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                              Text(
-                                product,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight:
-                                  isFavorite || selectedView.isEstimated
-                                      ? FontWeight.w800
-                                      : FontWeight.w700,
-                                  color: selectedView.isEstimated
-                                      ? const Color(0xFF60707A)
-                                      : isFavorite
-                                      ? const Color(0xFF8A5A00)
-                                      : Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => onOpenDetail(selectedView),
-                      child: const Text('詳細を見る'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrinkStateBadge extends StatelessWidget {
-  const _DrinkStateBadge({
-    required this.isEstimated,
-  });
-
-  final bool isEstimated;
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor =
-    isEstimated ? const Color(0xFFF1F3F5) : const Color(0xFFEAF6FF);
-    final borderColor =
-    isEstimated ? const Color(0xFFD8E0E5) : const Color(0xFFBEDDF4);
-    final textColor =
-    isEstimated ? const Color(0xFF60707A) : const Color(0xFF245A84);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-      ),
-      child: Text(
-        isEstimated ? '候補' : '確認済み',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniFavoriteBadge extends StatelessWidget {
-  const _MiniFavoriteBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF2D9),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: const Color(0xFFFFD18B),
-        ),
-      ),
-      child: const Text(
-        'お気に入りあり',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF8A5A00),
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineInfoCard extends StatelessWidget {
-  const _InlineInfoCard({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBFC),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF60707A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.title,
-    required this.message,
-  });
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F6F8),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE3E7EB)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.search_off_rounded, size: 36),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF60707A),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }

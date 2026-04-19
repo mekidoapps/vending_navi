@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/vending_machine.dart';
 import '../utils/distance_util.dart';
 import '../widgets/machine_freshness_badge.dart';
+import 'register_vending_machine_screen.dart';
 
 class MachineDetailScreen extends StatelessWidget {
   const MachineDetailScreen({
@@ -82,17 +83,17 @@ class MachineDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confirmedProducts = _productNamesOf(machine);
-    final confirmedTags = _productTagsOf(machine);
-    final estimatedProducts = _estimatedProductNamesOf(machine);
-    final estimatedTags = _estimatedProductTagsOf(machine);
-    final isEstimated =
+    final List<String> confirmedProducts = _productNamesOf(machine);
+    final List<String> confirmedTags = _productTagsOf(machine);
+    final List<String> estimatedProducts = _estimatedProductNamesOf(machine);
+    final List<String> estimatedTags = _estimatedProductTagsOf(machine);
+    final bool isEstimated =
         confirmedProducts.isEmpty && estimatedProducts.isNotEmpty;
-    final displayProducts =
+    final List<String> displayProducts =
     confirmedProducts.isNotEmpty ? confirmedProducts : estimatedProducts;
-    final displayTags =
+    final List<String> displayTags =
     confirmedTags.isNotEmpty ? confirmedTags : estimatedTags;
-    final distanceText = _buildDistanceText();
+    final String? distanceText = _buildDistanceText();
 
     return Scaffold(
       appBar: AppBar(
@@ -105,14 +106,14 @@ class MachineDetailScreen extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
+          children: <Widget>[
             _SectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children: <Widget>[
                       Expanded(
                         child: Text(
                           machine.name,
@@ -132,7 +133,7 @@ class MachineDetailScreen extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
+                    children: <Widget>[
                       _InfoPill(
                         icon: Icons.local_drink_rounded,
                         label: machine.manufacturer,
@@ -148,7 +149,7 @@ class MachineDetailScreen extends StatelessWidget {
                         ),
                     ],
                   ),
-                  if ((machine.locationName ?? '').trim().isNotEmpty) ...[
+                  if ((machine.locationName ?? '').trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 12),
                     _LabeledText(
                       label: '場所',
@@ -156,14 +157,14 @@ class MachineDetailScreen extends StatelessWidget {
                     ),
                   ],
                   if ((machine.address ?? '').trim().isNotEmpty &&
-                      machine.address != machine.locationName) ...[
+                      machine.address != machine.locationName) ...<Widget>[
                     const SizedBox(height: 10),
                     _LabeledText(
                       label: '住所',
                       value: machine.address!,
                     ),
                   ],
-                  if ((machine.note ?? '').trim().isNotEmpty) ...[
+                  if ((machine.note ?? '').trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 10),
                     _LabeledText(
                       label: 'メモ',
@@ -177,7 +178,7 @@ class MachineDetailScreen extends StatelessWidget {
             _SectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Text(
                     isEstimated ? 'このメーカーで見かけることがあるドリンク' : '確認されているドリンク',
                     style: const TextStyle(
@@ -211,7 +212,7 @@ class MachineDetailScreen extends StatelessWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: displayProducts.map((product) {
+                      children: displayProducts.map((String product) {
                         return _ProductChip(
                           label: product,
                           isEstimated: isEstimated,
@@ -221,12 +222,12 @@ class MachineDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            if (displayTags.isNotEmpty) ...[
+            if (displayTags.isNotEmpty) ...<Widget>[
               const SizedBox(height: 12),
               _SectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     const Text(
                       'タグ',
                       style: TextStyle(
@@ -239,7 +240,7 @@ class MachineDetailScreen extends StatelessWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: displayTags.map((tag) {
+                      children: displayTags.map((String tag) {
                         return _TagChip(
                           label: tag,
                           subtle: isEstimated,
@@ -250,12 +251,12 @@ class MachineDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
-            if (machine.tags.isNotEmpty) ...[
+            if (machine.tags.isNotEmpty) ...<Widget>[
               const SizedBox(height: 12),
               _SectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     const Text(
                       '自販機メモタグ',
                       style: TextStyle(
@@ -268,7 +269,7 @@ class MachineDetailScreen extends StatelessWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: machine.tags.map((tag) {
+                      children: machine.tags.map((String tag) {
                         return _TagChip(
                           label: tag,
                           subtle: false,
@@ -279,8 +280,53 @@ class MachineDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    '登録を補足',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    confirmedProducts.isEmpty
+                        ? 'まだ中身の登録が少ないので、この自販機にドリンクを追加できます。'
+                        : '売り切れやラインナップの変化があれば、そのまま編集できます。',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF60707A),
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => _openDrinkEditor(context),
+                      icon: Icon(
+                        confirmedProducts.isEmpty
+                            ? Icons.add_circle_outline_rounded
+                            : Icons.edit_outlined,
+                      ),
+                      label: Text(
+                        confirmedProducts.isEmpty
+                            ? 'この自販機にドリンクを登録'
+                            : 'この自販機のドリンクを編集',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
-            FilledButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('閉じる'),
             ),
@@ -288,6 +334,44 @@ class MachineDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openDrinkEditor(BuildContext context) async {
+    final dynamic result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
+        builder: (_) => RegisterVendingMachineScreen(
+          machineId: machine.id,
+        ),
+      ),
+    );
+
+    if (!context.mounted) return;
+
+    if (result == null) {
+      return;
+    }
+
+    if (result is String && result.trim().isNotEmpty) {
+      Navigator.of(context).pop(<String, dynamic>{
+        'machineId': result.trim(),
+      });
+      return;
+    }
+
+    if (result is Map) {
+      final dynamic machineIdValue = result['machineId'];
+      if (machineIdValue is String && machineIdValue.trim().isNotEmpty) {
+        Navigator.of(context).pop(<String, dynamic>{
+          ...result,
+          'machineId': machineIdValue.trim(),
+        });
+        return;
+      }
+    }
+
+    Navigator.of(context).pop(<String, dynamic>{
+      'machineId': machine.id,
+    });
   }
 
   String _normalize(String input) {
@@ -302,14 +386,14 @@ class MachineDetailScreen extends StatelessWidget {
   }
 
   List<String> _productNamesOf(VendingMachine machine) {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in machine.products) {
-      final name = (product['name'] ?? '').toString().trim();
+    for (final Map<String, dynamic> product in machine.products) {
+      final String name = (product['name'] ?? '').toString().trim();
       if (name.isEmpty) continue;
 
-      final key = _normalize(name);
+      final String key = _normalize(name);
       if (used.contains(key)) continue;
       used.add(key);
       result.add(name);
@@ -319,16 +403,17 @@ class MachineDetailScreen extends StatelessWidget {
   }
 
   List<String> _productTagsOf(VendingMachine machine) {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in machine.products) {
-      final tags = List<String>.from(product['tags'] ?? const <String>[]);
-      for (final tag in tags) {
-        final trimmed = tag.trim();
+    for (final Map<String, dynamic> product in machine.products) {
+      final List<String> tags =
+      List<String>.from(product['tags'] ?? const <String>[]);
+      for (final String tag in tags) {
+        final String trimmed = tag.trim();
         if (trimmed.isEmpty) continue;
 
-        final key = _normalize(trimmed);
+        final String key = _normalize(trimmed);
         if (used.contains(key)) continue;
         used.add(key);
         result.add(trimmed);
@@ -349,14 +434,14 @@ class MachineDetailScreen extends StatelessWidget {
   }
 
   List<String> _estimatedProductNamesOf(VendingMachine machine) {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in _estimatedProductsOf(machine)) {
-      final name = (product['name'] ?? '').toString().trim();
+    for (final Map<String, dynamic> product in _estimatedProductsOf(machine)) {
+      final String name = (product['name'] ?? '').toString().trim();
       if (name.isEmpty) continue;
 
-      final key = _normalize(name);
+      final String key = _normalize(name);
       if (used.contains(key)) continue;
       used.add(key);
       result.add(name);
@@ -366,16 +451,17 @@ class MachineDetailScreen extends StatelessWidget {
   }
 
   List<String> _estimatedProductTagsOf(VendingMachine machine) {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in _estimatedProductsOf(machine)) {
-      final tags = List<String>.from(product['tags'] ?? const <String>[]);
-      for (final tag in tags) {
-        final trimmed = tag.trim();
+    for (final Map<String, dynamic> product in _estimatedProductsOf(machine)) {
+      final List<String> tags =
+      List<String>.from(product['tags'] ?? const <String>[]);
+      for (final String tag in tags) {
+        final String trimmed = tag.trim();
         if (trimmed.isEmpty) continue;
 
-        final key = _normalize(trimmed);
+        final String key = _normalize(trimmed);
         if (used.contains(key)) continue;
         used.add(key);
         result.add(trimmed);
@@ -388,7 +474,7 @@ class MachineDetailScreen extends StatelessWidget {
   String? _buildDistanceText() {
     if (currentLat == null || currentLng == null) return null;
 
-    final meters = _distanceMeters(
+    final double meters = _distanceMeters(
       currentLat!,
       currentLng!,
       machine.lat,
@@ -404,17 +490,17 @@ class MachineDetailScreen extends StatelessWidget {
       double lat2,
       double lng2,
       ) {
-    const earthRadius = 6371000.0;
+    const double earthRadius = 6371000.0;
 
-    final dLat = _degToRad(lat2 - lat1);
-    final dLng = _degToRad(lng2 - lng1);
+    final double dLat = _degToRad(lat2 - lat1);
+    final double dLng = _degToRad(lng2 - lng1);
 
-    final a = math.pow(math.sin(dLat / 2), 2) +
+    final num a = math.pow(math.sin(dLat / 2), 2) +
         math.cos(_degToRad(lat1)) *
             math.cos(_degToRad(lat2)) *
             math.pow(math.sin(dLng / 2), 2);
 
-    final c =
+    final double c =
         2 * math.atan2(math.sqrt(a.toDouble()), math.sqrt(1 - a.toDouble()));
     return earthRadius * c;
   }
@@ -438,7 +524,7 @@ class _SectionCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE3E7EB)),
-        boxShadow: const [
+        boxShadow: const <BoxShadow>[
           BoxShadow(
             color: Color(0x12000000),
             blurRadius: 12,
@@ -464,7 +550,7 @@ class _LabeledText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: <Widget>[
         SizedBox(
           width: 54,
           child: Text(
@@ -512,7 +598,7 @@ class _InfoPill extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: <Widget>[
           Icon(
             icon,
             size: 14,
@@ -542,11 +628,11 @@ class _DrinkStateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor =
+    final Color backgroundColor =
     isEstimated ? const Color(0xFFF1F3F5) : const Color(0xFFEAF6FF);
-    final borderColor =
+    final Color borderColor =
     isEstimated ? const Color(0xFFD8E0E5) : const Color(0xFFBEDDF4);
-    final textColor =
+    final Color textColor =
     isEstimated ? const Color(0xFF60707A) : const Color(0xFF245A84);
 
     return Container(
@@ -591,8 +677,8 @@ class _ProductChip extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isEstimated) ...[
+        children: <Widget>[
+          if (isEstimated) ...<Widget>[
             const Icon(
               Icons.help_outline_rounded,
               size: 13,

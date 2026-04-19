@@ -43,11 +43,12 @@ class VendingMachine {
   final bool cashlessSupported;
 
   factory VendingMachine.fromFirestore(DocumentSnapshot doc) {
-    final data = (doc.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, dynamic> data =
+        (doc.data() as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-    final createdAtTs = data['createdAt'];
-    final updatedAtTs = data['updatedAt'];
-    final lastCheckedAtTs = data['lastCheckedAt'];
+    final dynamic createdAtTs = data['createdAt'];
+    final dynamic updatedAtTs = data['updatedAt'];
+    final dynamic lastCheckedAtTs = data['lastCheckedAt'];
 
     return VendingMachine(
       id: doc.id,
@@ -57,11 +58,10 @@ class VendingMachine {
       manufacturer: _readNonEmptyString(data['manufacturer'], fallback: '不明'),
       products: _readProducts(data),
       createdAt: _readDateTime(createdAtTs) ?? DateTime.now(),
-      updatedAt: _readDateTime(updatedAtTs) ??
-          _readDateTime(createdAtTs) ??
-          DateTime.now(),
+      updatedAt:
+          _readDateTime(updatedAtTs) ?? _readDateTime(createdAtTs) ?? DateTime.now(),
       lastCheckedAt:
-      _readDateTime(lastCheckedAtTs) ?? _readDateTime(updatedAtTs),
+          _readDateTime(lastCheckedAtTs) ?? _readDateTime(updatedAtTs),
       checkinCount: _readInt(data['checkinCount']),
       address: _readNullableString(data['address']),
       locationName: _readNullableString(data['locationName']),
@@ -148,14 +148,14 @@ class VendingMachine {
   bool get hasImage => (imageUrl?.trim().isNotEmpty ?? false);
 
   List<String> get productNames {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in products) {
-      final name = _readNullableString(product['name']) ?? '';
+    for (final Map<String, dynamic> product in products) {
+      final String name = _readNullableString(product['name']) ?? '';
       if (name.isEmpty) continue;
 
-      final key = _normalize(name);
+      final String key = _normalize(name);
       if (used.contains(key)) continue;
 
       used.add(key);
@@ -166,16 +166,16 @@ class VendingMachine {
   }
 
   List<String> get productTags {
-    final result = <String>[];
-    final used = <String>{};
+    final List<String> result = <String>[];
+    final Set<String> used = <String>{};
 
-    for (final product in products) {
-      final tags = _readStringList(product['tags']);
-      for (final tag in tags) {
-        final trimmed = tag.trim();
+    for (final Map<String, dynamic> product in products) {
+      final List<String> tagList = _readStringList(product['tags']);
+      for (final String tag in tagList) {
+        final String trimmed = tag.trim();
         if (trimmed.isEmpty) continue;
 
-        final key = _normalize(trimmed);
+        final String key = _normalize(trimmed);
         if (used.contains(key)) continue;
 
         used.add(key);
@@ -187,7 +187,7 @@ class VendingMachine {
   }
 
   static List<Map<String, dynamic>> _readProducts(Map<String, dynamic> data) {
-    final rawProducts = data['products'];
+    final dynamic rawProducts = data['products'];
     if (rawProducts is List) {
       return rawProducts
           .whereType<Map>()
@@ -196,7 +196,7 @@ class VendingMachine {
           .toList();
     }
 
-    final rawDrinkSlots = data['drinkSlots'];
+    final dynamic rawDrinkSlots = data['drinkSlots'];
     if (rawDrinkSlots is List) {
       return rawDrinkSlots
           .whereType<Map>()
@@ -205,15 +205,17 @@ class VendingMachine {
           .toList();
     }
 
-    final stringProducts = data['drinks'];
+    final dynamic stringProducts = data['drinks'];
     if (stringProducts is List) {
       return stringProducts
           .map((e) => e.toString().trim())
           .where((e) => e.isNotEmpty)
-          .map((name) => <String, dynamic>{
-        'name': name,
-        'tags': const <String>[],
-      })
+          .map(
+            (name) => <String, dynamic>{
+              'name': name,
+              'tags': const <String>[],
+            },
+          )
           .toList();
     }
 
@@ -252,17 +254,17 @@ class VendingMachine {
   }
 
   static String _readNonEmptyString(
-      dynamic value, {
-        required String fallback,
-      }) {
-    final text = _readNullableString(value);
+    dynamic value, {
+    required String fallback,
+  }) {
+    final String? text = _readNullableString(value);
     if (text == null || text.isEmpty) return fallback;
     return text;
   }
 
   static String? _readNullableString(dynamic value) {
     if (value == null) return null;
-    final text = value.toString().trim();
+    final String text = value.toString().trim();
     if (text.isEmpty) return null;
     return text;
   }

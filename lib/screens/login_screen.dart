@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   _LoginMode _mode = _LoginMode.signIn;
   bool _isSubmitting = false;
+  bool _isGoogleSubmitting = false;
   bool _obscurePassword = true;
 
   bool get _isSignIn => _mode == _LoginMode.signIn;
@@ -33,10 +35,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (_isSubmitting) return;
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text;
 
-    final validationMessage = _validate(email: email, password: password);
+    final String? validationMessage = _validate(
+      email: email,
+      password: password,
+    );
     if (validationMessage != null) {
       _showMessage(validationMessage);
       return;
@@ -69,6 +74,52 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
+      });
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_isGoogleSubmitting || _isSubmitting) return;
+
+    setState(() {
+      _isGoogleSubmitting = true;
+    });
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: const <String>['email'],
+      );
+
+      await googleSignIn.signOut();
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        if (!mounted) return;
+        _showMessage('Googleログインをキャンセルしました。');
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on FirebaseAuthException catch (e) {
+      _showMessage(_mapFirebaseAuthError(e));
+    } catch (e) {
+      _showMessage('Googleログインに失敗しました: $e');
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isGoogleSubmitting = false;
       });
     }
   }
@@ -116,11 +167,13 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'weak-password':
         return 'パスワードが弱すぎます。6文字以上にしてください。';
       case 'operation-not-allowed':
-        return 'メール/パスワードログインが有効になっていません。';
+        return 'このログイン方法が有効になっていません。';
       case 'too-many-requests':
         return '試行回数が多すぎます。少し時間をおいてからお試しください。';
       case 'network-request-failed':
         return '通信に失敗しました。ネットワーク状況を確認してください。';
+      case 'account-exists-with-different-credential':
+        return '別のログイン方法で登録済みのアカウントです。';
       default:
         return e.message?.trim().isNotEmpty == true
             ? e.message!.trim()
@@ -138,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _switchMode(_LoginMode mode) {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _isGoogleSubmitting) return;
 
     setState(() {
       _mode = mode;
@@ -147,9 +200,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isSignIn ? 'ログイン' : '新規登録';
-    final buttonLabel = _isSignIn ? 'ログインする' : '新規登録する';
-    final subtitle = _isSignIn
+    final String title = _isSignIn ? 'ログイン' : '新規登録';
+    final String buttonLabel = _isSignIn ? 'ログインする' : '新規登録する';
+    final String subtitle = _isSignIn
         ? '登録済みのメールアドレスでログインします。'
         : 'メールアドレスとパスワードでアカウントを作成します。';
 
@@ -224,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _emailController,
-                      enabled: !_isSubmitting,
+                      enabled: !_isSubmitting && !_isGoogleSubmitting,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
                       textInputAction: TextInputAction.next,
@@ -245,7 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _passwordController,
-                      enabled: !_isSubmitting,
+                      enabled: !_isSubmitting && !_isGoogleSubmitting,
                       obscureText: _obscurePassword,
                       autofillHints: _isSignIn
                           ? const [AutofillHints.password]
@@ -256,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: _isSignIn ? 'パスワードを入力' : '6文字以上で入力',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          onPressed: _isSubmitting
+                          onPressed: (_isSubmitting || _isGoogleSubmitting)
                               ? null
                               : () {
                             setState(() {
@@ -286,7 +339,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _isSubmitting ? null : _submit,
+                        onPressed: (_isSubmitting || _isGoogleSubmitting)
+                            ? null
+                            : _submit,
                         icon: _isSubmitting
                             ? const SizedBox(
                           width: 16,
@@ -302,6 +357,43 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Icons.person_add_alt_1_rounded,
                         ),
                         label: Text(_isSubmitting ? '処理中…' : buttonLabel),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: const [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'または',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF60707A),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: (_isSubmitting || _isGoogleSubmitting)
+                            ? null
+                            : _signInWithGoogle,
+                        icon: _isGoogleSubmitting
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : const Icon(Icons.account_circle_outlined),
+                        label: Text(
+                          _isGoogleSubmitting ? 'Googleで接続中…' : 'Googleでログイン',
+                        ),
                       ),
                     ),
                   ],
@@ -331,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
               Center(
                 child: TextButton(
-                  onPressed: _isSubmitting
+                  onPressed: (_isSubmitting || _isGoogleSubmitting)
                       ? null
                       : () => Navigator.of(context).maybePop(),
                   child: const Text('あとで'),

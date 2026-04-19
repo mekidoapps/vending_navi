@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/vending_machine.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService {
   FirestoreService._();

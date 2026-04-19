@@ -1,71 +1,48 @@
-class DrinkSlot {
-  final int position; // 0〜11
-  final String? drinkId;
-  final String? drinkName;
-  final String? brand;
-  final bool isHot;
-  final int? price;
-  final String? imageUrl;
+class DrinkSlotData {
+  final String? name;
+  final List<String> tags;
+  final bool isSoldOut;
 
-  const DrinkSlot({
-    required this.position,
-    this.drinkId,
-    this.drinkName,
-    this.brand,
-    this.isHot = false,
-    this.price,
-    this.imageUrl,
+  const DrinkSlotData({
+    this.name,
+    this.tags = const <String>[],
+    this.isSoldOut = false,
   });
 
-  bool get isEmpty => drinkId == null;
+  bool get hasName => (name?.trim().isNotEmpty ?? false);
 
-  factory DrinkSlot.empty({required int position}) {
-    return DrinkSlot(
-      position: position,
-    );
-  }
-
-  factory DrinkSlot.fromMap(Map<String, dynamic> map) {
-    return DrinkSlot(
-      position: map['position'] ?? 0,
-      drinkId: map['drinkId'],
-      drinkName: map['drinkName'],
-      brand: map['brand'],
-      isHot: map['isHot'] ?? false,
-      price: map['price'],
-      imageUrl: map['imageUrl'],
+  DrinkSlotData copyWith({
+    String? name,
+    List<String>? tags,
+    bool? isSoldOut,
+  }) {
+    return DrinkSlotData(
+      name: name ?? this.name,
+      tags: tags ?? this.tags,
+      isSoldOut: isSoldOut ?? this.isSoldOut,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'position': position,
-      'drinkId': drinkId,
-      'drinkName': drinkName,
-      'brand': brand,
-      'isHot': isHot,
-      'price': price,
-      'imageUrl': imageUrl,
+    return <String, dynamic>{
+      'name': name,
+      'tags': tags,
+      'isSoldOut': isSoldOut,
     };
   }
 
-  DrinkSlot copyWith({
-    int? position,
-    String? drinkId,
-    String? drinkName,
-    String? brand,
-    bool? isHot,
-    int? price,
-    String? imageUrl,
-  }) {
-    return DrinkSlot(
-      position: position ?? this.position,
-      drinkId: drinkId ?? this.drinkId,
-      drinkName: drinkName ?? this.drinkName,
-      brand: brand ?? this.brand,
-      isHot: isHot ?? this.isHot,
-      price: price ?? this.price,
-      imageUrl: imageUrl ?? this.imageUrl,
+  factory DrinkSlotData.fromMap(Map<String, dynamic> map) {
+    return DrinkSlotData(
+      name: map['name']?.toString().trim().isEmpty ?? true
+          ? null
+          : map['name'].toString().trim(),
+      tags: (map['tags'] is List)
+          ? (map['tags'] as List)
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          : const <String>[],
+      isSoldOut: map['isSoldOut'] == true,
     );
   }
 }
