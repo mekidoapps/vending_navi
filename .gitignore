@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Build outputs
+build/
+.dart_tool/
+
+# Claude temporary worktrees
+.claude/
+
+# Firebase / Google generated config
+lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Web API keys
+web/index.html
+
+# Env
+.env
+*.env
