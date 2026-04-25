@@ -26,8 +26,6 @@ class VendingMachine {
   final String name;
   final String manufacturer;
 
-  /// 現段階では Map ベースで保持
-  /// Step 2 以降で Product ID ベースへ寄せる前提
   final List<Map<String, dynamic>> products;
 
   final DateTime createdAt;
@@ -59,9 +57,9 @@ class VendingMachine {
       products: _readProducts(data),
       createdAt: _readDateTime(createdAtTs) ?? DateTime.now(),
       updatedAt:
-          _readDateTime(updatedAtTs) ?? _readDateTime(createdAtTs) ?? DateTime.now(),
+      _readDateTime(updatedAtTs) ?? _readDateTime(createdAtTs) ?? DateTime.now(),
       lastCheckedAt:
-          _readDateTime(lastCheckedAtTs) ?? _readDateTime(updatedAtTs),
+      _readDateTime(lastCheckedAtTs) ?? _readDateTime(updatedAtTs),
       checkinCount: _readInt(data['checkinCount']),
       address: _readNullableString(data['address']),
       locationName: _readNullableString(data['locationName']),
@@ -212,10 +210,10 @@ class VendingMachine {
           .where((e) => e.isNotEmpty)
           .map(
             (name) => <String, dynamic>{
-              'name': name,
-              'tags': const <String>[],
-            },
-          )
+          'name': name,
+          'tags': const <String>[],
+        },
+      )
           .toList();
     }
 
@@ -254,9 +252,9 @@ class VendingMachine {
   }
 
   static String _readNonEmptyString(
-    dynamic value, {
-    required String fallback,
-  }) {
+      dynamic value, {
+        required String fallback,
+      }) {
     final String? text = _readNullableString(value);
     if (text == null || text.isEmpty) return fallback;
     return text;

@@ -2,28 +2,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'auth_gate.dart';
+
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.initialMachineId,
+  });
+
+  final String? initialMachineId;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-enum _LoginMode {
-  signIn,
-  signUp,
-}
-
 class _LoginScreenState extends State<LoginScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  _LoginMode _mode = _LoginMode.signIn;
-  bool _isSubmitting = false;
-  bool _isGoogleSubmitting = false;
-  bool _obscurePassword = true;
-
-  bool get _isSignIn => _mode == _LoginMode.signIn;
+  bool _isLoading = false;
+  bool _isRegisterMode = false;
+  String? _errorText;
 
   @override
   void dispose() {
@@ -32,523 +34,268 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_isSubmitting) return;
-
+  Future<void> _signInWithEmail() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
 
-    final String? validationMessage = _validate(
-      email: email,
-      password: password,
-    );
-    if (validationMessage != null) {
-      _showMessage(validationMessage);
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorText = 'メールアドレスとパスワードを入力してください';
+      });
       return;
     }
 
     setState(() {
-      _isSubmitting = true;
+      _isLoading = true;
+      _errorText = null;
     });
 
     try {
-      if (_isSignIn) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      if (_isRegisterMode) {
+        await _auth.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
       } else {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        await _auth.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => AuthGate(
+            initialMachineId: widget.initialMachineId,
+          ),
+        ),
+            (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
-      _showMessage(_mapFirebaseAuthError(e));
-    } catch (e) {
-      _showMessage('ログイン処理に失敗しました: $e');
-    } finally {
-      if (!mounted) return;
       setState(() {
-        _isSubmitting = false;
+        _errorText = _firebaseAuthErrorMessage(e);
       });
+    } catch (e) {
+      setState(() {
+        _errorText = 'ログインに失敗しました: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _signInWithGoogle() async {
-    if (_isGoogleSubmitting || _isSubmitting) return;
-
     setState(() {
-      _isGoogleSubmitting = true;
+      _isLoading = true;
+      _errorText = null;
     });
 
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: const <String>['email'],
-      );
+      await _googleSignIn.signOut();
 
-      await googleSignIn.signOut();
-
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        if (!mounted) return;
-        _showMessage('Googleログインをキャンセルしました。');
+        setState(() {
+          _errorText = 'Googleログインがキャンセルされました';
+        });
         return;
       }
 
       final GoogleSignInAuthentication googleAuth =
       await googleUser.authentication;
 
-      final OAuthCredential credential = GoogleAuthProvider.credential(
+      final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      await _auth.signInWithCredential(credential);
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => AuthGate(
+            initialMachineId: widget.initialMachineId,
+          ),
+        ),
+            (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
-      _showMessage(_mapFirebaseAuthError(e));
-    } catch (e) {
-      _showMessage('Googleログインに失敗しました: $e');
-    } finally {
-      if (!mounted) return;
       setState(() {
-        _isGoogleSubmitting = false;
+        _errorText = _firebaseAuthErrorMessage(e);
       });
+    } catch (e) {
+      setState(() {
+        _errorText = 'Googleログインに失敗しました: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  String? _validate({
-    required String email,
-    required String password,
-  }) {
-    if (email.isEmpty) {
-      return 'メールアドレスを入力してください。';
-    }
-
-    if (!_looksLikeEmail(email)) {
-      return 'メールアドレスの形式を確認してください。';
-    }
-
-    if (password.isEmpty) {
-      return 'パスワードを入力してください。';
-    }
-
-    if (!_isSignIn && password.length < 6) {
-      return 'パスワードは6文字以上にしてください。';
-    }
-
-    return null;
-  }
-
-  bool _looksLikeEmail(String email) {
-    return email.contains('@') && email.contains('.');
-  }
-
-  String _mapFirebaseAuthError(FirebaseAuthException e) {
+  String _firebaseAuthErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
-        return 'メールアドレスの形式が正しくありません。';
+        return 'メールアドレスの形式が正しくありません';
       case 'user-disabled':
-        return 'このアカウントは無効化されています。';
+        return 'このアカウントは無効化されています';
       case 'user-not-found':
-        return 'このメールアドレスのアカウントが見つかりません。';
+        return 'ユーザーが見つかりません';
       case 'wrong-password':
       case 'invalid-credential':
-        return 'メールアドレスまたはパスワードが違います。';
+        return 'メールアドレスまたはパスワードが違います';
       case 'email-already-in-use':
-        return 'このメールアドレスはすでに使われています。';
+        return 'このメールアドレスはすでに使われています';
       case 'weak-password':
-        return 'パスワードが弱すぎます。6文字以上にしてください。';
-      case 'operation-not-allowed':
-        return 'このログイン方法が有効になっていません。';
-      case 'too-many-requests':
-        return '試行回数が多すぎます。少し時間をおいてからお試しください。';
-      case 'network-request-failed':
-        return '通信に失敗しました。ネットワーク状況を確認してください。';
-      case 'account-exists-with-different-credential':
-        return '別のログイン方法で登録済みのアカウントです。';
+        return 'パスワードは6文字以上にしてください';
       default:
-        return e.message?.trim().isNotEmpty == true
-            ? e.message!.trim()
-            : '認証に失敗しました。';
+        return e.message ?? '認証に失敗しました';
     }
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
-  }
-
-  void _switchMode(_LoginMode mode) {
-    if (_isSubmitting || _isGoogleSubmitting) return;
-
-    setState(() {
-      _mode = mode;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final String title = _isSignIn ? 'ログイン' : '新規登録';
-    final String buttonLabel = _isSignIn ? 'ログインする' : '新規登録する';
-    final String subtitle = _isSignIn
-        ? '登録済みのメールアドレスでログインします。'
-        : 'メールアドレスとパスワードでアカウントを作成します。';
+    final String title = _isRegisterMode ? 'メール登録' : 'ログイン';
+    final String submitLabel = _isRegisterMode ? '登録する' : 'ログイン';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      backgroundColor: const Color(0xFFEAF6FF),
       body: SafeArea(
-        child: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              _SectionCard(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFE3E7EB)),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
                     const Text(
                       '自販機ナビ',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF334148),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      subtitle,
+                      title,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF60707A),
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ModeButton(
-                            label: 'ログイン',
-                            selected: _isSignIn,
-                            onTap: () => _switchMode(_LoginMode.signIn),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _ModeButton(
-                            label: '新規登録',
-                            selected: !_isSignIn,
-                            onTap: () => _switchMode(_LoginMode.signUp),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'メールアドレス',
-                      style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF334148),
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF60707A),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 20),
                     TextField(
                       controller: _emailController,
-                      enabled: !_isSubmitting && !_isGoogleSubmitting,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'example@email.com',
-                        prefixIcon: Icon(Icons.mail_outline_rounded),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'パスワード',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF334148),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _passwordController,
-                      enabled: !_isSubmitting && !_isGoogleSubmitting,
-                      obscureText: _obscurePassword,
-                      autofillHints: _isSignIn
-                          ? const [AutofillHints.password]
-                          : const [AutofillHints.newPassword],
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _submit(),
+                      autocorrect: false,
                       decoration: InputDecoration(
-                        hintText: _isSignIn ? 'パスワードを入力' : '6文字以上で入力',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: (_isSubmitting || _isGoogleSubmitting)
-                              ? null
-                              : () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                          ),
+                        labelText: 'メールアドレス',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                     ),
-                    if (!_isSignIn) ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        '新規登録時は6文字以上のパスワードをおすすめします。',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF60707A),
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'パスワード',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                    if (_errorText != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        _errorText!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: (_isSubmitting || _isGoogleSubmitting)
-                            ? null
-                            : _submit,
-                        icon: _isSubmitting
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _isLoading ? null : _signInWithEmail,
+                        child: _isLoading
                             ? const SizedBox(
-                          width: 16,
-                          height: 16,
+                          height: 18,
+                          width: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white,
                           ),
                         )
-                            : Icon(
-                          _isSignIn
-                              ? Icons.login_rounded
-                              : Icons.person_add_alt_1_rounded,
-                        ),
-                        label: Text(_isSubmitting ? '処理中…' : buttonLabel),
+                            : Text(submitLabel),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: const [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'または',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF60707A),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Expanded(child: Divider()),
-                      ],
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      width: double.infinity,
+                      height: 48,
                       child: OutlinedButton.icon(
-                        onPressed: (_isSubmitting || _isGoogleSubmitting)
-                            ? null
-                            : _signInWithGoogle,
-                        icon: _isGoogleSubmitting
-                            ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : const Icon(Icons.account_circle_outlined),
-                        label: Text(
-                          _isGoogleSubmitting ? 'Googleで接続中…' : 'Googleでログイン',
-                        ),
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: const Icon(Icons.login_rounded),
+                        label: const Text('Googleでログイン'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                        setState(() {
+                          _isRegisterMode = !_isRegisterMode;
+                          _errorText = null;
+                        });
+                      },
+                      child: Text(
+                        _isRegisterMode
+                            ? 'すでにアカウントがある場合はこちら'
+                            : 'はじめて使う場合はメール登録',
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              const _SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ログインするとできること',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF334148),
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    _BulletRow(text: '自販機の登録'),
-                    _BulletRow(text: 'お気に入りドリンクの保存'),
-                    _BulletRow(text: '通知設定の利用'),
-                    _BulletRow(text: '経験値・称号の保存'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton(
-                  onPressed: (_isSubmitting || _isGoogleSubmitting)
-                      ? null
-                      : () => Navigator.of(context).maybePop(),
-                  child: const Text('あとで'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeButton extends StatelessWidget {
-  const _ModeButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEAF6FF) : const Color(0xFFF7FBFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : const Color(0xFFE3E7EB),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: selected
-                  ? Theme.of(context).colorScheme.primary
-                  : const Color(0xFF334148),
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BulletRow extends StatelessWidget {
-  const _BulletRow({
-    required this.text,
-  });
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 3),
-            child: Icon(
-              Icons.circle,
-              size: 8,
-              color: Color(0xFF60707A),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF60707A),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFE3E7EB),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }

@@ -1,87 +1,244 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/user_progress_service.dart';
+import '../widgets/my_page_feedback_section.dart';
 import 'auth_gate.dart';
+import 'favorite_drinks_screen.dart';
 import 'notification_settings_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({
     super.key,
-    required this.isLoggedIn,
+    this.isLoggedIn = false,
+    this.openTitleListOnOpen = false,
   });
 
   final bool isLoggedIn;
+  final bool openTitleListOnOpen;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
 }
 
 class _MyPageScreenState extends State<MyPageScreen> {
-  bool _isLoading = true;
-  bool _isSavingDistance = false;
+  bool _isLoggingOut = false;
+  bool _isLoadingProgress = false;
+  bool _isLoadingProfile = false;
+  bool _isSavingDisplayName = false;
+  bool _didAutoOpenTitleList = false;
 
   UserProgressSnapshot? _progress;
-  String _displayName = 'ユーザー';
-  int _defaultDistanceMeters = 100;
-  bool _isPremium = false;
+  String? _appDisplayName;
 
-  static const List<int> _distanceOptions = <int>[50, 100, 300, 500];
+  UserProgressService get _progressService => UserProgressService.instance;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadProfile();
+    _loadProgress();
   }
 
-  @override
-  void didUpdateWidget(covariant MyPageScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isLoggedIn != widget.isLoggedIn) {
-      _load();
-    }
-  }
-
-  Future<void> _load() async {
-    if (!widget.isLoggedIn || FirebaseAuth.instance.currentUser == null) {
+  Future<void> _loadProfile() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _progress = null;
-        _displayName = 'ユーザー';
-        _defaultDistanceMeters = 100;
-        _isPremium = false;
+        _appDisplayName = null;
+        _isLoadingProfile = false;
       });
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isLoadingProfile = true;
     });
 
     try {
-      final user = FirebaseAuth.instance.currentUser!;
-      final userDoc = await FirebaseFirestore.instance
+      final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
 
-      final userData = userDoc.data() ?? <String, dynamic>{};
-
-      final progress = await UserProgressService.instance.getProgress(
-        uid: user.uid,
-      );
+      final data = doc.data() ?? <String, dynamic>{};
+      final String? savedName = _readNonEmptyString(data['appDisplayName']);
 
       if (!mounted) return;
       setState(() {
-        _progress = progress;
-        _displayName = _readDisplayName(userData, user);
-        _defaultDistanceMeters =
-            _sanitizeDistance(_readNullableInt(userData['defaultDistanceMeters']) ?? 100);
-        _isPremium = userData['isPremium'] == true;
-        _isLoading = false;
+        _appDisplayName = savedName;
+        _isLoadingProfile = false;
       });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingProfile = false;
+      });
+    }
+  }
+
+  String? _readNonEmptyString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  Future<void> _editDisplayName() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null || _isSavingDisplayName) return;
+
+    final String initialValue = _appDisplayName?.trim().isNotEmpty == true
+        ? _appDisplayName!.trim()
+        : ((user.displayName ?? '').trim().isNotEmpty
+        ? user.displayName!.trim()
+        : '');
+
+    final TextEditingController controller =
+    TextEditingController(text: initialValue);
+
+    String? errorText;
+
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('表示名を変更'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    maxLength: 20,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: '表示名',
+                      hintText: 'アプリ内で表示する名前',
+                      errorText: errorText,
+                    ),
+                    onChanged: (_) {
+                      if (errorText != null) {
+                        setDialogState(() {
+                          errorText = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Googleアカウント名とは別に設定できます',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF60707A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('キャンセル'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    controller.clear();
+                    Navigator.of(context).pop('');
+                  },
+                  child: const Text('アプリ名を解除'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final String value = controller.text.trim();
+                    if (value.isEmpty) {
+                      setDialogState(() {
+                        errorText = '1文字以上入力してください';
+                      });
+                      return;
+                    }
+                    Navigator.of(context).pop(value);
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+
+    if (result == null) return;
+
+    setState(() {
+      _isSavingDisplayName = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        <String, dynamic>{
+          'appDisplayName': result.isEmpty ? FieldValue.delete() : result,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _appDisplayName = result.isEmpty ? null : result;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.isEmpty ? 'アプリ内表示名を解除しました' : '表示名を更新しました',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('表示名の保存に失敗しました: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSavingDisplayName = false;
+      });
+    }
+  }
+
+  Future<void> _loadProgress() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      setState(() {
+        _progress = null;
+        _isLoadingProgress = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingProgress = true;
+    });
+
+    try {
+      final UserProgressSnapshot snapshot =
+      await _progressService.getProgress(uid: user.uid);
+
+      if (!mounted) return;
+      setState(() {
+        _progress = snapshot;
+        _isLoadingProgress = false;
+      });
+
+      _scheduleAutoOpenTitleListIfNeeded();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -94,433 +251,489 @@ class _MyPageScreenState extends State<MyPageScreen> {
           registeredDrinkCount: 0,
           checkinCount: 0,
         );
-        _displayName = FirebaseAuth.instance.currentUser?.displayName?.trim().isNotEmpty == true
-            ? FirebaseAuth.instance.currentUser!.displayName!.trim()
-            : 'ユーザー';
-        _defaultDistanceMeters = 100;
-        _isPremium = false;
-        _isLoading = false;
+        _isLoadingProgress = false;
       });
+
+      _scheduleAutoOpenTitleListIfNeeded();
     }
   }
 
-  Future<void> _saveDefaultDistance(int meters) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  void _scheduleAutoOpenTitleListIfNeeded() {
+    if (!widget.openTitleListOnOpen) return;
+    if (_didAutoOpenTitleList) return;
+    if (_isLoadingProgress) return;
+    if (_progress == null) return;
 
-    final sanitized = _sanitizeDistance(meters);
+    _didAutoOpenTitleList = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _showTitleList(_progress!);
+    });
+  }
+
+  Set<String> _ownedTitleSet(UserProgressSnapshot progress) {
+    return progress.titles
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toSet();
+  }
+
+  Future<void> _showTitleList(UserProgressSnapshot progress) async {
+    final Set<String> ownedTitles = _ownedTitleSet(progress);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              children: [
+                const SizedBox(height: 4),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '称号一覧',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '取得済み ${ownedTitles.length} / ${UserProgressService.titleRules.length}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF60707A),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: UserProgressService.titleRules.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final TitleRule definition =
+                      UserProgressService.titleRules[index];
+                      final bool owned = ownedTitles.contains(definition.title);
+                      final bool current = progress.currentTitle == definition.title;
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: owned
+                              ? const Color(0xFFEAF6FF)
+                              : const Color(0xFFF7F9FB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: current
+                                ? const Color(0xFF64B5F6)
+                                : owned
+                                ? const Color(0xFFB6DBF6)
+                                : const Color(0xFFE3E7EB),
+                            width: current ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: owned
+                                    ? const Color(0xFF64B5F6)
+                                    : const Color(0xFFD9E0E5),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                owned
+                                    ? Icons.emoji_events_rounded
+                                    : Icons.lock_outline_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        definition.title,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF334148),
+                                        ),
+                                      ),
+                                      if (current)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF64B5F6),
+                                            borderRadius:
+                                            BorderRadius.circular(999),
+                                          ),
+                                          child: const Text(
+                                            '現在の称号',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: owned
+                                              ? const Color(0xFFDDF1FF)
+                                              : const Color(0xFFE9EEF2),
+                                          borderRadius:
+                                          BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          owned ? '取得済み' : '未取得',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: owned
+                                                ? const Color(0xFF2E607E)
+                                                : const Color(0xFF60707A),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    definition.condition,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF60707A),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
 
     setState(() {
-      _isSavingDistance = true;
+      _isLoggingOut = true;
     });
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        <String, dynamic>{
-          'defaultDistanceMeters': sanitized,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      try {
+        await GoogleSignIn().signOut();
+      } catch (_) {}
 
-      if (!mounted) return;
-      setState(() {
-        _defaultDistanceMeters = sanitized;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('距離デフォルト設定を保存しました。'),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('保存に失敗しました: $e'),
-        ),
-      );
+      await FirebaseAuth.instance.signOut();
     } finally {
       if (!mounted) return;
+
       setState(() {
-        _isSavingDistance = false;
+        _isLoggingOut = false;
       });
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => const AuthGate(),
+        ),
+            (Route<dynamic> route) => false,
+      );
     }
-  }
-
-  Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const NotificationSettingsScreen(),
-      ),
-    );
-  }
-
-  Future<void> _openLoginRequired() async {
-    await LoginRequiredSheet.show(context);
-  }
-
-  void _showFeedbackInfo() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('フィードバック導線は次の段階で接続します。'),
-      ),
-    );
-  }
-
-  void _showPremiumInfo() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('プレミアム導線は今後追加予定です。'),
-      ),
-    );
-  }
-
-  int _sanitizeDistance(int value) {
-    if (_distanceOptions.contains(value)) return value;
-    return 100;
-  }
-
-  int? _readNullableInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
-    return null;
-  }
-
-  String _readDisplayName(Map<String, dynamic> userData, User user) {
-    final stored = (userData['displayName'] ?? '').toString().trim();
-    if (stored.isNotEmpty) return stored;
-
-    final authName = (user.displayName ?? '').trim();
-    if (authName.isNotEmpty) return authName;
-
-    final email = (user.email ?? '').trim();
-    if (email.isNotEmpty) return email;
-
-    return 'ユーザー';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+    final User? user = FirebaseAuth.instance.currentUser;
+    final bool loggedIn = widget.isLoggedIn || user != null;
 
-    if (!widget.isLoggedIn || FirebaseAuth.instance.currentUser == null) {
-      return _GuestMyPage(
-        onLogin: _openLoginRequired,
-      );
-    }
+    final String googleDisplayName =
+    ((user?.displayName ?? '').trim().isNotEmpty)
+        ? user!.displayName!.trim()
+        : 'ゲスト';
+    final String displayName = (_appDisplayName?.trim().isNotEmpty == true)
+        ? _appDisplayName!.trim()
+        : googleDisplayName;
+    final String email = user?.email ?? 'メール未設定';
 
-    final progress = _progress ??
-        const UserProgressSnapshot(
-          exp: 0,
-          level: 1,
-          currentTitle: 'はじめの一歩',
-          titles: <String>[],
-          registeredMachineCount: 0,
-          registeredDrinkCount: 0,
-          checkinCount: 0,
-        );
+    final UserProgressSnapshot effectiveProgress =
+        _progress ??
+            const UserProgressSnapshot(
+              exp: 0,
+              level: 1,
+              currentTitle: 'はじめの一歩',
+              titles: <String>[],
+              registeredMachineCount: 0,
+              registeredDrinkCount: 0,
+              checkinCount: 0,
+            );
 
-    final progressRate =
-    UserProgressService.instance.levelProgressRate(progress.exp);
-    final expToNext =
-    UserProgressService.instance.expToNextLevel(progress.exp);
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF6FF),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        size: 28,
-                        color: Color(0xFF3E7BFA),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF334148),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            progress.currentTitle,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF60707A),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_isPremium)
-                      const _PremiumBadge(),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    _CountBadge(
-                      label: 'レベル',
-                      value: 'Lv ${progress.level}',
-                    ),
-                    const SizedBox(width: 8),
-                    _CountBadge(
-                      label: '経験値',
-                      value: '${progress.exp}',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progressRate,
-                    minHeight: 10,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '次のレベルまであと $expToNext EXP',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF60707A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      backgroundColor: const Color(0xFFEAF6FF),
+      appBar: AppBar(
+        title: const Text('マイページ'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadProfile();
+          await _loadProgress();
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: <Widget>[
+            _ProfileCard(
+              displayName: displayName,
+              email: email,
+              loggedIn: loggedIn,
+              isLoadingProfile: _isLoadingProfile,
+              isSavingDisplayName: _isSavingDisplayName,
+              hasCustomName: _appDisplayName?.trim().isNotEmpty == true,
+              onTapEditName: loggedIn ? _editDisplayName : null,
             ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ステータス',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
+            const SizedBox(height: 16),
+            if (loggedIn)
+              _isLoadingProgress
+                  ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+                  : _ProgressSection(
+                progress: effectiveProgress,
+                progressRate: _progressService.levelProgressRate(
+                  effectiveProgress.exp,
+                ),
+                expToNextLevel: _progressService.expToNextLevel(
+                  effectiveProgress.exp,
+                ),
+                onTapTitleList: () => _showTitleList(effectiveProgress),
+              )
+            else
+              const _GuestGuideCard(),
+            const SizedBox(height: 16),
+            _ActionMenuSection(loggedIn: loggedIn),
+            const SizedBox(height: 16),
+            if (loggedIn) ...<Widget>[
+              const MyPageFeedbackSection(
+                initialScreenName: 'my_page',
+              ),
+              const SizedBox(height: 16),
+            ],
+            //_PremiumSection(loggedIn: loggedIn),
+            //const SizedBox(height: 16),
+            if (loggedIn)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _isLoggingOut ? null : _logout,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF60707A),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatusTile(
-                        icon: Icons.check_circle_outline_rounded,
-                        label: 'チェックイン',
-                        value: '${progress.checkinCount}',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatusTile(
-                        icon: Icons.add_business_rounded,
-                        label: '登録自販機',
-                        value: '${progress.registeredMachineCount}',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatusTile(
-                        icon: Icons.local_drink_rounded,
-                        label: '登録ドリンク',
-                        value: '${progress.registeredDrinkCount}',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '称号',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  progress.titles.isEmpty
-                      ? 'まだ称号はありません。登録やチェックインで増えていきます。'
-                      : '獲得済み ${progress.titles.length}件',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF60707A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (progress.titles.isEmpty)
-                  const Text(
-                    '最初の称号獲得を目指しましょう。',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF334148),
+                  child: _isLoggingOut
+                      ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
                     ),
                   )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: progress.titles.map((title) {
-                      final isCurrent = title == progress.currentTitle;
-                      return _TitleChip(
-                        label: title,
-                        isCurrent: isCurrent,
-                      );
-                    }).toList(),
+                      : const Text('ログアウト'),
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.displayName,
+    required this.email,
+    required this.loggedIn,
+    required this.isLoadingProfile,
+    required this.isSavingDisplayName,
+    required this.hasCustomName,
+    required this.onTapEditName,
+  });
+
+  final String displayName;
+  final String email;
+  final bool loggedIn;
+  final bool isLoadingProfile;
+  final bool isSavingDisplayName;
+  final bool hasCustomName;
+  final VoidCallback? onTapEditName;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: isLoadingProfile
+                    ? const SizedBox(
+                  height: 28,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '設定',
-                  style: TextStyle(
-                    fontSize: 16,
+                )
+                    : Text(
+                  displayName,
+                  style: const TextStyle(
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF334148),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '距離デフォルト',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF334148),
-                        ),
-                      ),
-                    ),
-                    if (_isSavingDistance)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<int>(
-                      onSelected: _saveDefaultDistance,
-                      itemBuilder: (context) {
-                        return _distanceOptions.map((meters) {
-                          return PopupMenuItem<int>(
-                            value: meters,
-                            child: Text('${meters}m'),
-                          );
-                        }).toList();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7FBFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFE3E7EB),
-                          ),
-                        ),
-                        child: Text(
-                          '${_defaultDistanceMeters}m',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF334148),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              ),
+              if (loggedIn)
+                OutlinedButton.icon(
+                  onPressed: isSavingDisplayName ? null : onTapEditName,
+                  icon: isSavingDisplayName
+                      ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('表示名変更'),
                 ),
-                const SizedBox(height: 14),
-                _MenuRow(
-                  icon: Icons.notifications_none_rounded,
-                  title: '通知設定',
-                  subtitle: 'お気に入り通知や更新通知',
-                  onTap: _openNotifications,
-                ),
-                const SizedBox(height: 8),
-                _MenuRow(
-                  icon: Icons.feedback_outlined,
-                  title: 'フィードバック',
-                  subtitle: '改善要望や感想を送る',
-                  onTap: _showFeedbackInfo,
-                ),
-              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            email,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF60707A),
             ),
           ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'プレミアム（予定）',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334148),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: loggedIn
+                      ? const Color(0xFFEAF6FF)
+                      : const Color(0xFFF5F7F8),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  loggedIn ? 'ログイン中' : 'ゲスト利用中',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4B6472),
                   ),
                 ),
-                const SizedBox(height: 10),
-                const _BulletRow(text: 'お気に入り上限アップ'),
-                const _BulletRow(text: '広告の非表示'),
-                const _BulletRow(text: '編集期限の延長'),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
-                    onPressed: _showPremiumInfo,
-                    child: const Text('くわしく見る'),
+              ),
+              if (loggedIn && hasCustomName)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FBFC),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFE3E7EB)),
+                  ),
+                  child: const Text(
+                    'アプリ内表示名を使用中',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF60707A),
+                    ),
                   ),
                 ),
-              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestGuideCard extends StatelessWidget {
+  const _GuestGuideCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'ログインするとできること',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334148),
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            '経験値・称号の保存、お気に入り管理、通知設定、フィードバック送信が使えます。',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF60707A),
+              height: 1.5,
             ),
           ),
         ],
@@ -529,49 +742,276 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 }
 
-class _GuestMyPage extends StatelessWidget {
-  const _GuestMyPage({
-    required this.onLogin,
+class _ProgressSection extends StatelessWidget {
+  const _ProgressSection({
+    required this.progress,
+    required this.progressRate,
+    required this.expToNextLevel,
+    required this.onTapTitleList,
   });
 
-  final Future<void> Function() onLogin;
+  final UserProgressSnapshot progress;
+  final double progressRate;
+  final int expToNextLevel;
+  final VoidCallback onTapTitleList;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
+    return Column(
+      children: <Widget>[
         _SectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF6FF),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'Lv ${progress.level}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF2E607E),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      progress.currentTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progressRate,
+                  minHeight: 12,
+                  backgroundColor: const Color(0xFFE3E7EB),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF64B5F6),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'EXP ${progress.exp} / 次のレベルまで $expToNextLevel',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF60707A),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
               const Text(
-                'マイページ',
+                'ステータス',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF334148),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'ログインすると、経験値・称号・通知設定・お気に入り保存が使えるようになります。',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF60707A),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onLogin,
-                  icon: const Icon(Icons.login_rounded),
-                  label: const Text('ログイン / 新規登録'),
-                ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _StatItem(
+                      label: 'チェックイン',
+                      value: '${progress.checkinCount}',
+                    ),
+                  ),
+                  Expanded(
+                    child: _StatItem(
+                      label: '登録自販機',
+                      value: '${progress.registeredMachineCount}',
+                    ),
+                  ),
+                  Expanded(
+                    child: _StatItem(
+                      label: '登録ドリンク',
+                      value: '${progress.registeredDrinkCount}',
+                    ),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '称号',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF334148),
+                      ),
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: onTapTitleList,
+                    child: const Text('一覧を見る'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (progress.titles.isEmpty)
+                const Text(
+                  'まだ称号はありません',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF60707A),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: progress.titles.map((String title) {
+                    final bool isCurrent = title == progress.currentTitle;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? const Color(0xFFEAF6FF)
+                            : const Color(0xFFF5F7F8),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: isCurrent
+                              ? const Color(0xFFB6DBF6)
+                              : const Color(0xFFE3E7EB),
+                        ),
+                      ),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: isCurrent
+                              ? const Color(0xFF2E607E)
+                              : const Color(0xFF4B6472),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionMenuSection extends StatelessWidget {
+  const _ActionMenuSection({
+    required this.loggedIn,
+  });
+
+  final bool loggedIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      child: Column(
+        children: <Widget>[
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.favorite_border_rounded),
+            title: const Text('お気に入りドリンク'),
+            subtitle: const Text('登録したドリンクを確認する'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: loggedIn
+                ? () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const FavoriteDrinksScreen(),
+                ),
+              );
+            }
+                : null,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.notifications_none_rounded),
+            title: const Text('通知設定'),
+            subtitle: const Text('近くのドリンク通知や更新通知'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF334148),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF60707A),
           ),
         ),
       ],
@@ -589,282 +1029,13 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFE3E7EB),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3E7EB)),
       ),
       child: child,
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF60707A),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF334148),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusTile extends StatelessWidget {
-  const _StatusTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3E7EB)),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFF60707A),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF334148),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF60707A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TitleChip extends StatelessWidget {
-  const _TitleChip({
-    required this.label,
-    required this.isCurrent,
-  });
-
-  final String label;
-  final bool isCurrent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: isCurrent ? const Color(0xFFFFF2D9) : const Color(0xFFF7FBFC),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isCurrent
-              ? const Color(0xFFFFD18B)
-              : const Color(0xFFE3E7EB),
-        ),
-      ),
-      child: Text(
-        isCurrent ? '現在: $label' : label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: isCurrent
-              ? const Color(0xFF8A5A00)
-              : const Color(0xFF334148),
-        ),
-      ),
-    );
-  }
-}
-
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7FBFC),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE3E7EB)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF60707A),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF334148),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF60707A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BulletRow extends StatelessWidget {
-  const _BulletRow({
-    required this.text,
-  });
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 3),
-            child: Icon(
-              Icons.circle,
-              size: 8,
-              color: Color(0xFF60707A),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF60707A),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PremiumBadge extends StatelessWidget {
-  const _PremiumBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF2D9),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFFFD18B)),
-      ),
-      child: const Text(
-        'PREMIUM',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF8A5A00),
-        ),
-      ),
     );
   }
 }

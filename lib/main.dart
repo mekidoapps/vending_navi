@@ -1,8 +1,10 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
-import 'screens/auth_gate.dart';
+import 'screens/startup_router_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -11,18 +13,27 @@ Future<void> main() async {
   String? startupError;
 
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+
+    await FirebaseAppCheck.instance.activate(
+      androidProvider:
+      kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider:
+      kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
     );
   } catch (e) {
     startupError = e.toString();
   }
 
-  runApp(VendingNaviApp(startupError: startupError));
+  runApp(VendingApp(startupError: startupError));
 }
 
-class VendingNaviApp extends StatelessWidget {
-  const VendingNaviApp({
+class VendingApp extends StatelessWidget {
+  const VendingApp({
     super.key,
     this.startupError,
   });
@@ -36,7 +47,7 @@ class VendingNaviApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: startupError == null
-          ? const AuthGate()
+          ? const StartupRouterScreen()
           : StartupErrorScreen(message: startupError!),
     );
   }
@@ -52,55 +63,44 @@ class StartupErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFEAF6FF),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 560),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: const Color(0xFFE3E7EB),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE3E7EB)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
+              children: <Widget>[
+                const Icon(
                   Icons.error_outline_rounded,
-                  size: 52,
-                  color: theme.colorScheme.primary,
+                  size: 44,
+                  color: Colors.redAccent,
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  '起動時にエラーが発生しました',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
+                const Text(
+                  '起動に失敗しました',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF334148),
+                  ),
                 ),
                 const SizedBox(height: 10),
-                SelectableText(
-                  message,
-                  style: theme.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
                 Text(
-                  'Firebase設定や初期化内容を確認してください。',
-                  style: theme.textTheme.bodySmall,
+                  message,
                   textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF60707A),
+                    height: 1.6,
+                  ),
                 ),
               ],
             ),

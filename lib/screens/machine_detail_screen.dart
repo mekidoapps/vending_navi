@@ -360,10 +360,24 @@ class MachineDetailScreen extends StatelessWidget {
 
     if (result is Map) {
       final dynamic machineIdValue = result['machineId'];
+      final dynamic earnedTitlesValue = result['earnedTitles'];
+      final dynamic openTitleListValue = result['openTitleList'];
+
+      final List<String> earnedTitles = earnedTitlesValue is List
+          ? earnedTitlesValue
+          .map((dynamic e) => e.toString().trim())
+          .where((String e) => e.isNotEmpty)
+          .toList(growable: false)
+          : const <String>[];
+
+      final bool openTitleList = openTitleListValue == true;
+
       if (machineIdValue is String && machineIdValue.trim().isNotEmpty) {
         Navigator.of(context).pop(<String, dynamic>{
           ...result,
           'machineId': machineIdValue.trim(),
+          'earnedTitles': earnedTitles,
+          'openTitleList': openTitleList,
         });
         return;
       }

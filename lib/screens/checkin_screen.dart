@@ -1,7 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/vending_machine.dart';
 import '../services/firestore_service.dart';
+import '../services/user_progress_service.dart';
+import '../widgets/title_unlock_overlay.dart';
 
 class CheckinScreen extends StatefulWidget {
   const CheckinScreen({
@@ -43,8 +46,65 @@ class _CheckinScreenState extends State<CheckinScreen> {
     super.dispose();
   }
 
+  Future<ProgressApplyResult> _applyCheckinProgress() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return ProgressApplyResult.empty();
+    }
+
+    final String displayName =
+    (user.displayName ?? '').trim().isNotEmpty ? user.displayName!.trim() : 'ユーザー';
+
+    return UserProgressService.instance.applyCheckinProgress(
+      uid: user.uid,
+      displayName: displayName,
+    );
+  }
+
+  Future<void> _showUnlockedTitlesIfNeeded(ProgressApplyResult result) async {
+    if (!mounted || !result.hasUnlockedTitles) return;
+
+    await TitleUnlockOverlay.show(
+      context,
+      titles: result.earnedTitles,
+    );
+  }
+
+  Future<bool> _askOpenTitleListIfNeeded(ProgressApplyResult result) async {
+    if (!mounted || !result.hasUnlockedTitles) return false;
+
+    final String firstTitle = result.earnedTitles.first;
+    final String subtitle = result.earnedTitles.length == 1
+        ? '「$firstTitle」を獲得しました'
+        : '「$firstTitle」など ${result.earnedTitles.length}件の称号を獲得しました';
+
+    final bool? openList = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('称号を確認しますか？'),
+          content: Text(
+            '$subtitle\n\nマイページの称号一覧を開けます。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('あとで'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('一覧を見る'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return openList ?? false;
+  }
+
   Future<void> _submit() async {
-    final drink = _selectedDrink?.trim();
+    final String? drink = _selectedDrink?.trim();
     if (drink == null || drink.isEmpty) return;
 
     setState(() {
@@ -52,8 +112,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     });
 
     try {
-      final updatedDrinkSlots =
-      widget.machine.drinkSlots.map((slot) {
+      final updatedDrinkSlots = widget.machine.drinkSlots.map((slot) {
         final name = (slot['name'] ?? '').toString().trim();
         if (name.isEmpty) return Map<String, dynamic>.from(slot);
 
@@ -68,7 +127,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
         return Map<String, dynamic>.from(slot);
       }).toList();
 
-      final exists = updatedDrinkSlots.any(
+      final bool exists = updatedDrinkSlots.any(
             (slot) => ((slot['name'] ?? '').toString().trim() == drink),
       );
 
@@ -86,8 +145,23 @@ class _CheckinScreenState extends State<CheckinScreen> {
         drinkSlots: updatedDrinkSlots,
       );
 
+      final ProgressApplyResult progressResult = await _applyCheckinProgress();
+
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+
+      await _showUnlockedTitlesIfNeeded(progressResult);
+
+      if (!mounted) return;
+
+      final bool openTitleList = await _askOpenTitleListIfNeeded(progressResult);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop(<String, dynamic>{
+        'checkedIn': true,
+        'earnedTitles': progressResult.earnedTitles,
+        'openTitleList': openTitleList,
+      });
     } catch (e) {
       if (!mounted) return;
 
@@ -189,7 +263,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
             )
           else
             ...products.map((drink) {
-              final selected = _selectedDrink == drink;
+              final bool selected = _selectedDrink == drink;
 
               return InkWell(
                 onTap: () {

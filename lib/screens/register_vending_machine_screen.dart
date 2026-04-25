@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/drink_slot_data.dart';
+import '../services/user_progress_service.dart';
 import '../services/vending_machine_service.dart';
+import '../widgets/title_unlock_overlay.dart';
 import 'drink_registration_screen.dart';
 
 class RegisterVendingMachineScreen extends StatefulWidget {
@@ -20,56 +23,73 @@ class RegisterVendingMachineScreen extends StatefulWidget {
 
 class _RegisterVendingMachineScreenState
     extends State<RegisterVendingMachineScreen> {
-  final VendingMachineService _service = VendingMachineService();
-
-  String? selectedManufacturer;
-  bool isSaving = false;
-  bool isLoadingMachine = false;
-
-  List<DrinkSlotData> drinkSlots =
-  List<DrinkSlotData>.generate(12, (_) => const DrinkSlotData());
-
-  final List<String> manufacturers = <String>[
-    'コカコーラ',
+  static const List<String> _manufacturers = <String>[
+    'コカ・コーラ',
     'サントリー',
-    '大塚製薬',
     '伊藤園',
     'キリン',
     'アサヒ',
+    'ダイドー',
+    '大塚製薬',
+    'AQUO',
     'その他',
   ];
 
-  bool get isEditMode {
+  final VendingMachineService _service = VendingMachineService();
+
+  String? _selectedManufacturer;
+  bool _isSaving = false;
+  bool _isLoadingMachine = false;
+  int _initialRegisteredDrinkCount = 0;
+
+  List<DrinkSlotData> _drinkSlots =
+  List<DrinkSlotData>.generate(12, (_) => const DrinkSlotData());
+
+  bool get _isEditMode {
     final String? id = widget.machineId;
     return id != null && id.trim().isNotEmpty;
   }
 
-  int get registeredCount =>
-      drinkSlots.where((e) => (e.name ?? '').trim().isNotEmpty).length;
+  int get _registeredCount =>
+      _drinkSlots.where((DrinkSlotData e) => e.hasName).length;
 
-  List<String> get registeredDrinkNames => drinkSlots
-      .map((e) => (e.name ?? '').trim())
-      .where((e) => e.isNotEmpty)
+  List<String> get _registeredDrinkNames => _drinkSlots
+      .map((DrinkSlotData e) => (e.name ?? '').trim())
+      .where((String e) => e.isNotEmpty)
       .toList(growable: false);
 
-  bool get hasDrinks => registeredCount > 0;
+  bool get _hasDrinks => _registeredCount > 0;
 
-  bool get hasManufacturer =>
-      selectedManufacturer != null && selectedManufacturer!.trim().isNotEmpty;
+  bool get _hasManufacturer =>
+      _selectedManufacturer != null && _selectedManufacturer!.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    if (isEditMode) {
+    if (_isEditMode) {
       _loadExistingMachine();
     }
   }
 
+  String? _normalizeManufacturer(String? value) {
+    final String text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+
+    switch (text) {
+      case 'コカコーラ':
+      case 'Coca-Cola':
+      case 'coca-cola':
+        return 'コカ・コーラ';
+      default:
+        return text;
+    }
+  }
+
   Future<void> _loadExistingMachine() async {
-    if (!isEditMode) return;
+    if (!_isEditMode) return;
 
     setState(() {
-      isLoadingMachine = true;
+      _isLoadingMachine = true;
     });
 
     try {
@@ -80,32 +100,36 @@ class _RegisterVendingMachineScreenState
           .get();
 
       if (!mounted) return;
+
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('編集対象の自販機が見つかりませんでした')),
         );
+        setState(() {
+          _isLoadingMachine = false;
+        });
         return;
       }
 
       final Map<String, dynamic> data = doc.data() ?? <String, dynamic>{};
-      final String manufacturer =
-      (data['manufacturer'] ?? '').toString().trim();
       final List<DrinkSlotData> loadedSlots = _slotsFromMachineData(data);
 
       setState(() {
-        selectedManufacturer = manufacturer.isEmpty ? null : manufacturer;
-        drinkSlots = loadedSlots;
+        _selectedManufacturer =
+            _normalizeManufacturer(data['manufacturer']?.toString());
+        _drinkSlots = loadedSlots;
+        _initialRegisteredDrinkCount =
+            loadedSlots.where((DrinkSlotData e) => e.hasName).length;
+        _isLoadingMachine = false;
       });
     } catch (e) {
       if (!mounted) return;
+      setState(() {
+        _isLoadingMachine = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('既存データの読み込みに失敗しました: $e')),
       );
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        isLoadingMachine = false;
-      });
     }
   }
 
@@ -135,6 +159,11 @@ class _RegisterVendingMachineScreenState
             tags: _stringList(map['tags']),
             isSoldOut: map['isSoldOut'] == true,
           );
+        } else {
+          final String text = item.toString().trim();
+          if (text.isNotEmpty) {
+            base[i] = DrinkSlotData(name: text);
+          }
         }
       }
       return base;
@@ -169,41 +198,98 @@ class _RegisterVendingMachineScreenState
   Future<void> _openDrinkRegistration() async {
     final List<DrinkSlotData>? result =
     await Navigator.of(context).push<List<DrinkSlotData>>(
-      MaterialPageRoute(
+      MaterialPageRoute<List<DrinkSlotData>>(
         builder: (_) => DrinkRegistrationScreen(
-          initialSlots: drinkSlots,
+          manufacturer: _selectedManufacturer,
+          initialSlots: _drinkSlots,
         ),
       ),
     );
 
-    if (result != null) {
+    if (!mounted || result == null) return;
+
+    final List<DrinkSlotData> normalized = List<DrinkSlotData>.generate(
+      12,
+          (int i) => i < result.length ? result[i] : const DrinkSlotData(),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       setState(() {
-        drinkSlots = List<DrinkSlotData>.generate(
-          12,
-              (int i) => i < result.length ? result[i] : const DrinkSlotData(),
-        );
+        _drinkSlots = normalized;
       });
+    });
+  }
+
+  Future<ProgressApplyResult> _applyProgressAfterCreate() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return ProgressApplyResult.empty();
     }
+
+    final String displayName =
+    (user.displayName ?? '').trim().isNotEmpty ? user.displayName!.trim() : 'ユーザー';
+
+    return UserProgressService.instance.applyMachineRegisterProgress(
+      uid: user.uid,
+      displayName: displayName,
+      addedDrinkCount: _registeredCount,
+    );
+  }
+
+  Future<ProgressApplyResult> _applyProgressAfterEdit() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return ProgressApplyResult.empty();
+    }
+
+    final int addedDrinkCount = _registeredCount - _initialRegisteredDrinkCount;
+    if (addedDrinkCount <= 0) {
+      return ProgressApplyResult.empty();
+    }
+
+    final String displayName =
+    (user.displayName ?? '').trim().isNotEmpty ? user.displayName!.trim() : 'ユーザー';
+
+    return UserProgressService.instance.applyDrinkRegisterProgress(
+      uid: user.uid,
+      displayName: displayName,
+      addedDrinkCount: addedDrinkCount,
+    );
+  }
+
+  Future<void> _showUnlockedTitlesIfNeeded(ProgressApplyResult result) async {
+    if (!mounted || !result.hasUnlockedTitles) return;
+    await TitleUnlockOverlay.show(
+      context,
+      titles: result.earnedTitles,
+    );
   }
 
   Future<void> _saveMachine({required bool skippedDrinkRegistration}) async {
-    if (isSaving || isLoadingMachine) return;
+    if (_isSaving || _isLoadingMachine) return;
 
     setState(() {
-      isSaving = true;
+      _isSaving = true;
     });
 
     try {
-      if (isEditMode) {
+      if (_isEditMode) {
         await FirebaseFirestore.instance
             .collection('vending_machines')
             .doc(widget.machineId)
             .update(<String, dynamic>{
-          'manufacturer': selectedManufacturer ?? 'その他',
-          'drinkSlots': drinkSlots.map((e) => e.toMap()).toList(),
-          'drinks': registeredDrinkNames,
+          'manufacturer': _selectedManufacturer ?? 'その他',
+          'drinkSlots': _drinkSlots.map((DrinkSlotData e) => e.toMap()).toList(),
+          'drinks': _registeredDrinkNames,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+        final ProgressApplyResult progressResult = await _applyProgressAfterEdit();
+
+        if (!mounted) return;
+
+        await _showUnlockedTitlesIfNeeded(progressResult);
 
         if (!mounted) return;
 
@@ -217,13 +303,11 @@ class _RegisterVendingMachineScreenState
           ),
         );
 
-        Navigator.pop(
-          context,
-          <String, dynamic>{
-            'updated': true,
-            'machineId': widget.machineId,
-          },
-        );
+        Navigator.of(context).pop(<String, dynamic>{
+          'updated': true,
+          'machineId': widget.machineId,
+          'earnedTitles': progressResult.earnedTitles,
+        });
         return;
       }
 
@@ -233,12 +317,18 @@ class _RegisterVendingMachineScreenState
       final String machineId = await _service.createMachine(
         latitude: latitude,
         longitude: longitude,
-        manufacturer: selectedManufacturer ?? 'その他',
+        manufacturer: _selectedManufacturer ?? 'その他',
         memo: null,
         placeNote: null,
         createdBy: null,
-        drinkSlots: drinkSlots,
+        drinkSlots: _drinkSlots,
       );
+
+      final ProgressApplyResult progressResult = await _applyProgressAfterCreate();
+
+      if (!mounted) return;
+
+      await _showUnlockedTitlesIfNeeded(progressResult);
 
       if (!mounted) return;
 
@@ -252,13 +342,11 @@ class _RegisterVendingMachineScreenState
         ),
       );
 
-      Navigator.pop(
-        context,
-        <String, dynamic>{
-          'created': true,
-          'machineId': machineId,
-        },
-      );
+      Navigator.of(context).pop(<String, dynamic>{
+        'created': true,
+        'machineId': machineId,
+        'earnedTitles': progressResult.earnedTitles,
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -267,7 +355,7 @@ class _RegisterVendingMachineScreenState
     } finally {
       if (!mounted) return;
       setState(() {
-        isSaving = false;
+        _isSaving = false;
       });
     }
   }
@@ -275,72 +363,140 @@ class _RegisterVendingMachineScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFEAF6FF),
       appBar: AppBar(
-        title: Text(isEditMode ? 'ドリンク登録 / 編集' : '自販機登録'),
+        title: Text(_isEditMode ? 'ドリンク登録 / 編集' : '自販機登録'),
       ),
       body: SafeArea(
-        child: isLoadingMachine
+        child: _isLoadingMachine
             ? const Center(child: CircularProgressIndicator())
             : ListView(
           padding: const EdgeInsets.all(16),
           children: <Widget>[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: manufacturers.map((String maker) {
-                return ChoiceChip(
-                  label: Text(maker),
-                  selected: selectedManufacturer == maker,
-                  onSelected: isSaving
-                      ? null
-                      : (_) {
-                    setState(() {
-                      selectedManufacturer = maker;
-                    });
-                  },
-                );
-              }).toList(),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE3E7EB)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'メーカー',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _manufacturers.map((String maker) {
+                      return ChoiceChip(
+                        label: Text(maker),
+                        selected: _selectedManufacturer == maker,
+                        onSelected: _isSaving
+                            ? null
+                            : (_) {
+                          setState(() {
+                            _selectedManufacturer = maker;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _hasManufacturer
+                        ? '選択中メーカー: $_selectedManufacturer'
+                        : 'メーカー未選択でも登録できます',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF60707A),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            Text(
-              hasManufacturer
-                  ? '選択中メーカー: $selectedManufacturer'
-                  : 'メーカー未選択でも登録できます',
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: isSaving ? null : _openDrinkRegistration,
-              child: Text(hasDrinks ? 'ドリンクを編集する' : 'ドリンクを登録する'),
-            ),
-            const SizedBox(height: 12),
-            Text('登録済み: $registeredCount / 12'),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: registeredDrinkNames
-                  .map(
-                    (String name) => Chip(label: Text(name)),
-              )
-                  .toList(),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE3E7EB)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'ドリンク登録',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF334148),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '見かけたものだけでOKです。あとで追加できます。',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF60707A),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _isSaving ? null : _openDrinkRegistration,
+                    child:
+                    Text(_hasDrinks ? 'ドリンクを編集する' : 'ドリンクを登録する'),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '登録済み: $_registeredCount / 12',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF60707A),
+                    ),
+                  ),
+                  if (_registeredDrinkNames.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _registeredDrinkNames
+                          .map((String name) => Chip(label: Text(name)))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: isSaving
+              onPressed: _isSaving
                   ? null
                   : () => _saveMachine(
-                skippedDrinkRegistration: !hasDrinks,
+                skippedDrinkRegistration: !_hasDrinks,
               ),
-              child: isSaving
+              child: _isSaving
                   ? const SizedBox(
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
                   : Text(
-                isEditMode
-                    ? (hasDrinks ? 'この内容で更新' : 'ドリンク未登録で更新')
-                    : (hasDrinks ? 'この内容で登録' : 'ドリンク未登録で登録'),
+                _isEditMode
+                    ? (_hasDrinks ? 'この内容で更新' : 'ドリンク未登録で更新')
+                    : (_hasDrinks ? 'この内容で登録' : 'ドリンク未登録で登録'),
               ),
             ),
           ],

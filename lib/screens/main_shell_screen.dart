@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/vending_machine.dart';
 import '../services/firestore_service.dart';
@@ -15,6 +16,9 @@ import 'machine_detail_screen.dart';
 import 'my_page_screen.dart';
 import 'notification_settings_screen.dart';
 import 'register_vending_machine_screen.dart';
+import '../widgets/login_required_sheet.dart';
+import '../widgets/simple_tutorial_dialog.dart';
+
 
 Color _manufacturerAccentColorOf(String manufacturer) {
   switch (manufacturer.trim()) {
@@ -165,6 +169,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   bool _didMoveToCurrentLocationOnce = false;
   bool _didHandleInitialMachine = false;
   bool _isSchedulingPendingSelection = false;
+  bool _openTitleListOnMyPageOpen = false;
 
   bool _showDetailPanel = false;
 
@@ -177,10 +182,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
   double? _currentLat;
   double? _currentLng;
 
+  double? _searchCenterLat;
+  double? _searchCenterLng;
+  double? _pendingSearchCenterLat;
+  double? _pendingSearchCenterLng;
+  bool _showSearchHereButton = false;
+
   String? _selectedMachineId;
   String? _pendingMachineId;
-
-  List<VendingMachine> _latestFilteredMachines = <VendingMachine>[];
+  List<_MachineView> _latestViews = const <_MachineView>[];
 
   @override
   void initState() {
@@ -190,6 +200,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _listenAuth();
     _loadCurrentLocation();
     _loadDistancePreferenceIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showTutorialIfNeeded();
+    });
   }
 
   @override
@@ -201,6 +214,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
       ..removeListener(_handleSearchTextChanged)
       ..dispose();
     super.dispose();
+  }
+
+  Future<void> _showTutorialIfNeeded() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool seen = prefs.getBool('main_tutorial_seen') ?? false;
+
+    if (seen || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const SimpleTutorialDialog(),
+    );
+
+    await prefs.setBool('main_tutorial_seen', true);
   }
 
   GlobalKey _keyForMachine(String machineId) {
@@ -516,11 +544,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   double? _distanceToMachine(VendingMachine machine) {
-    if (_currentLat == null || _currentLng == null) return null;
+    final double? baseLat = _searchCenterLat ?? _currentLat;
+    final double? baseLng = _searchCenterLng ?? _currentLng;
+
+    if (baseLat == null || baseLng == null) return null;
 
     final meters = DistanceUtil.calculateDistanceMeters(
-      fromLat: _currentLat!,
-      fromLng: _currentLng!,
+      fromLat: baseLat,
+      fromLng: baseLng,
       toLat: machine.lat,
       toLng: machine.lng,
     );
@@ -584,6 +615,27 @@ class _MainShellScreenState extends State<MainShellScreen> {
     });
 
     return views;
+  }
+
+  List<VendingMachine> get _sortedFilteredMachines {
+    final List<_MachineView> views = List<_MachineView>.from(_latestViews);
+
+    views.sort((a, b) {
+      final double aDistance = a.distanceMeters ?? double.infinity;
+      final double bDistance = b.distanceMeters ?? double.infinity;
+
+      final int byDistance = aDistance.compareTo(bDistance);
+      if (byDistance != 0) return byDistance;
+
+      final int aConfirmed = a.confirmedProductNames.isNotEmpty ? 1 : 0;
+      final int bConfirmed = b.confirmedProductNames.isNotEmpty ? 1 : 0;
+      final int byConfirmed = bConfirmed.compareTo(aConfirmed);
+      if (byConfirmed != 0) return byConfirmed;
+
+      return b.machine.updatedAt.compareTo(a.machine.updatedAt);
+    });
+
+    return views.map((e) => e.machine).toList();
   }
 
   _MachineView? _selectedView(List<_MachineView> views) {
@@ -658,6 +710,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
     setState(() {
       _currentLat = position.latitude;
       _currentLng = position.longitude;
+      _searchCenterLat = position.latitude;
+      _searchCenterLng = position.longitude;
+      _pendingSearchCenterLat = position.latitude;
+      _pendingSearchCenterLng = position.longitude;
+      _showSearchHereButton = false;
       _showDetailPanel = false;
     });
 
@@ -665,6 +722,42 @@ class _MainShellScreenState extends State<MainShellScreen> {
       LatLng(position.latitude, position.longitude),
       _zoomForDistance(_selectedDistanceMeters),
     );
+  }
+
+  Future<void> _applySearchHere() async {
+    final double? lat = _pendingSearchCenterLat;
+    final double? lng = _pendingSearchCenterLng;
+    if (lat == null || lng == null) return;
+
+    setState(() {
+      _searchCenterLat = lat;
+      _searchCenterLng = lng;
+      _selectedMachineId = null;
+      _showDetailPanel = false;
+      _showSearchHereButton = false;
+    });
+  }
+
+  Future<void> _updatePendingSearchCenterFromMap() async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final LatLngBounds bounds = await controller.getVisibleRegion();
+    if (!mounted) return;
+
+    final double centerLat =
+        (bounds.northeast.latitude + bounds.southwest.latitude) / 2;
+    final double centerLng =
+        (bounds.northeast.longitude + bounds.southwest.longitude) / 2;
+
+    _pendingSearchCenterLat = centerLat;
+    _pendingSearchCenterLng = centerLng;
+
+    if (!_showSearchHereButton && _currentTab == _MainTab.map) {
+      setState(() {
+        _showSearchHereButton = true;
+      });
+    }
   }
 
   void _scheduleSelectionIfNeeded(List<_MachineView> views) {
@@ -821,8 +914,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   Future<void> _openMachineDetail(VendingMachine machine) async {
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute<dynamic>(
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => MachineDetailScreen(
           machine: machine,
           currentLat: _currentLat,
@@ -833,75 +926,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     if (!mounted) return;
 
-    String targetMachineId = machine.id;
-    if (result is String && result.trim().isNotEmpty) {
-      targetMachineId = result.trim();
-    } else if (result is Map && result['machineId'] != null) {
-      final value = result['machineId'].toString().trim();
-      if (value.isNotEmpty) {
-        targetMachineId = value;
-      }
-    }
-
     setState(() {
-      _selectedMachineId = targetMachineId;
-      _pendingMachineId = targetMachineId;
+      _selectedMachineId = machine.id;
       _showDetailPanel = true;
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 80));
     if (!mounted) return;
 
-    final VendingMachine? selectedMachine = _machineForId(targetMachineId);
-    if (selectedMachine == null) return;
-
-    await _moveCameraToMachine(selectedMachine);
-    await _scrollToMachineCard(selectedMachine.id);
-  }
-
-  VendingMachine? _machineForId(String machineId) {
-    for (final machine in _latestFilteredMachines) {
-      if (machine.id == machineId) {
-        return machine;
-      }
-    }
-    return null;
-  }
-
-  Future<void> _openDrinkEditorForMachine(VendingMachine machine) async {
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute<dynamic>(
-        builder: (_) => RegisterVendingMachineScreen(
-          machineId: machine.id,
-        ),
-      ),
-    );
-
-    if (!mounted || result == null) return;
-
-    String? machineId;
-    if (result is String && result.trim().isNotEmpty) {
-      machineId = result.trim();
-    } else if (result is Map && result['machineId'] != null) {
-      machineId = result['machineId']?.toString().trim();
-    }
-
-    if (machineId == null || machineId.isEmpty) return;
-
-    setState(() {
-      _selectedMachineId = machineId;
-      _pendingMachineId = machineId;
-      _showDetailPanel = true;
-    });
-
-    await Future<void>.delayed(const Duration(milliseconds: 80));
-    if (!mounted) return;
-
-    final VendingMachine? selectedMachine = _machineForId(machineId);
-    if (selectedMachine == null) return;
-
-    await _moveCameraToMachine(selectedMachine);
-    await _scrollToMachineCard(selectedMachine.id);
+    await _moveCameraToMachine(machine);
+    await _scrollToMachineCard(machine.id);
   }
 
   Future<void> _showFilterSheet() async {
@@ -1080,9 +1114,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       builder: (context, snapshot) {
         final machines = snapshot.data ?? const <VendingMachine>[];
         final views = _buildViews(machines);
-        _latestFilteredMachines = views
-            .map((view) => view.machine)
-            .toList(growable: false);
+        _latestViews = views;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           for (final view in views) {
@@ -1111,7 +1143,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
                   _MapCard(
                     child: GoogleMap(
                       initialCameraPosition: CameraPosition(
-                        target: _currentLat != null && _currentLng != null
+                        target: _searchCenterLat != null && _searchCenterLng != null
+                            ? LatLng(_searchCenterLat!, _searchCenterLng!)
+                            : _currentLat != null && _currentLng != null
                             ? LatLng(_currentLat!, _currentLng!)
                             : const LatLng(35.681236, 139.767125),
                         zoom: _currentLat != null && _currentLng != null
@@ -1132,6 +1166,19 @@ class _MainShellScreenState extends State<MainShellScreen> {
                           );
                         }
                       },
+                      onCameraMove: (CameraPosition position) {
+                        if (_currentTab != _MainTab.map) return;
+
+                        _pendingSearchCenterLat = position.target.latitude;
+                        _pendingSearchCenterLng = position.target.longitude;
+
+                        if (!_showSearchHereButton) {
+                          setState(() {
+                            _showSearchHereButton = true;
+                          });
+                        }
+                      },
+                      onCameraIdle: _updatePendingSearchCenterFromMap,
                       onTap: (_) {
                         if (_selectedMachineId == null) return;
                         setState(() {
@@ -1146,6 +1193,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
                       markers: _buildMarkers(views),
                     ),
                   ),
+                  if (_showSearchHereButton)
+                    Positioned(
+                      top: 14,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _SearchHereButton(
+                          onPressed: _applySearchHere,
+                        ),
+                      ),
+                    ),
                   Positioned(
                     right: 24,
                     bottom: 84,
@@ -1206,9 +1264,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
                     onTapDetail: () async {
                       await _openMachineDetail(selectedView.machine);
                     },
-                    onTapEditDrinks: () async {
-                      await _openDrinkEditorForMachine(selectedView.machine);
-                    },
                   ),
                 },
               ),
@@ -1222,9 +1277,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Widget _buildNonMapTabContent() {
     final child = switch (_currentTab) {
       _MainTab.favorites => const FavoriteDrinksScreen(),
-      _MainTab.myPage => MyPageScreen(isLoggedIn: _isLoggedIn),
+      _MainTab.myPage => MyPageScreen(
+        isLoggedIn: _isLoggedIn,
+        openTitleListOnOpen: _openTitleListOnMyPageOpen,
+      ),
       _MainTab.map => const SizedBox.shrink(),
     };
+
+    if (_currentTab == _MainTab.myPage && _openTitleListOnMyPageOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _openTitleListOnMyPageOpen = false;
+        });
+      });
+    }
 
     return _PanelCard(
       child: child,
@@ -1234,45 +1301,47 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMapTab = _currentTab == _MainTab.map;
+
     return Scaffold(
       backgroundColor: _appBackground,
       body: SafeArea(
         child: Column(
           children: [
-            _TopHeader(
-              controller: _searchController,
-              selectedDistanceMeters: _selectedDistanceMeters,
-              hasActiveFilters: _selectedMood != null || _selectedTag != null,
-              isSavingDistancePreference: _isSavingDistancePreference,
-              onTapNotifications: _openNotifications,
-              onTapFilters: _showFilterSheet,
-              onSelectedDistance: (value) async {
-                final sanitized = _sanitizeDistance(value);
-                setState(() {
-                  _selectedDistanceMeters = sanitized;
-                  _selectedMachineId = null;
-                  _showDetailPanel = false;
-                });
-                await _saveDistancePreference(sanitized);
+            if (isMapTab) ...[
+              _TopHeader(
+                controller: _searchController,
+                selectedDistanceMeters: _selectedDistanceMeters,
+                hasActiveFilters: _selectedMood != null || _selectedTag != null,
+                isSavingDistancePreference: _isSavingDistancePreference,
+                onTapNotifications: _openNotifications,
+                onTapFilters: _showFilterSheet,
+                onSelectedDistance: (value) async {
+                  final sanitized = _sanitizeDistance(value);
+                  setState(() {
+                    _selectedDistanceMeters = sanitized;
+                    _selectedMachineId = null;
+                    _showDetailPanel = false;
+                  });
+                  await _saveDistancePreference(sanitized);
 
-                if (_currentLat != null &&
-                    _currentLng != null &&
-                    _currentTab == _MainTab.map &&
-                    _selectedMachineId == null) {
-                  await _moveCamera(
-                    LatLng(_currentLat!, _currentLng!),
-                    _zoomForDistance(_selectedDistanceMeters),
-                  );
-                }
-              },
-            ),
-            const SizedBox(height: 10),
+                  if (_currentLat != null &&
+                      _currentLng != null &&
+                      _currentTab == _MainTab.map &&
+                      _selectedMachineId == null) {
+                    await _moveCamera(
+                      LatLng(_currentLat!, _currentLng!),
+                      _zoomForDistance(_selectedDistanceMeters),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _currentTab == _MainTab.map
-                    ? _buildMapTab()
-                    : _buildNonMapTabContent(),
+                child: isMapTab ? _buildMapTab() : _buildNonMapTabContent(),
               ),
             ),
           ],
@@ -1303,6 +1372,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
               _BottomNavBar(
                 currentTab: _currentTab,
                 onChanged: (tab) {
+                  FocusScope.of(context).unfocus();
                   setState(() {
                     _currentTab = tab;
                   });
@@ -1574,6 +1644,57 @@ class _PanelCard extends StatelessWidget {
   }
 }
 
+class _SearchHereButton extends StatelessWidget {
+  const _SearchHereButton({
+    required this.onPressed,
+  });
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFE3E7EB)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search_rounded, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'この場所で探す',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334148),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CircleMapButton extends StatelessWidget {
   const _CircleMapButton({
     required this.icon,
@@ -1791,14 +1912,12 @@ class _MachineDetailPanel extends StatelessWidget {
     required this.distanceLabel,
     required this.onTapClose,
     required this.onTapDetail,
-    required this.onTapEditDrinks,
   });
 
   final _MachineView view;
   final String distanceLabel;
   final VoidCallback onTapClose;
   final Future<void> Function() onTapDetail;
-  final Future<void> Function() onTapEditDrinks;
 
   Color _manufacturerAccentColor(String manufacturer) {
     switch (manufacturer.trim()) {
@@ -2063,12 +2182,27 @@ class _MachineDetailPanel extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 18),
-                  Column(
+                  Row(
                     children: [
-                      SizedBox(
-                        width: double.infinity,
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onTapClose,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            side: const BorderSide(
+                              color: Color(0xFFE3E7EB),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text('閉じる'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
                         child: FilledButton.icon(
-                          onPressed: onTapEditDrinks,
+                          onPressed: onTapDetail,
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(46),
                             backgroundColor: accentColor,
@@ -2077,47 +2211,9 @@ class _MachineDetailPanel extends StatelessWidget {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          icon: const Icon(Icons.local_drink_rounded),
-                          label: Text(
-                            view.displayProducts.isEmpty ? 'この自販機にドリンクを登録' : 'ドリンクを編集する',
-                          ),
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          label: const Text('詳細を見る'),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: onTapClose,
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(46),
-                                side: const BorderSide(
-                                  color: Color(0xFFE3E7EB),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: const Text('閉じる'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: onTapDetail,
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size.fromHeight(46),
-                                backgroundColor: accentColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: const Text('詳細を見る'),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -2388,7 +2484,8 @@ class _BottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const tabs = <({IconData icon, String label, _MainTab tab})>[
       (icon: Icons.map_rounded, label: 'マップ', tab: _MainTab.map),
-      (icon: Icons.favorite_rounded, label: 'お気に入り', tab: _MainTab.favorites),
+      (icon: Icons.favorite_rounded, label: 'お気に入り', tab: _MainTab
+          .favorites),
       (icon: Icons.person_rounded, label: 'マイページ', tab: _MainTab.myPage),
     ];
 
@@ -2410,7 +2507,10 @@ class _BottomNavBar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: selected
-                        ? Theme.of(context).colorScheme.primary
+                        ? Theme
+                        .of(context)
+                        .colorScheme
+                        .primary
                         : const Color(0xFFF4F6F8),
                     borderRadius: BorderRadius.circular(18),
                   ),
