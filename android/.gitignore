@@ -25,3 +25,6 @@ web/index.html
 .claude/
 build/
 .dart_tool/
+
+android/key.properties
+android/app/upload-keystore.jks

@@ -25,35 +25,45 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
 
-  int _currentIndex = 0;
+  int _currentPage = 0;
   bool _isFinishing = false;
 
   static const List<_OnboardingPageData> _pages = <_OnboardingPageData>[
     _OnboardingPageData(
-      icon: Icons.local_drink_rounded,
+      icon: Icons.search_rounded,
       title: '飲みたいドリンクから探せます',
-      description:
-      '「綾鷹」「BOSS」「お〜いお茶」など、今ほしいドリンクを起点に近くの自販機を探せます。',
-      accentColor: Color(0xFF64B5F6),
+      description: '「綾鷹」「BOSS」「お〜いお茶」など、今飲みたいドリンク名から近くの自販機を探せます。',
+      accentColor: Color(0xFF3E7BFA),
     ),
     _OnboardingPageData(
       icon: Icons.add_location_alt_rounded,
       title: '見かけた自販機やドリンクを登録できます',
-      description:
-      '見かけたものだけで大丈夫です。メーカーを選んで、あとからドリンク情報を追加することもできます。',
-      accentColor: Color(0xFF81C784),
+      description: '見かけたものだけで大丈夫です。メーカーを選んで、あとからドリンク情報を追加することもできます。',
+      accentColor: Color(0xFF2F7D5B),
+    ),
+    _OnboardingPageData(
+      icon: Icons.favorite_rounded,
+      title: 'お気に入りで探しやすくなります',
+      description: 'よく飲むドリンクをお気に入りに入れると、近くにある自販機を見つけやすくなります。',
+      accentColor: Color(0xFFB56B00),
     ),
     _OnboardingPageData(
       icon: Icons.shield_outlined,
       title: '安全に使ってください',
-      description:
-      '私有地に入らない、危険な場所で操作しない、周囲の迷惑にならないように使ってください。',
+      description: '私有地に入らない、危険な場所で操作しない、周囲の迷惑にならないように使ってください。',
       accentColor: Color(0xFFFFB74D),
       isSafetyPage: true,
     ),
   ];
 
-  bool get _isLastPage => _currentIndex == _pages.length - 1;
+  bool get _isLastPage => _currentPage == _pages.length - 1;
+
+  void _handlePageChanged(int index) {
+    if (!mounted) return;
+    setState(() {
+      _currentPage = index;
+    });
+  }
 
   Future<void> _complete() async {
     if (_isFinishing) return;
@@ -64,7 +74,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       await OnboardingScreen.markSeen();
-
       if (!mounted) return;
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -81,11 +90,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Future<void> _skip() async {
-    await _complete();
-  }
-
   Future<void> _next() async {
+    if (_isFinishing) return;
+
     if (_isLastPage) {
       await _complete();
       return;
@@ -97,6 +104,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Future<void> _previous() async {
+    if (_currentPage == 0 || _isFinishing) return;
+
+    await _pageController.previousPage(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Future<void> _skip() async {
+    await _complete();
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -106,15 +126,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final _OnboardingPageData page = _pages[_currentPage];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF6FF),
+      backgroundColor: const Color(0xFFD6ECFF),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Row(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            children: <Widget>[
+              Row(
                 children: <Widget>[
                   const Text(
                     '自販機ナビ',
@@ -131,76 +152,81 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _pages.length,
-                onPageChanged: (int index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemBuilder: (BuildContext context, int index) {
-                  final _OnboardingPageData page = _pages[index];
-                  return _OnboardingPage(
-                    data: page,
-                    theme: theme,
-                  );
-                },
+              const SizedBox(height: 8),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: _handlePageChanged,
+                  itemCount: _pages.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    return _OnboardingPage(
+                      data: _pages[index],
+                      theme: theme,
+                    );
+                  },
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              child: Column(
-                children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List<Widget>.generate(
-                      _pages.length,
-                          (int index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentIndex == index ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _currentIndex == index
-                              ? const Color(0xFF64B5F6)
-                              : const Color(0xFFCAD6DE),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List<Widget>.generate(
+                  _pages.length,
+                      (int index) => _PageIndicator(
+                    isActive: index == _currentPage,
+                    color: _pages[index].accentColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: const Color(0xFFE3E7EB),
+                  ),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _currentPage == 0 || _isFinishing ? null : _previous,
+                        child: const Text('戻る'),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _isFinishing ? null : _next,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFF64B5F6),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _isFinishing ? null : _next,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: page.accentColor,
                         ),
+                        child: _isFinishing
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                            : Text(_isLastPage ? 'はじめる' : '次へ'),
                       ),
-                      child: _isFinishing
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                          : Text(_isLastPage ? 'はじめる' : '次へ'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -219,84 +245,79 @@ class _OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-      child: Column(
-        children: <Widget>[
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFFE3E7EB)),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 16,
-                    offset: Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _HeroIllustration(data: data),
-                  const SizedBox(height: 24),
-                  Text(
-                    data.title,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF334148),
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    data.description,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF60707A),
-                      height: 1.8,
-                    ),
-                  ),
-                  if (data.isSafetyPage) ...<Widget>[
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF8E8),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFFFE0A3)),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _SafetyRow(
-                            icon: Icons.block_rounded,
-                            text: '私有地や立ち入り禁止の場所には入らない',
-                          ),
-                          SizedBox(height: 10),
-                          _SafetyRow(
-                            icon: Icons.warning_amber_rounded,
-                            text: '歩きながらや車道付近での操作を避ける',
-                          ),
-                          SizedBox(height: 10),
-                          _SafetyRow(
-                            icon: Icons.people_alt_outlined,
-                            text: '通行や施設利用の迷惑にならないようにする',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                ],
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFE3E7EB)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          children: <Widget>[
+            _HeroIllustration(data: data),
+            const SizedBox(height: 24),
+            Text(
+              data.title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF334148),
+                height: 1.35,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            Text(
+              data.description,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF60707A),
+                height: 1.65,
+              ),
+            ),
+            const Spacer(),
+            if (data.isSafetyPage)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E8),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFFFE0A3)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _SafetyRow(
+                      icon: Icons.block_rounded,
+                      text: '私有地や立ち入り禁止の場所には入らない',
+                    ),
+                    SizedBox(height: 10),
+                    _SafetyRow(
+                      icon: Icons.warning_amber_rounded,
+                      text: '歩きながらや車道付近での操作を避ける',
+                    ),
+                    SizedBox(height: 10),
+                    _SafetyRow(
+                      icon: Icons.people_alt_outlined,
+                      text: '通行や施設利用の迷惑にならないようにする',
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -318,14 +339,14 @@ class _HeroIllustration extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
           colors: <Color>[
-            data.accentColor.withValues(alpha: 0.18),
-            data.accentColor.withValues(alpha: 0.08),
+            data.accentColor.withOpacity(0.18),
+            data.accentColor.withOpacity(0.08),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: data.accentColor.withValues(alpha: 0.22),
+          color: data.accentColor.withOpacity(0.22),
         ),
       ),
       child: Stack(
@@ -337,7 +358,7 @@ class _HeroIllustration extends StatelessWidget {
               width: 92,
               height: 92,
               decoration: BoxDecoration(
-                color: data.accentColor.withValues(alpha: 0.15),
+                color: data.accentColor.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
             ),
@@ -349,7 +370,7 @@ class _HeroIllustration extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: data.accentColor.withValues(alpha: 0.14),
+                color: data.accentColor.withOpacity(0.14),
                 shape: BoxShape.circle,
               ),
             ),
@@ -357,7 +378,10 @@ class _HeroIllustration extends StatelessWidget {
           Center(
             child: data.isSafetyPage
                 ? const _SafetyMiniScene()
-                : _SearchMiniScene(accentColor: data.accentColor, icon: data.icon),
+                : _SearchMiniScene(
+              accentColor: data.accentColor,
+              icon: data.icon,
+            ),
           ),
         ],
       ),
@@ -433,7 +457,7 @@ class _SearchMiniScene extends StatelessWidget {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.14),
+                      color: accentColor.withOpacity(0.14),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Icon(
@@ -443,15 +467,15 @@ class _SearchMiniScene extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
+                const Positioned(
                   right: 16,
                   top: 22,
                   child: Column(
                     children: <Widget>[
                       _MiniDrinkPill(label: '近くで買える'),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       _MiniDrinkPill(label: 'メーカー確認'),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       _MiniDrinkPill(label: 'あとで登録'),
                     ],
                   ),
@@ -578,10 +602,13 @@ class _SafetyRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Icon(
-          icon,
-          size: 18,
-          color: Color(0xFF8A5B00),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF8A5B00),
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -596,6 +623,30 @@ class _SafetyRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PageIndicator extends StatelessWidget {
+  const _PageIndicator({
+    required this.isActive,
+    required this.color,
+  });
+
+  final bool isActive;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: isActive ? 26 : 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: isActive ? color : const Color(0xFFD5DDE3),
+        borderRadius: BorderRadius.circular(999),
+      ),
     );
   }
 }

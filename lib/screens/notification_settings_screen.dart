@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'auth_gate.dart';
 import '../widgets/login_required_sheet.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {

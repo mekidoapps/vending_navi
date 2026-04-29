@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/product.dart';
 import '../services/drink_catalog_service.dart';
 import '../services/favorite_drink_service.dart';
+import '../widgets/drink_picker_sheet.dart';
 
 class FavoriteDrinksScreen extends StatefulWidget {
   const FavoriteDrinksScreen({super.key});
@@ -215,6 +217,75 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
     }
   }
 
+  Future<void> _pickAndAddFavorite() async {
+    if (_isSubmitting) return;
+    if (!_isLoggedIn) return;
+
+    final Product? selected = await DrinkPickerSheet.show(
+      context,
+      title: 'お気に入りに追加',
+    );
+
+    if (selected == null) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final FavoriteDrinkMutationResult result =
+      await FavoriteDrinkService.instance.addFavorite(selected.name);
+
+      if (!mounted) return;
+
+      setState(() {
+        _favorites = result.favorites;
+        _limit = result.limit ?? _limit;
+      });
+
+      switch (result.reason) {
+        case FavoriteDrinkMutationReason.added:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('「${selected.name}」をお気に入りに追加しました。')),
+          );
+          break;
+        case FavoriteDrinkMutationReason.alreadyExists:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('「${selected.name}」はすでに登録されています。')),
+          );
+          break;
+        case FavoriteDrinkMutationReason.limitReached:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('お気に入りは最大${result.limit ?? _limit}件までです。')),
+          );
+          break;
+        case FavoriteDrinkMutationReason.notLoggedIn:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('お気に入り保存にはログインが必要です。')),
+          );
+          break;
+        case FavoriteDrinkMutationReason.invalidName:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ドリンクを選んでください。')),
+          );
+          break;
+        case FavoriteDrinkMutationReason.removed:
+        case FavoriteDrinkMutationReason.notFound:
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存に失敗しました: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+
   Future<void> _removeFavorite(String drinkName) async {
     if (_isSubmitting) return;
 
@@ -251,6 +322,7 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
       if (!mounted) return;
       setState(() {
         _favorites = result.favorites;
+        _limit = result.limit ?? _limit;
       });
 
       if (result.reason == FavoriteDrinkMutationReason.removed) {
@@ -324,6 +396,39 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                       value: '$remaining件',
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: (_isSubmitting || _favorites.length >= _limit)
+                        ? null
+                        : _pickAndAddFavorite,
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Icon(Icons.add_rounded),
+                    label: Text(_isSubmitting ? '追加中…' : 'ドリンクを選んで追加'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _favorites.length >= _limit
+                      ? '上限に達しています。プレミアムで上限を増やせる予定です。'
+                      : 'メーカーやドリンク名から選んで追加できます。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _favorites.length >= _limit
+                        ? const Color(0xFF8A5A00)
+                        : const Color(0xFF60707A),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -436,7 +541,8 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                 else
                   ...items.map((DrinkCatalogItem item) {
                     final bool favorite = _isFavorite(item.name);
-                    final bool limitReached = !favorite && _favorites.length >= _limit;
+                    final bool limitReached =
+                        !favorite && _favorites.length >= _limit;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -560,8 +666,9 @@ class _CatalogDrinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accentColor =
-    isFavorite ? Theme.of(context).colorScheme.primary : const Color(0xFF60707A);
+    final Color accentColor = isFavorite
+        ? Theme.of(context).colorScheme.primary
+        : const Color(0xFF60707A);
 
     return InkWell(
       onTap: isDisabled ? null : onTap,
@@ -578,7 +685,9 @@ class _CatalogDrinkRow extends StatelessWidget {
         child: Row(
           children: <Widget>[
             Icon(
-              isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
               color: accentColor,
             ),
             const SizedBox(width: 10),
