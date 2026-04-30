@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login_screen.dart';
 import 'main_shell_screen.dart';
@@ -19,8 +18,6 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  static const String _onboardingSeenKey = 'onboarding_seen_v1';
-
   bool _isCheckingOnboarding = true;
 
   @override
@@ -31,8 +28,7 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _prepareOnboarding() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final seen = prefs.getBool(_onboardingSeenKey) ?? false;
+      final seen = await OnboardingScreen.hasSeen();
 
       if (!mounted) return;
       setState(() {
@@ -62,8 +58,7 @@ class _AuthGateState extends State<AuthGate> {
 
     if (result == true) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(_onboardingSeenKey, true);
+        await OnboardingScreen.markSeen();
       } catch (_) {
         // 継続
       }
