@@ -19,7 +19,7 @@ class DrinkRegistrationScreen extends StatefulWidget {
 }
 
 class _DrinkRegistrationScreenState extends State<DrinkRegistrationScreen> {
-  static const int _slotCount = 12;
+  static const int _slotCount = 24;
 
   static const List<String> _commonSuggestions = <String>[
     'お〜いお茶',
@@ -466,6 +466,11 @@ class _DrinkRegistrationScreenState extends State<DrinkRegistrationScreen> {
                       index: index,
                       slot: slot,
                       onTap: () => _editSlot(index),
+                      onDelete: () {
+                        setState(() {
+                          _slots[index] = const DrinkSlotData();
+                        });
+                      },
                     );
                   },
                 ),
@@ -732,11 +737,13 @@ class _DrinkSlotCard extends StatelessWidget {
     required this.index,
     required this.slot,
     required this.onTap,
+    required this.onDelete,
   });
 
   final int index;
   final DrinkSlotData slot;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -764,16 +771,48 @@ class _DrinkSlotCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Align(
-                alignment: Alignment.topRight,
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF8A98A3),
+              Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF8A98A3),
+                      ),
+                    ),
                   ),
-                ),
+
+                  if (slot.hasName)
+                    Positioned(
+                      top: -6,
+                      left: -6,
+                      child: GestureDetector(
+                        onTap: onDelete,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFE3E7EB)),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x22000000),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Color(0xFF60707A),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               Expanded(
                 child: Container(

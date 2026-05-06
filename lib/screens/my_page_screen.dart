@@ -660,7 +660,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ),
             const SizedBox(height: 16),
             _SupportSection(
-              onTapFeedback: _showFeedbackInfo,
               onTapContact: _showContactInfo,
             ),
             const SizedBox(height: 16),
@@ -1153,11 +1152,9 @@ class _ActionMenuSection extends StatelessWidget {
 
 class _SupportSection extends StatelessWidget {
   const _SupportSection({
-    required this.onTapFeedback,
     required this.onTapContact,
   });
 
-  final VoidCallback onTapFeedback;
   final VoidCallback onTapContact;
 
   @override
@@ -1166,13 +1163,6 @@ class _SupportSection extends StatelessWidget {
       title: 'サポート / 運営',
       child: Column(
         children: <Widget>[
-          _MenuRow(
-            icon: Icons.feedback_outlined,
-            title: 'フィードバック',
-            subtitle: '改善要望や感想を送る',
-            onTap: onTapFeedback,
-          ),
-          const SizedBox(height: 8),
           _MenuRow(
             icon: Icons.mail_outline_rounded,
             title: 'お問い合わせ',

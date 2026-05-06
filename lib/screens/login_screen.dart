@@ -264,6 +264,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             : Text(submitLabel),
                       ),
                     ),
+                    const Text(
+                      'Googleでもすぐにログインできます',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF60707A),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 48,
@@ -286,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         _isRegisterMode
                             ? 'すでにアカウントがある場合はこちら'
-                            : 'はじめて使う場合はメール登録',
+                            : '初めての方もGoogleまたはメールでログインできます',
                       ),
                     ),
                   ],

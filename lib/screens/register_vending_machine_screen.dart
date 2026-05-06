@@ -23,6 +23,8 @@ class RegisterVendingMachineScreen extends StatefulWidget {
 
 class _RegisterVendingMachineScreenState
     extends State<RegisterVendingMachineScreen> {
+  static const int _drinkSlotCount = 24;
+
   static const List<String> _manufacturers = <String>[
     'コカ・コーラ',
     'サントリー',
@@ -63,8 +65,8 @@ class _RegisterVendingMachineScreenState
 
   int _initialRegisteredDrinkCount = 0;
   List<DrinkSlotData> _drinkSlots = List<DrinkSlotData>.generate(
-    12,
-    (_) => const DrinkSlotData(),
+    _drinkSlotCount,
+        (_) => const DrinkSlotData(),
   );
 
   bool get _isEditMode {
@@ -236,8 +238,8 @@ class _RegisterVendingMachineScreenState
 
   List<DrinkSlotData> _slotsFromMachineData(Map<String, dynamic> data) {
     final List<DrinkSlotData> base = List<DrinkSlotData>.generate(
-      12,
-      (_) => const DrinkSlotData(),
+      _drinkSlotCount,
+          (_) => const DrinkSlotData(),
     );
 
     final dynamic rawSlots = data['drinkSlots'];
@@ -288,7 +290,7 @@ class _RegisterVendingMachineScreenState
   void _selectManufacturer(String manufacturer) {
     setState(() {
       _selectedManufacturer =
-          _selectedManufacturer == manufacturer ? null : manufacturer;
+      _selectedManufacturer == manufacturer ? null : manufacturer;
     });
   }
 
@@ -304,7 +306,7 @@ class _RegisterVendingMachineScreenState
 
   Future<void> _openDrinkRegistration() async {
     final List<DrinkSlotData>? result =
-        await Navigator.of(context).push<List<DrinkSlotData>>(
+    await Navigator.of(context).push<List<DrinkSlotData>>(
       MaterialPageRoute<List<DrinkSlotData>>(
         builder: (_) => DrinkRegistrationScreen(
           manufacturer: _selectedManufacturer,
@@ -317,8 +319,8 @@ class _RegisterVendingMachineScreenState
 
     setState(() {
       _drinkSlots = List<DrinkSlotData>.generate(
-        12,
-        (int i) => i < result.length ? result[i] : const DrinkSlotData(),
+        _drinkSlotCount,
+            (int i) => i < result.length ? result[i] : const DrinkSlotData(),
       );
     });
   }
@@ -419,11 +421,11 @@ class _RegisterVendingMachineScreenState
             .where((DrinkSlotData e) => e.hasName)
             .map(
               (DrinkSlotData e) => <String, dynamic>{
-                'name': e.name,
-                'tags': e.tags,
-                'isSoldOut': e.isSoldOut,
-              },
-            )
+            'name': e.name,
+            'tags': e.tags,
+            'isSoldOut': e.isSoldOut,
+          },
+        )
             .toList(growable: false),
         'updatedAt': now,
         'updatedBy': user.uid,
@@ -442,7 +444,7 @@ class _RegisterVendingMachineScreenState
         progressResult = await _applyProgressAfterEdit();
       } else {
         final DocumentReference<Map<String, dynamic>> doc =
-            FirebaseFirestore.instance.collection('vending_machines').doc();
+        FirebaseFirestore.instance.collection('vending_machines').doc();
         machineId = doc.id;
         await doc.set(<String, dynamic>{
           ...payload,
@@ -473,11 +475,11 @@ class _RegisterVendingMachineScreenState
           content: Text(
             _isEditMode
                 ? (skippedDrinkRegistration
-                    ? 'ドリンク未登録のまま更新しました'
-                    : 'ドリンク情報を更新しました')
+                ? 'ドリンク未登録のまま更新しました'
+                : 'ドリンク情報を更新しました')
                 : (skippedDrinkRegistration
-                    ? 'ドリンク未登録で保存しました'
-                    : '自販機情報を保存しました'),
+                ? 'ドリンク未登録で保存しました'
+                : '自販機情報を保存しました'),
           ),
         ),
       );
@@ -544,10 +546,10 @@ class _RegisterVendingMachineScreenState
               onPressed: _isLoadingLocation ? null : _loadCurrentLocation,
               icon: _isLoadingLocation
                   ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
                   : const Icon(Icons.my_location_rounded),
               label: Text(_isLoadingLocation ? '取得中' : '現在地を再取得'),
             ),
@@ -665,7 +667,7 @@ class _RegisterVendingMachineScreenState
           ),
           const SizedBox(height: 12),
           Text(
-            '登録済み: $_registeredCount / 12',
+            '登録済み: $_registeredCount / $_drinkSlotCount',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -795,51 +797,51 @@ class _RegisterVendingMachineScreenState
         child: _isLoadingMachine
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.all(16),
-                children: <Widget>[
-                  _buildLocationCard(),
-                  const SizedBox(height: 12),
-                  _buildBasicInfoCard(),
-                  const SizedBox(height: 12),
-                  _buildManufacturerCard(),
-                  const SizedBox(height: 12),
-                  _buildDrinkCard(),
-                  const SizedBox(height: 12),
-                  _buildTagCard(),
-                  const SizedBox(height: 12),
-                  _buildMemoCard(),
-                  const SizedBox(height: 16),
-                  _buildNoticeCard(),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: _canSave
-                        ? () => _saveMachine(
-                              skippedDrinkRegistration: !_hasDrinks,
-                            )
-                        : null,
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.save_rounded),
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Text(
-                        _isSaving
-                            ? '保存中...'
-                            : _isEditMode
-                                ? (_hasDrinks ? 'この内容で更新' : 'ドリンク未登録で更新')
-                                : (_hasDrinks ? 'この内容で登録' : 'ドリンク未登録で登録'),
-                      ),
-                    ),
-                  ),
-                ],
+          padding: const EdgeInsets.all(16),
+          children: <Widget>[
+            _buildLocationCard(),
+            const SizedBox(height: 12),
+            _buildBasicInfoCard(),
+            const SizedBox(height: 12),
+            _buildManufacturerCard(),
+            const SizedBox(height: 12),
+            _buildDrinkCard(),
+            const SizedBox(height: 12),
+            _buildTagCard(),
+            const SizedBox(height: 12),
+            _buildMemoCard(),
+            const SizedBox(height: 16),
+            _buildNoticeCard(),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _canSave
+                  ? () => _saveMachine(
+                skippedDrinkRegistration: !_hasDrinks,
+              )
+                  : null,
+              icon: _isSaving
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Icon(Icons.save_rounded),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  _isSaving
+                      ? '保存中...'
+                      : _isEditMode
+                      ? (_hasDrinks ? 'この内容で更新' : 'ドリンク未登録で更新')
+                      : (_hasDrinks ? 'この内容で登録' : 'ドリンク未登録で登録'),
+                ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }

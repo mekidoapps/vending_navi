@@ -13,7 +13,6 @@ import '../services/firestore_service.dart';
 import '../utils/distance_util.dart';
 import '../utils/map_marker_factory.dart';
 import '../widgets/login_required_sheet.dart';
-import '../widgets/simple_tutorial_dialog.dart';
 import 'favorite_drinks_screen.dart';
 import 'machine_detail_screen.dart';
 import 'my_page_screen.dart';
@@ -167,7 +166,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _listenAuth();
     _loadCurrentLocation();
     _loadDistancePreferenceIfNeeded();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showTutorialIfNeeded());
   }
 
   @override
@@ -177,14 +175,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _machineListScrollController.dispose();
     _searchController..removeListener(_handleSearchTextChanged)..dispose();
     super.dispose();
-  }
-
-  Future<void> _showTutorialIfNeeded() async {
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('main_tutorial_seen') ?? false;
-    if (seen || !mounted) return;
-    await showDialog<void>(context: context, barrierDismissible: false, builder: (_) => const SimpleTutorialDialog());
-    await prefs.setBool('main_tutorial_seen', true);
   }
 
   GlobalKey _keyForMachine(String machineId) => _machineItemKeys.putIfAbsent(machineId, () => GlobalKey());
@@ -660,7 +650,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Widget _buildMapPanel({required List<_MachineView> views, required _MachineView? selectedView, required _MapPanelMode panelMode}) {
     switch (panelMode) {
       case _MapPanelMode.idle: return _MapIdlePanel(onTapFilter: _showFilterSheet);
-      case _MapPanelMode.list: return _MachineListPanel(views: views, selectedMachineId: _selectedMachineId, distanceLabelBuilder: _distanceLabel, scrollController: _machineListScrollController, keyForMachine: _keyForMachine, onTapMachine: (view) async { setState(() { _selectedMachineId = view.machine.id; _showDetailPanel = true; }); await _moveCameraToMachine(view.machine); });
+      case _MapPanelMode.list: return _MachineListPanel(
+        views: views,
+        selectedMachineId: _selectedMachineId,
+        distanceLabelBuilder: _distanceLabel,
+        scrollController: _machineListScrollController,
+        keyForMachine: _keyForMachine,
+        onTapMachine: (view) async {
+          setState(() {
+            _selectedMachineId = view.machine.id;
+            _showDetailPanel = true;
+          });
+          await _moveCameraToMachine(view.machine);
+        },
+        onTapRegister: _openRegister, // ←これ追加
+      );
       case _MapPanelMode.detail:
         if (selectedView == null) return const _EmptyPanel(title: '見つかりませんでした', message: '自販機情報がありません。');
         return _MachineDetailPanel(view: selectedView, distanceLabel: _distanceLabel(selectedView.distanceMeters), onTapClose: () => setState(() { _selectedMachineId = null; _showDetailPanel = false; }), onTapDetail: () async => _openMachineDetail(selectedView.machine));
@@ -1002,6 +1006,7 @@ class _MachineListPanel extends StatelessWidget {
     required this.scrollController,
     required this.keyForMachine,
     required this.onTapMachine,
+    required this.onTapRegister,
   });
 
   final List<_MachineView> views;
@@ -1010,16 +1015,31 @@ class _MachineListPanel extends StatelessWidget {
   final ScrollController scrollController;
   final GlobalKey Function(String machineId) keyForMachine;
   final Future<void> Function(_MachineView view) onTapMachine;
+  final VoidCallback onTapRegister;
+
 
   @override
   Widget build(BuildContext context) {
     if (views.isEmpty) {
-      return const _EmptyPanel(
-        title: '見つかりませんでした',
-        message: '条件に合う自販機がありません。',
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const _SimpleInfoBlock(
+            title: '近くに自販機が見つかりません',
+            message: 'この地域では、まだ自販機情報が登録されていない可能性があります。\n最初の1台を登録してみませんか？',
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onTapRegister,
+              icon: const Icon(Icons.add_business_rounded),
+              label: const Text('この場所の自販機を登録する'),
+            ),
+          ),
+        ],
       );
     }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

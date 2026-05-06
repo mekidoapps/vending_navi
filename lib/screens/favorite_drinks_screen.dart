@@ -359,7 +359,7 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: <Widget>[
           _SectionCard(
             child: Column(
@@ -384,13 +384,14 @@ class _FavoriteDrinksScreenState extends State<FavoriteDrinksScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: <Widget>[
                     _CountBadge(
                       label: '登録数',
                       value: '${_favorites.length}/$_limit',
                     ),
-                    const SizedBox(width: 8),
                     _CountBadge(
                       label: '残り',
                       value: '$remaining件',
