@@ -1024,9 +1024,13 @@ class _MachineListPanel extends StatelessWidget {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const _SimpleInfoBlock(
-            title: '近くに自販機が見つかりません',
-            message: 'この地域では、まだ自販機情報が登録されていない可能性があります。\n最初の1台を登録してみませんか？',
+          _SimpleInfoBlock(
+            title: hasSearch
+                ? '該当するドリンクが見つかりません'
+                : '近くに自販機が見つかりません',
+            message: hasSearch
+                ? '検索したドリンクはまだ登録されていません。\n近くの自販機を登録すると、他の人も探せるようになります。'
+                : 'この地域では、まだ自販機情報が登録されていない可能性があります。\n最初の1台を登録してみませんか？',
           ),
           const SizedBox(height: 16),
           SizedBox(
