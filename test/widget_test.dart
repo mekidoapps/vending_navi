@@ -28,9 +28,9 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('自販機ナビ v2'), findsOneWidget);
-    expect(find.text('基盤確認画面'), findsOneWidget);
+    expect(find.text('デザイン基盤確認'), findsOneWidget);
   });
 }
