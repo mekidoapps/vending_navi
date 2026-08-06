@@ -7,6 +7,25 @@
 
 # 変更履歴
 
+## 2026-08-06 - Phase 2 P2-02 Firestore DTO／Mapper
+
+### 追加
+
+- Product／ManufacturerのFirestore DTO
+- Firestore TimestampとUTC DateTimeの変換
+- ドキュメントIDを本文から分離するDTO境界
+- DTOからDomainへの検証・正規化Mapper
+- 不正ID、未知ジャンル、必須値欠損をValidationFailureへ変換する処理
+- DTO往復、Timestamp、Mapper失敗経路の単体テスト
+- Firestoreマスタ変換規約
+
+### 方針
+
+- 未知ジャンルを`other`へ自動補正しない。
+- 不正なFirestore文書を例外のまま画面へ流さない。
+- `toFirestoreData()`はfixture・移行・テスト用とし、公開マスタのクライアント直接書き込みには使わない。
+- 旧商品文字列の未解決表現はP2-03へ分離する。
+
 ## 2026-08-06 - Phase 2 P2-01 マスタDomain
 
 ### 追加
