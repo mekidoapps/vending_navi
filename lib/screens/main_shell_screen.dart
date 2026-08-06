@@ -652,6 +652,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
       case _MapPanelMode.idle: return _MapIdlePanel(onTapFilter: _showFilterSheet);
       case _MapPanelMode.list: return _MachineListPanel(
         views: views,
+        hasSearch: _selectedKeyword.trim().isNotEmpty ||
+            _selectedMood != null ||
+            _selectedTag != null,
         selectedMachineId: _selectedMachineId,
         distanceLabelBuilder: _distanceLabel,
         scrollController: _machineListScrollController,
@@ -1001,6 +1004,7 @@ class _MapIdlePanel extends StatelessWidget {
 class _MachineListPanel extends StatelessWidget {
   const _MachineListPanel({
     required this.views,
+    required this.hasSearch,
     required this.selectedMachineId,
     required this.distanceLabelBuilder,
     required this.scrollController,
@@ -1010,6 +1014,7 @@ class _MachineListPanel extends StatelessWidget {
   });
 
   final List<_MachineView> views;
+  final bool hasSearch;
   final String? selectedMachineId;
   final String Function(double? meters) distanceLabelBuilder;
   final ScrollController scrollController;
