@@ -8,6 +8,7 @@ Future<BootstrapResult> bootstrap({BootstrapConfig? config}) async {
 
   try {
     await resolvedConfig.initializeFirebase();
+    await resolvedConfig.connectFirebaseEmulators?.call();
     await resolvedConfig.activateAppCheck();
     return const BootstrapResult.success();
   } catch (error) {

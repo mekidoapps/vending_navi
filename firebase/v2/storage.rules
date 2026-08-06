@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Phase 1 starts deny-by-default.
+    // Temporary and published photo paths will be opened separately only
+    // after ownership, content type, size, and lifecycle tests are present.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

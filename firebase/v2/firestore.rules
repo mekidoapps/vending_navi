@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Phase 1 starts deny-by-default.
+    // Add the minimum read permission together with each v2 feature test.
+    // Public writes must remain routed through Callable Functions.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
