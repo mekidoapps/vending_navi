@@ -7,6 +7,7 @@ import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_shadows.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../../app/theme/v2_theme.dart';
+import '../../../core/errors/app_failure.dart';
 import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../../core/ui/buttons/v2_primary_button.dart';
@@ -151,20 +152,19 @@ class _FoundationContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: V2Spacing.md),
-                  const _FoundationCard(
+                  _FoundationCard(
                     title: '画面状態',
                     child: Column(
                       children: <Widget>[
-                        V2LoadingState(message: '周辺の自販機を探しています'),
-                        Divider(),
-                        V2EmptyState(
+                        const V2LoadingState(message: '周辺の自販機を探しています'),
+                        const Divider(),
+                        const V2EmptyState(
                           title: '近くに自販機が見つかりません',
                           message: 'この地域では、まだ情報が登録されていない可能性があります。',
                         ),
-                        Divider(),
-                        V2ErrorState(
-                          title: '読み込めませんでした',
-                          message: '通信状態を確認して、もう一度お試しください。',
+                        const Divider(),
+                        V2ErrorState.fromFailure(
+                          failure: const NetworkFailure(),
                         ),
                       ],
                     ),

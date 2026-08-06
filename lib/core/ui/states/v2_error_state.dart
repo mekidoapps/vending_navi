@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/v2_color_tokens.dart';
 import '../../../app/theme/v2_spacing.dart';
+import '../../errors/app_failure.dart';
 import '../buttons/v2_secondary_button.dart';
 
 class V2ErrorState extends StatelessWidget {
@@ -11,6 +12,19 @@ class V2ErrorState extends StatelessWidget {
     required this.message,
     this.onRetry,
   });
+
+  factory V2ErrorState.fromFailure({
+    Key? key,
+    required AppFailure failure,
+    VoidCallback? onRetry,
+  }) {
+    return V2ErrorState(
+      key: key,
+      title: failure.userTitle,
+      message: failure.userMessage,
+      onRetry: failure.isRetryable ? onRetry : null,
+    );
+  }
 
   final String title;
   final String message;
