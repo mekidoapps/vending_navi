@@ -1,11 +1,42 @@
-> 文書状態: Phase 0 正式版（実装前基準）  
-> 更新日: 2026-08-04  
+> 文書状態: Phase 1 完了確認版  
+> 更新日: 2026-08-06  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
 > リポジトリ: `mekidoapps/vending_navi`
 
 
 # 変更履歴
+
+## 2026-08-06 - Phase 1 共通基盤
+
+### 追加
+
+- Phase 0仕様書・実装計画・現行リポジトリ監査
+- Riverpod 3、go_router、Freezed、json_serializable、build_runnerの依存関係
+- Feature-first＋レイヤード構成のv2骨格
+- Firebase／App Check初期化を分離したBootstrap
+- アプリ最上位の`ProviderScope`
+- `APP_ENTRY=legacy|v2`による起動切替
+- legacy互換ルートとv2基盤確認ルート
+- v2用カラー、余白、角丸、影、テーマ
+- 第一・第二ボタン、地図アクション、状態ラベル、Loading／Empty／Error UI
+- 共通`AppFailure`、`AppResult<T>`、例外Mapper
+- 個人情報を記録しない共通ログ基盤
+- 本番設定から分離した`firebase.v2.json`
+- deny-by-defaultのv2 Firestore／Storage Rules
+- Auth／Firestore／Functions／Storage Emulator接続基盤
+- TypeScript Functions管理領域とEmulatorヘルスチェック
+- Bootstrap、ルーター、テーマ、Failure、Result、ログ、UI、Emulatorのテスト
+- 文字拡大、直接パス、戻る操作、必須ファイル契約の品質テスト
+- Phase 1自動品質ゲート
+
+### 方針
+
+- 通常起動は現行版を維持する。
+- v2は明示的な`APP_ENTRY=v2`で起動する。
+- 既存v1コードのAnalyzer警告は別コミットで扱い、Phase 1基盤変更と混在させない。
+- Phase 1では業務Functionや本番Rulesを公開しない。
+- 本番Firebaseへのdeployは行わない。
 
 ## 2026-08-04 - Phase 0 正式文書初版
 
@@ -56,18 +87,3 @@
 - 一時画像期限・上限
 - 初期商品・メーカーマスタ
 - 複数テーマ・メーカー色ピン
-
-## 2026-08-05
-
-### 追加
-
-- 公開GitHubリポジトリの一次監査を行い、`REPOSITORY_AUDIT_V1.md`を追加。
-- Flutter画面、モデル、Service、Widget、Firebase設定を、再利用・改修再利用・作り直し・MVP保留・要確認に分類。
-- FunctionsソースとStorage Rulesが公開リポジトリで確認できない点、直接Firestore書き込み、テスト不足を着手前リスクとして記録。
-
-### 追加（Phase 1計画）
-
-- `PHASE1_BOOTSTRAP_PLAN_V2.md`を追加。
-- Phase 1を8コミットに分割し、現行画面を維持したままRiverpod、go_router、Freezed、v2テーマ、共通エラー、Emulator基盤を導入する計画を定義。
-- 現行`firebase.json`と`firestore.rules`をPhase 1では変更せず、`firebase.v2.json`とdeny-by-defaultのv2 Rulesを追加する安全策を定義。
-- 公開リポジトリにFunctionsとStorage Rulesがないため、v2用の空基盤を新設し、既存資産が見つかった場合に監査後統合する方針を追加。

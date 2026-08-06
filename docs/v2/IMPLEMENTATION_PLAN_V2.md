@@ -1,5 +1,5 @@
-> 文書状態: Phase 0 正式版（実装前基準）  
-> 更新日: 2026-08-04  
+> 文書状態: Phase 1 完了確認版  
+> 更新日: 2026-08-06  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
 > リポジトリ: `mekidoapps/vending_navi`
@@ -25,21 +25,24 @@
 - 復元方法が確認できる
 - MVP対象外が明確
 
-## Phase 1: 共通基盤
+## Phase 1: 共通基盤（完了確認）
 
-- Feature-first構造
-- Riverpod 3
-- go_router
-- Freezed / json_serializable
-- Firebase初期化・Emulator
-- AppFailure
-- Repository / Service骨格
-- ログ
-- デザインシステム
-- 共通UI
-- 認証状態Provider
+- [x] Feature-first構造
+- [x] Riverpod 3
+- [x] go_router
+- [x] Freezed / json_serializable / build_runner
+- [x] Firebase初期化のBootstrap分離
+- [x] 本番設定から分離したFirebase Emulator構成
+- [x] AppFailure / AppResult / FailureMapper
+- [x] プライバシー安全なログ
+- [x] v2デザインシステム
+- [x] 共通UI
+- [x] Firebase SDK Provider
+- [x] legacy / v2起動切替
+- [x] deny-by-default RulesとFunctions管理領域
+- [x] 自動品質ゲートとWidget／単体テスト
 
-**完了:** 起動、ルーティング、Emulator接続、共通Widgetテスト、analyze成功。
+**完了判定:** `PHASE1_QUALITY_GATE.md`と`PHASE1_COMPLETION_REPORT.md`に従い、自動ゲート、legacy／v2実機起動、Emulator分離接続、タグ作成を確認する。既存v1のAnalyzer warning／infoは別コミットで扱い、v2追加範囲をstrict analyzeする。
 
 ## Phase 2: マスタ・旧データ互換
 
