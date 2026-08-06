@@ -1,4 +1,4 @@
-> 文書状態: Phase 1 完了確認版  
+> 文書状態: Phase 2 実装中  
 > 更新日: 2026-08-06  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
@@ -6,6 +6,24 @@
 
 
 # 変更履歴
+
+## 2026-08-06 - Phase 2 P2-01 マスタDomain
+
+### 追加
+
+- Product ID／Manufacturer IDの小文字snake_case規約
+- Product IDを`{manufacturerId}_{productSlug}`とする原則
+- Product／ManufacturerのFreezed Domain Model
+- MVP固定ジャンルenum
+- 無効マスタを削除せず`isActive`で扱う運用
+- ID、検索語、ジャンル、選択可否の単体テスト
+
+### 方針
+
+- Product IDは容量・容器・温冷だけでは分けない。
+- 自販機のメーカー不明は`null`で表し、架空のunknownメーカーを作らない。
+- 不正・未知の旧IDを自動補正して正式マスタへ保存しない。
+- Firestore DTO、旧データ互換、実seedは後続コミットへ分離する。
 
 ## 2026-08-06 - Phase 1 共通基盤
 
