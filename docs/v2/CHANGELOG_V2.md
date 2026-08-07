@@ -8,6 +8,33 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-07 外部経路／品質ゲート
+
+### 追加
+
+- `ExternalMapService`
+- Google Maps外部徒歩経路Service
+- Google Maps URL生成テスト
+- 自販機詳細「ここまでの経路を見る」
+- 外部地図起動失敗SnackBar
+- 経路Service接続Widget test
+- HomeMap／詳細の小型・基準・大型画面test
+- `tool/phase3_quality_gate.sh`
+- Phase 3品質ゲート文書
+- Phase 3完了レポート
+
+### 方針
+
+- 現在地はURLへ埋め込まず、外部地図アプリ側の現在地を出発地として利用する。
+- destinationは選択自販機の緯度経度のみ渡す。
+- `url_launcher`は既存依存を再利用し、新規packageを追加しない。
+- 外部地図を開けない場合もアプリをクラッシュさせずSnackBar表示。
+- P3-07では本番Firebase Rulesをdeployしない。
+- 自動ゲートでは既存のP3-02 Firestore Emulator統合を再実行する。
+- OI-003検索半径とOI-004情報古さ期間はPhase 4へ持ち越す。
+
+
+
 ## 2026-08-07 - Phase 3 P3-06 固定吹き出し・自販機詳細
 
 ### 追加

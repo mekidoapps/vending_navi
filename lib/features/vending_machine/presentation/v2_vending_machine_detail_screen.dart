@@ -10,6 +10,7 @@ import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/states/v2_error_state.dart';
 import '../../../core/ui/states/v2_loading_state.dart';
 import '../application/models/vending_machine_detail_data.dart';
+import '../application/providers/external_map_service_provider.dart';
 import '../application/providers/vending_machine_detail_providers.dart';
 import '../domain/entities/vending_machine_enums.dart';
 import '../domain/value_objects/vending_machine_id.dart';
@@ -38,7 +39,10 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
           ),
           data: (result) {
             return result.fold(
-              onSuccess: (data) => _DetailBody(data: data),
+              onSuccess: (data) => _DetailBody(
+                data: data,
+                onDirectionsPressed: () => _openDirections(context, ref, data),
+              ),
               onFailure: (failure) => _FailureBody(
                 failure: failure,
                 onRetry: failure.isRetryable
@@ -52,6 +56,28 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openDirections(
+    BuildContext context,
+    WidgetRef ref,
+    VendingMachineDetailData data,
+  ) async {
+    final location = data.machine.location;
+    final opened = await ref
+        .read(externalMapServiceProvider)
+        .openWalkingDirections(
+          latitude: location.latitude,
+          longitude: location.longitude,
+        );
+
+    if (!context.mounted || opened) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('地図アプリを開けませんでした')));
   }
 }
 
@@ -72,9 +98,10 @@ class _FailureBody extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.data});
+  const _DetailBody({required this.data, required this.onDirectionsPressed});
 
   final VendingMachineDetailData data;
+  final VoidCallback onDirectionsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +136,16 @@ class _DetailBody extends StatelessWidget {
                 value:
                     '${machine.location.latitude.toStringAsFixed(5)}, '
                     '${machine.location.longitude.toStringAsFixed(5)}',
+              ),
+              const SizedBox(height: V2Spacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('openDirectionsButton'),
+                  onPressed: onDirectionsPressed,
+                  icon: const Icon(Icons.directions_walk_rounded),
+                  label: const Text('ここまでの経路を見る'),
+                ),
               ),
             ],
           ),
