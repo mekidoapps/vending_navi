@@ -8,6 +8,33 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-01 自販機Domain／DTO／Mapper
+
+### 追加
+
+- `VendingMachineId`
+- Firestore SDK非依存の`GeoCoordinate`
+- `VendingMachine`
+- `VendingMachineProduct`
+- 自販機・商品情報の固定enum
+- `vending_machines/{machineId}` DTO／Mapper
+- `products/{productId}` DTO／Mapper
+- Domain／Mapper単体テスト
+- Phase 3詳細実装計画
+
+### 方針
+
+- Phase 0 `DATA_MODEL_V2.md`のv2フィールド名・固定値をそのまま採用。
+- `schemaVersion=2`は必須項目を厳格に検証する。
+- 未知のstatus、evidenceType等を既知値へ自動補正しない。
+- AI未確認候補を表す公開evidence値は追加しない。
+- Product document IDと`productId`の不一致を拒否する。
+- 旧データ互換用の橋渡しはP3-02で行う。
+- OI-003周辺検索範囲とOI-004情報古さの期間は未決定のまま維持する。
+- v1 UI、Functions、Firestore RulesはP3-01では変更しない。
+
+
+
 ## 2026-08-07 - Phase 2 P2-05 Emulator seed／品質ゲート
 
 ### 追加
