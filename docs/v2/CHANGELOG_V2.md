@@ -8,6 +8,37 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 4 P4-02 HomeMap商品検索パネルUI
+
+### 追加
+
+- `ProductSearchSelectionController`
+- HomeMap「探す」から開く商品検索パネル
+- 250ms debounce
+- Product候補最大8件表示
+- 商品名・Genre候補表示
+- 商品選択
+- 選択商品小ラベル
+- 検索条件解除
+- 小型画面検索パネルWidget test
+- Search panel／selection Controller／HomeMap統合test
+- P4-02設計文書
+
+### 方針
+
+- 検索パネルはMapを置き換えずoverlay表示する。
+- 通常は「探す」の左側に最大360pxで展開する。
+- 小型画面では利用可能幅へ縮小する。
+- Product候補順はP4-01のscore順を維持する。
+- Manufacturer masterの候補ごとの追加readは行わない。
+- 商品選択後はProductを保持し、小ラベルで条件を残す。
+- `machine_product_index`／Marker filteringはP4-03/P4-04。
+- 「よく飲む商品」はP4-06まで仮データを表示しない。
+- OI-003検索半径、OI-004情報古さ期間は未決定のまま。
+- Firebase Rules、Functions、v1 UIは変更しない。
+
+
+
 ## 2026-08-07 - Phase 4 P4-01 商品検索Core
 
 ### 追加

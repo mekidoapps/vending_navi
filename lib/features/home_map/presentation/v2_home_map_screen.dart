@@ -12,6 +12,11 @@ import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../../app/router/app_route.dart';
 import '../../location/application/current_location_controller.dart';
+import '../../product_master/domain/entities/product.dart';
+import '../../product_search/application/product_search_controller.dart';
+import '../../product_search/application/product_search_selection_controller.dart';
+import '../../product_search/presentation/v2_product_search_panel.dart';
+import '../../product_search/presentation/v2_selected_product_label.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
 import '../../vending_machine/application/providers/vending_machine_detail_providers.dart';
@@ -56,6 +61,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   static const double _currentLocationZoom = 16;
 
   GoogleMapController? _mapController;
+  bool _isProductSearchPanelOpen = false;
 
   @override
   void initState() {
@@ -81,6 +87,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   Widget build(BuildContext context) {
     final locationState = ref.watch(currentLocationControllerProvider);
     final machineState = ref.watch(vendingMachineMapControllerProvider);
+    final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
 
     ref.listen<CurrentLocationState>(currentLocationControllerProvider, (
       previous,
@@ -121,9 +128,21 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   machine: machineState.selectedMachine,
                   onDetailPressed: _openMachineDetail,
                 ),
+                if (!_isProductSearchPanelOpen &&
+                    selectedProduct != null &&
+                    _canShowSelectedProductLabel(locationState))
+                  _SelectedProductOverlay(
+                    product: selectedProduct,
+                    onClear: _clearSelectedProduct,
+                  ),
+                _ProductSearchPanelOverlay(
+                  isOpen: _isProductSearchPanelOpen,
+                  onClose: _closeProductSearchPanel,
+                  onProductSelected: _selectProduct,
+                ),
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
-                  onSearchPressed: widget.onSearchPressed ?? _noop,
+                  onSearchPressed: _toggleProductSearchPanel,
                   onRegisterPressed: widget.onRegisterPressed ?? _noop,
                   onProfilePressed: widget.onProfilePressed ?? _noop,
                 ),
@@ -264,6 +283,42 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     );
   }
 
+  void _toggleProductSearchPanel() {
+    setState(() {
+      _isProductSearchPanelOpen = !_isProductSearchPanelOpen;
+    });
+    widget.onSearchPressed?.call();
+  }
+
+  void _closeProductSearchPanel() {
+    if (!_isProductSearchPanelOpen) {
+      return;
+    }
+
+    ref.read(productSearchControllerProvider.notifier).clear();
+    setState(() {
+      _isProductSearchPanelOpen = false;
+    });
+  }
+
+  void _selectProduct(Product product) {
+    ref.read(productSearchSelectionControllerProvider.notifier).select(product);
+    ref.read(productSearchControllerProvider.notifier).clear();
+
+    setState(() {
+      _isProductSearchPanelOpen = false;
+    });
+  }
+
+  void _clearSelectedProduct() {
+    ref.read(productSearchSelectionControllerProvider.notifier).clear();
+  }
+
+  static bool _canShowSelectedProductLabel(CurrentLocationState state) {
+    return state.phase == CurrentLocationPhase.idle ||
+        state.phase == CurrentLocationPhase.ready;
+  }
+
   Future<void> _retryLocation() {
     return ref.read(currentLocationControllerProvider.notifier).retry();
   }
@@ -334,6 +389,95 @@ class _AppLabel extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedProductOverlay extends StatelessWidget {
+  const _SelectedProductOverlay({required this.product, required this.onClear});
+
+  final Product product;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.only(top: 62, left: V2Spacing.sm, right: 76),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: V2SelectedProductLabel(product: product, onClear: onClear),
+      ),
+    );
+  }
+}
+
+class _ProductSearchPanelOverlay extends StatelessWidget {
+  const _ProductSearchPanelOverlay({
+    required this.isOpen,
+    required this.onClose,
+    required this.onProductSelected,
+  });
+
+  final bool isOpen;
+  final VoidCallback onClose;
+  final ValueChanged<Product> onProductSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.only(
+        left: V2Spacing.sm,
+        right: 104,
+        bottom: V2Spacing.md,
+      ),
+      child: Align(
+        alignment: Alignment.bottomRight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final panelWidth = constraints.maxWidth
+                .clamp(196.0, 360.0)
+                .toDouble();
+            final panelHeight = (constraints.maxHeight * 0.56)
+                .clamp(280.0, 420.0)
+                .toDouble();
+
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              reverseDuration: const Duration(milliseconds: 140),
+              transitionBuilder: (child, animation) {
+                final offset =
+                    Tween<Offset>(
+                      begin: const Offset(0.12, 0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    );
+
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: offset, child: child),
+                );
+              },
+              child: isOpen
+                  ? SizedBox(
+                      key: const ValueKey<String>('productSearchOpen'),
+                      width: panelWidth,
+                      height: panelHeight,
+                      child: V2ProductSearchPanel(
+                        onProductSelected: onProductSelected,
+                        onClose: onClose,
+                      ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey<String>('productSearchClosed'),
+                    ),
+            );
+          },
         ),
       ),
     );
