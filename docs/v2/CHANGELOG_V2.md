@@ -8,6 +8,38 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 4 P4-03 machine_product_index read
+
+### 追加
+
+- `MachineProductIndexEntry`
+- Firestore index DTO / Mapper
+- Firestore Source
+- `MachineProductIndexRepository`
+- Product ID + geohash viewport query
+- active/status/viewport再検証
+- 同一machine重複時のconfirmed優先
+- `machine_product_index` v2 Emulator public read / client write deny
+- Product ID + geohash複合index
+- index fixture / seed script
+- Rules verification script
+- P4-03 Emulator gate
+- Mapper / Repository tests
+- P4-03設計文書
+
+### 方針
+
+- `machine_product_index`は検索専用派生データで正本にしない。
+- document ID形式はP4-03で公開契約として固定しない。
+- クライアントwriteは禁止。
+- soldOut entryはデータ取得層では除外しない。
+- OI-004の情報鮮度Policy決定前に売切を勝手に無効化しない。
+- P3-05のgeohash viewport plannerを再利用する。
+- P4-03ではHomeMap Marker filteringへまだ接続しない。
+- root Firebase設定／本番Rulesは変更しない。
+
+
+
 ## 2026-08-07 - Phase 4 P4-02 HomeMap商品検索パネルUI
 
 ### 追加

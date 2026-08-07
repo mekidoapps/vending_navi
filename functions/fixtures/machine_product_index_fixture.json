@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-07T00:00:00.000Z",
+  "entries": [
+    {
+      "id": "fixture_station_boss_black",
+      "data": {
+        "machineId": "machine_v2_station_east",
+        "productId": "suntory_boss_black",
+        "genreIds": ["coffee"],
+        "location": {
+          "latitude": 35.681236,
+          "longitude": 139.767125
+        },
+        "geohash": "xn76ur",
+        "evidenceType": "manual_confirmed",
+        "availability": "available",
+        "isActive": true,
+        "machineStatus": "active",
+        "machineUpdatedAt": "2026-08-07T00:00:00.000Z",
+        "updatedAt": "2026-08-07T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "fixture_station_tennensui",
+      "data": {
+        "machineId": "machine_v2_station_east",
+        "productId": "suntory_tennensui",
+        "genreIds": ["water"],
+        "location": {
+          "latitude": 35.681236,
+          "longitude": 139.767125
+        },
+        "geohash": "xn76ur",
+        "evidenceType": "manufacturer_inferred",
+        "availability": "unknown",
+        "isActive": true,
+        "machineStatus": "active",
+        "machineUpdatedAt": "2026-08-07T00:00:00.000Z",
+        "updatedAt": "2026-08-07T00:00:00.000Z"
+      }
+    }
+  ]
+}

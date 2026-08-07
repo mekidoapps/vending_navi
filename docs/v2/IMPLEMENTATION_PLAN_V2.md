@@ -1,4 +1,4 @@
-> 文書状態: Phase 4 実装中（P4-02完了）  
+> 文書状態: Phase 4 実装中（P4-03完了）  
 > 更新日: 2026-08-07  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
@@ -72,7 +72,7 @@
 
 - [x] P4-01 商品検索Core・Product候補
 - [x] P4-02 HomeMap検索パネルUI
-- [ ] P4-03 `machine_product_index` read
+- [x] P4-03 `machine_product_index` read
 - [ ] P4-04 Product検索結果・選択ラベル・検索解除
 - [ ] P4-05 ジャンル検索
 - [ ] P4-06 よく飲む商品表示領域

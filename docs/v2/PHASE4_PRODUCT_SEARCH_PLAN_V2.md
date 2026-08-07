@@ -59,7 +59,7 @@ HomeMap右下「探す」から、
 
 商品選択後はHomeMapに小型選択ラベルを残す。
 
-### P4-03 machine_product_index read
+### P4-03 machine_product_index read ✅
 
 `machine_product_index`のv2 read model / Repositoryを追加する。
 
