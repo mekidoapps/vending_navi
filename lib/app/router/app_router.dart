@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home_map/presentation/v2_home_map_screen.dart';
+import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
+import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
 import '../../screens/startup_router_screen.dart';
 import 'app_route.dart';
 import 'entry_mode.dart';
 
 typedef AppRouteWidgetBuilder = Widget Function(BuildContext context);
+typedef AppMachineDetailWidgetBuilder =
+    Widget Function(BuildContext context, VendingMachineId machineId);
 
 GoRouter createAppRouter({
   required AppEntryMode entryMode,
   AppRouteWidgetBuilder? legacyBuilder,
   AppRouteWidgetBuilder? v2Builder,
+  AppMachineDetailWidgetBuilder? machineDetailBuilder,
 }) {
   return GoRouter(
     initialLocation: entryMode.initialLocation,
@@ -28,6 +33,21 @@ GoRouter createAppRouter({
         path: AppRoute.v2Foundation.path,
         builder: (BuildContext context, GoRouterState state) {
           return v2Builder?.call(context) ?? const V2HomeMapScreen();
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2MachineDetail.name,
+        path: AppRoute.v2MachineDetail.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          return machineDetailBuilder?.call(context, machineId) ??
+              V2VendingMachineDetailScreen(machineId: machineId);
         },
       ),
     ],

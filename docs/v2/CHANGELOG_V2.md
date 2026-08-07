@@ -8,6 +8,36 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-06 固定吹き出し・自販機詳細
+
+### 追加
+
+- 選択自販機の固定情報カード
+- メーカー表示名provider
+- `VendingMachineDetailLoader`
+- Product masterとの商品名結合
+- `VendingMachineDetailData`
+- `/v2/machines/:machineId` route
+- `V2VendingMachineDetailScreen`
+- 確認済み／あるかも表示
+- 販売中／売り切れ／在庫不明表示
+- Detail Loader／詳細Widget／選択カード／routeテスト
+- P3-06設計文書
+
+### 方針
+
+- Google Maps標準InfoWindowではなくFlutter固定カードを利用。
+- Product masterが取得できなくてもProduct IDをfallback表示する。
+- Manufacturer masterが取得できなくてもIDをfallback表示する。
+- 自販機本体の取得Failureだけは詳細画面Failureとする。
+- 詳細へpushする際にHomeMap selectionをclearしない。
+- 戻り時は選択Markerと固定カードを維持する。
+- OI-004情報古さの具体期間はまだ固定しない。
+- 経路案内はP3-07。
+- Firebase Rules、Functions、v1 UIは変更しない。
+
+
+
 ## 2026-08-07 - Phase 3 P3-05 周辺自販機・状態ピン
 
 ### 追加

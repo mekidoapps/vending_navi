@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/v2_color_tokens.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_shadows.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../../app/theme/v2_theme.dart';
+import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/buttons/v2_map_action_button.dart';
+import '../../../app/router/app_route.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
+import '../../vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../vending_machine/domain/entities/vending_machine.dart';
 import '../application/vending_machine_map_controller.dart';
 import '../application/vending_machine_map_state.dart';
@@ -27,6 +31,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
     this.onSearchPressed,
     this.onRegisterPressed,
     this.onProfilePressed,
+    this.onMachineDetailPressed,
   });
 
   /// Test/preview seam. Production leaves this null and renders GoogleMap.
@@ -36,6 +41,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
   final VoidCallback? onSearchPressed;
   final VoidCallback? onRegisterPressed;
   final VoidCallback? onProfilePressed;
+  final ValueChanged<VendingMachine>? onMachineDetailPressed;
 
   @override
   ConsumerState<V2HomeMapScreen> createState() => _V2HomeMapScreenState();
@@ -110,6 +116,10 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                 _MapDataStatusOverlay(
                   state: machineState,
                   onRetry: _retryMachines,
+                ),
+                _SelectedMachineBubble(
+                  machine: machineState.selectedMachine,
+                  onDetailPressed: _openMachineDetail,
                 ),
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
@@ -238,6 +248,19 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         LatLng(location.latitude, location.longitude),
         _currentLocationZoom,
       ),
+    );
+  }
+
+  void _openMachineDetail(VendingMachine machine) {
+    final override = widget.onMachineDetailPressed;
+    if (override != null) {
+      override(machine);
+      return;
+    }
+
+    context.pushNamed(
+      AppRoute.v2MachineDetail.name,
+      pathParameters: <String, String>{'machineId': machine.id.value},
     );
   }
 
@@ -445,6 +468,171 @@ class _LabeledMapAction extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SelectedMachineBubble extends ConsumerWidget {
+  const _SelectedMachineBubble({
+    required this.machine,
+    required this.onDetailPressed,
+  });
+
+  final VendingMachine? machine;
+  final ValueChanged<VendingMachine> onDetailPressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = machine;
+    if (selected == null) {
+      return const SizedBox.shrink();
+    }
+
+    final colors = V2ColorTokens.of(context);
+    final manufacturerName = ref.watch(
+      manufacturerDisplayNameProvider(selected.manufacturerId),
+    );
+
+    return SafeArea(
+      minimum: const EdgeInsets.only(
+        left: V2Spacing.md,
+        right: 104,
+        bottom: V2Spacing.md,
+      ),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 390),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surfaceElevated.withValues(alpha: 0.98),
+              borderRadius: V2Radius.card,
+              border: Border.all(color: colors.primary.withValues(alpha: 0.50)),
+              boxShadow: V2Shadows.mapFloating,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(V2Spacing.sm),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              selected.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: V2Spacing.xxs),
+                            manufacturerName.when(
+                              data: (name) => Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                              loading: () => Text(
+                                'メーカー確認中',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                              error: (_, __) => Text(
+                                selected.manufacturerId?.value ?? 'メーカー不明',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: V2Spacing.sm),
+                      IconButton(
+                        tooltip: '選択を解除',
+                        onPressed: () {
+                          ref
+                              .read(
+                                vendingMachineMapControllerProvider.notifier,
+                              )
+                              .clearSelection();
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: V2Spacing.xs),
+                  Wrap(
+                    spacing: V2Spacing.xs,
+                    runSpacing: V2Spacing.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      if (selected.confirmedProducts.isNotEmpty)
+                        const V2StatusBadge(type: V2StatusBadgeType.confirmed)
+                      else if (selected.inferredProducts.isNotEmpty)
+                        const V2StatusBadge(type: V2StatusBadgeType.inferred)
+                      else
+                        Text(
+                          '商品情報なし',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                      Text(
+                        '商品 ${selected.activeProducts.length}件',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (selected.placeDescription?.trim().isNotEmpty ==
+                      true) ...<Widget>[
+                    const SizedBox(height: V2Spacing.xs),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.place_outlined,
+                          size: 17,
+                          color: colors.textSecondary,
+                        ),
+                        const SizedBox(width: V2Spacing.xxs),
+                        Expanded(
+                          child: Text(
+                            selected.placeDescription!.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colors.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: V2Spacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      key: const Key('selectedMachineDetailButton'),
+                      onPressed: () => onDetailPressed(selected),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('詳細を見る'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
