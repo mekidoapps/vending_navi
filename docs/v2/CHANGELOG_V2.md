@@ -8,6 +8,35 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 4 P4-01 商品検索Core
+
+### 追加
+
+- `ProductSearchQuery`
+- `ProductSearchNormalizer`
+- `ProductSearchCandidate`
+- 検索match kind / deterministic score
+- Product candidate search Service
+- Riverpod ProductSearchController
+- 非同期検索のstale response防止
+- query／Service／Controller単体テスト
+- Phase 4実装計画
+- P4-01設計文書
+
+### 方針
+
+- Product IDを検索対象の正規IDとする。
+- 商品名・`searchKeywords`はProduct候補選択の入口に利用する。
+- Product ID／完全一致／前方一致／部分一致の順を固定する。
+- AI意味検索、ふりがな自動推定、気分検索は追加しない。
+- 空queryではFirestoreを読まない。
+- OI-003検索半径は未決定のまま。
+- OI-004情報古さの期間も未決定のまま。
+- HomeMap UI／`machine_product_index`接続はP4-02以降。
+- Firebase Rules、Functions、v1 UIは変更しない。
+
+
+
 ## 2026-08-07 - Phase 3 P3-07 外部経路／品質ゲート
 
 ### 追加
