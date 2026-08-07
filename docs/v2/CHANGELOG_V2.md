@@ -7,6 +7,29 @@
 
 # 変更履歴
 
+
+## 2026-08-07 - Phase 2 P2-03 旧データ互換Mapper
+
+### 追加
+
+- v1 `vending_machines` の混在フィールドを読み取る read-only Legacy Document
+- `products` / `drinkSlots` / `slots` / `drinks` の順序付きフォールバック
+- `lat/lng` / `latitude/longitude` / `GeoPoint` の位置情報互換
+- Timestamp / DateTime / ISO文字列と欠損日時の安全な読み取り
+- 旧メーカー文字列からManufacturer IDへの解決
+- Product ID完全一致、正規化名称、メーカー＋名称、手動対応表による旧商品解決
+- 対応不能商品をrawName付き未解決データとして保持する表現
+- 旧名称正規化・Legacy Mapperの単体テスト
+- 旧データ互換規約
+
+### 方針
+
+- Legacy Mapperは読み取り専用とし、旧ドキュメントを書き換えない。
+- 不明メーカーを`unknown`等の架空Manufacturer IDへ変換しない。
+- 一意に確定できない商品を推測でProduct IDへ紐付けない。
+- 未解決商品が含まれていても自販機全体の読み込みを失敗させない。
+- 実Product／Manufacturer fixtureと手動対応表はP2-04で固定する。
+
 ## 2026-08-06 - Phase 2 P2-02 Firestore DTO／Mapper
 
 ### 追加
