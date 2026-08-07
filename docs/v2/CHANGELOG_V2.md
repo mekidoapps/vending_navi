@@ -8,6 +8,31 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 2 P2-04 Repository／固定fixture
+
+### 追加
+
+- Product／Manufacturer Repository interface
+- Firestoreを隠蔽するMasterDocumentSource
+- Firestore MasterDocumentSource実装
+- Product／Manufacturer Repository実装
+- Riverpod Repository Provider
+- 現行v1プリセットを起点とした固定Product／Manufacturer fixture
+- 旧メーカー名・旧商品名の手動alias
+- Repository、fixture、aliasの単体テスト
+- 固定fixture・Repository運用規約
+
+### 方針
+
+- 正式マスタの不正文書は黙って除外せずRepository Failureとする。
+- 一覧は既定で`isActive: true`のみ返す。
+- `その他`を架空Manufacturer IDとして追加しない。
+- 現行v1の`AQUO`はP2-04では正式メーカーに確定せず未解決を維持する。
+- `BOSS`、`ジョージア`、`ファンタ`等の曖昧なブランド単独表記を特定商品へ自動変換しない。
+- 公開マスタのwriteは提供せず、P2-05でEmulator seedとread権限を検証する。
+
+
+
 ## 2026-08-07 - Phase 2 P2-03 旧データ互換Mapper
 
 ### 追加

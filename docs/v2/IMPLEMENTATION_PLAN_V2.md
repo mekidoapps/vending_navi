@@ -1,4 +1,4 @@
-> 文書状態: Phase 2 実装中（P2-03完了）  
+> 文書状態: Phase 2 実装中（P2-04完了）  
 > 更新日: 2026-08-07  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
@@ -51,7 +51,7 @@
 - [x] P2-01 固定ジャンルenum
 - [x] P2-02 Firestore DTO／Mapper
 - [x] P2-03 v1自販機・旧商品文字列の互換Mapper
-- [ ] P2-04 Product／Manufacturer Repositoryと固定fixture
+- [x] P2-04 Product／Manufacturer Repositoryと固定fixture
 - [ ] P2-05 Emulator seed・Phase 2品質ゲート
 
 **完了:** 旧・新を同一Domainで取得し、対応不能商品でもクラッシュしない。
