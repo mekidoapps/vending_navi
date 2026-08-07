@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-07T00:00:00.000Z",
+  "v2Machines": [
+    {
+      "id": "machine_v2_station_east",
+      "data": {
+        "schemaVersion": 2,
+        "name": "駅東口の自販機",
+        "manufacturerId": "suntory",
+        "manufacturerStatus": "confirmed",
+        "location": {
+          "latitude": 35.681236,
+          "longitude": 139.767125
+        },
+        "geohash": "xn76ur",
+        "placeDescription": "駅東口の壁沿い",
+        "installationType": "outdoor",
+        "status": "active",
+        "mergedIntoMachineId": null,
+        "dataLevel": "productsConfirmed",
+        "primaryPhotoId": null,
+        "createdBy": "emulator_seed",
+        "createdAt": "2026-08-07T00:00:00.000Z",
+        "updatedAt": "2026-08-07T00:00:00.000Z",
+        "lastProductUpdatedAt": "2026-08-07T00:00:00.000Z"
+      },
+      "products": [
+        {
+          "id": "suntory_boss_black",
+          "data": {
+            "productId": "suntory_boss_black",
+            "evidenceType": "manual_confirmed",
+            "availability": "available",
+            "isActive": true,
+            "confirmedBy": "emulator_seed",
+            "confirmedAt": "2026-08-07T00:00:00.000Z",
+            "createdAt": "2026-08-07T00:00:00.000Z",
+            "updatedAt": "2026-08-07T00:00:00.000Z"
+          }
+        },
+        {
+          "id": "suntory_tennensui",
+          "data": {
+            "productId": "suntory_tennensui",
+            "evidenceType": "manufacturer_inferred",
+            "availability": "unknown",
+            "isActive": true,
+            "confirmedBy": null,
+            "confirmedAt": null,
+            "createdAt": "2026-08-07T00:00:00.000Z",
+            "updatedAt": "2026-08-07T00:00:00.000Z"
+          }
+        }
+      ]
+    }
+  ],
+  "legacyMachines": [
+    {
+      "id": "machine_v1_legacy",
+      "data": {
+        "name": "旧形式の自販機",
+        "manufacturer": "サントリー",
+        "lat": 35.6805,
+        "lng": 139.7662,
+        "products": [
+          {
+            "name": "ボスブラック",
+            "isSoldOut": false
+          },
+          {
+            "name": "BOSS",
+            "isSoldOut": false
+          }
+        ],
+        "locationName": "駅西口",
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "updatedAt": "2026-08-01T00:00:00.000Z",
+        "lastCheckedAt": "2026-08-01T00:00:00.000Z"
+      }
+    }
+  ]
+}

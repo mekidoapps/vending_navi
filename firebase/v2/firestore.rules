@@ -2,9 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Public master data used by search and registration.
-    // Reads are intentionally available without authentication.
-    // All public writes remain denied from clients.
+    // Public product/manufacturer master data.
     match /products/{productId} {
       allow read: if true;
       allow write: if false;
@@ -15,7 +13,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Phase 2 keeps every other v2 path deny-by-default.
+    // Public vending-machine root information.
+    // During the v1/v2 coexistence period the same collection contains both
+    // legacy and schemaVersion=2 documents, so reads are allowed at the
+    // collection boundary. All client writes remain closed.
+    match /vending_machines/{machineId} {
+      allow read: if true;
+      allow write: if false;
+
+      // Only the v2 public product-presence subcollection is released in P3-02.
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // photos, revisions, machine_product_index and all other paths remain
+    // deny-by-default until their own implementation phases.
     match /{document=**} {
       allow read, write: if false;
     }

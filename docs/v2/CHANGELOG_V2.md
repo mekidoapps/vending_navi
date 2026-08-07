@@ -8,6 +8,42 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-02 Repository・v1/v2互換読取
+
+### 追加
+
+- `VendingMachineRepository`
+- Firestore `VendingMachineDocumentSource`
+- v2 root + productsサブコレクション結合読取
+- `LegacyVendingMachineDomainBridge`
+- v1/v2共存確認用`VendingMachineReadBatch`
+- Riverpod Repository Provider
+- v1/v2 Repository単体テスト
+- 自販機用Emulator fixture
+- 自販機read/write Rules検証script
+- P3-02 Emulatorゲート
+- Rules contract test
+
+### Rules
+
+- `vending_machines/{machineId}` public read
+- `vending_machines/{machineId}/products/{productId}` public read
+- 上記client writeは禁止
+- photos／revisions／machine_product_indexはdeny継続
+
+### 互換方針
+
+- v2文書はroot／productとも不正値を黙って除外しない。
+- v1旧文書はP2互換Mapperと固定マスタを再利用する。
+- 解決済み旧商品は`manual_confirmed`としてDomainへ橋渡しする。
+- 同一Product IDの旧スロットは1商品へ集約する。
+- 未解決旧商品は推測せず件数だけ互換snapshotへ残す。
+- 位置なしlegacyは互換snapshotからのみ除外し、件数を記録する。
+- compatibility snapshotは移行確認専用で、HomeMapの最終APIには使わない。
+- OI-003周辺検索範囲は引き続き未確定。
+
+
+
 ## 2026-08-07 - Phase 3 P3-01 自販機Domain／DTO／Mapper
 
 ### 追加

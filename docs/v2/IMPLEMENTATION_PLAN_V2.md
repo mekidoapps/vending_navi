@@ -1,4 +1,4 @@
-> 文書状態: Phase 3 実装中（P3-01完了）  
+> 文書状態: Phase 3 実装中（P3-02完了）  
 > 更新日: 2026-08-07  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  
@@ -59,7 +59,7 @@
 ## Phase 3: ホーム地図・通常閲覧
 
 - [x] P3-01 自販機Domain／DTO／Mapper
-- [ ] P3-02 Repository・v1/v2互換読取・Emulator read
+- [x] P3-02 Repository・v1/v2互換読取・Emulator read
 - [ ] P3-03 現在地Service／Controller
 - [ ] P3-04 全面HomeMapScreen
 - [ ] P3-05 周辺自販機・状態ピン

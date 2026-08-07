@@ -53,12 +53,13 @@ Phase 0 `DATA_MODEL_V2.md`のフィールド名と固定値を変更せず型へ
 - 固定enum
 - Firestore DTO／Mapper
 
-### P3-02
+### P3-02 ✅
 - VendingMachine Repository
 - v2 root + products subcollection読取
 - P2 LegacyMappedVendingMachine → VendingMachine bridge
 - v1/v2同時読取fixture
 - Emulator read Rules
+- compatibility snapshotは移行確認専用としHomeMap全件取得に使わない
 
 ### P3-03
 - 現在地Service
