@@ -61,12 +61,13 @@ Phase 0 `DATA_MODEL_V2.md`のフィールド名と固定値を変更せず型へ
 - Emulator read Rules
 - compatibility snapshotは移行確認専用としHomeMap全件取得に使わない
 
-### P3-03
+### P3-03 ✅
 - 現在地Service
 - permission状態
 - 位置取得Controller
 - 位置取得拒否・失敗時状態
-- 既存位置資産の監査再利用
+- OS設定画面導線
+- 既存v1位置取得は変更せずv2へ独立実装
 
 ### P3-04
 - v2 HomeMapScreen

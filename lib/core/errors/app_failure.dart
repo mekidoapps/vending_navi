@@ -52,14 +52,23 @@ final class PermissionFailure extends AppFailure {
       );
 }
 
+final class LocationUnavailableFailure extends AppFailure {
+  const LocationUnavailableFailure()
+    : super(
+        code: 'location.unavailable',
+        userTitle: '現在地を取得できませんでした',
+        userMessage: '少し時間をおいて、もう一度お試しください。',
+        isRetryable: true,
+      );
+}
+
 final class ValidationFailure extends AppFailure {
   const ValidationFailure({
     this.field,
-    String userMessage = '入力内容を確認して、もう一度お試しください。',
+    super.userMessage = '入力内容を確認して、もう一度お試しください。',
   }) : super(
          code: 'validation.invalid',
          userTitle: '入力内容を確認してください',
-         userMessage: userMessage,
          isRetryable: false,
        );
 

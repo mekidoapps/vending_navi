@@ -8,6 +8,35 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-03 現在地Service／Controller
+
+### 追加
+
+- `CurrentLocation`
+- `AppLocationPermission`
+- `LocationService`
+- `GeolocatorLocationService`
+- Geolocator permission Mapper
+- `CurrentLocationState`
+- Riverpod `CurrentLocationController`
+- app設定／位置情報設定画面導線
+- `LocationUnavailableFailure`
+- Controller・Domain・permission Mapper単体テスト
+- P3-03位置情報アーキテクチャ文書
+
+### 方針
+
+- v2 UIからGeolocator SDKを直接呼ばない。
+- 位置サービスOFF、権限拒否、永続拒否、判定不能、取得失敗を区別する。
+- `denied`時だけ通常フローで権限requestを1回行う。
+- `deniedForever`ではpermission requestを繰り返さない。
+- 現在地取得はhigh accuracy・12秒timeoutの1回取得。
+- P3-03では位置情報をFirestore／ログ／Analyticsへ保存しない。
+- 現行v1の`DistanceUtil`は変更しない。
+- P3-04でHomeMapへController状態を接続する。
+
+
+
 ## 2026-08-07 - Phase 3 P3-02 Repository・v1/v2互換読取
 
 ### 追加
