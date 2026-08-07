@@ -8,6 +8,37 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-04 v2 HomeMapScreen
+
+### 追加
+
+- `V2HomeMapScreen`
+- 全面Google Map
+- 上部小型アプリラベル
+- v2デザインの現在地ボタン
+- 位置情報状態overlay
+- 右下「マイ／登録／探す」action cluster
+- GoogleMap PlatformViewを回避できるwidget-test seam
+- HomeMap widget tests
+- P3-04設計文書
+
+### 変更
+
+- `/v2` production default screenをFoundationからHomeMapへ切り替え。
+- root widget testのPlatformView依存を外し、HomeMap専用widget testへ置換。
+
+### 方針
+
+- 「探す」を右下の最大・最下部アクションとする。
+- P3-04では探す／登録／マイの遷移先をまだ接続しない。
+- 現在地が取れなくても地図は表示し続ける。
+- P3-03の位置情報Controllerだけを利用し、UIからGeolocatorを直接呼ばない。
+- 自販機marker／周辺query／検索半径はP3-05以降。
+- `/v2` pathと既存route identifierはPhase 1互換のため維持する。
+- v1 UI、Firestore Rules、Functionsは変更しない。
+
+
+
 ## 2026-08-07 - Phase 3 P3-03 現在地Service／Controller
 
 ### 追加

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/foundation/presentation/v2_foundation_screen.dart';
+import '../../features/home_map/presentation/v2_home_map_screen.dart';
 import '../../screens/startup_router_screen.dart';
 import 'app_route.dart';
 import 'entry_mode.dart';
@@ -27,7 +27,7 @@ GoRouter createAppRouter({
         name: AppRoute.v2Foundation.name,
         path: AppRoute.v2Foundation.path,
         builder: (BuildContext context, GoRouterState state) {
-          return v2Builder?.call(context) ?? const V2FoundationScreen();
+          return v2Builder?.call(context) ?? const V2HomeMapScreen();
         },
       ),
     ],
