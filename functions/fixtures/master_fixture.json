@@ -1,0 +1,650 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "ProductMasterFixture",
+  "generatedAt": "2026-08-07T00:00:00.000Z",
+  "manufacturers": [
+    {
+      "id": "coca_cola",
+      "name": "コカ・コーラ",
+      "displayShortName": "コカ・コーラ",
+      "searchKeywords": [
+        "コカコーラ",
+        "coca cola",
+        "coca-cola"
+      ],
+      "presetProductIds": [
+        "coca_cola_coca_cola",
+        "coca_cola_ayataka",
+        "coca_cola_irohas",
+        "coca_cola_georgia_black",
+        "coca_cola_fanta_grape",
+        "coca_cola_aquarius"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory",
+      "name": "サントリー",
+      "displayShortName": "サントリー",
+      "searchKeywords": [
+        "suntory"
+      ],
+      "presetProductIds": [
+        "suntory_boss_black",
+        "suntory_iemon",
+        "suntory_cc_lemon",
+        "suntory_tennensui",
+        "suntory_green_dakara"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en",
+      "name": "伊藤園",
+      "displayShortName": "伊藤園",
+      "searchKeywords": [
+        "ito en",
+        "itoen"
+      ],
+      "presetProductIds": [
+        "ito_en_oi_ocha_green_tea",
+        "ito_en_kenko_mineral_mugicha",
+        "ito_en_tullys_coffee_black",
+        "ito_en_japanese_water",
+        "ito_en_jyujitsu_yasai"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin",
+      "name": "キリン",
+      "displayShortName": "キリン",
+      "searchKeywords": [
+        "キリンビバレッジ",
+        "kirin"
+      ],
+      "presetProductIds": [
+        "kirin_gogo_no_kocha_milk_tea",
+        "kirin_namacha",
+        "kirin_fire_black",
+        "kirin_kirin_lemon",
+        "kirin_alkali_ion_water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi",
+      "name": "アサヒ",
+      "displayShortName": "アサヒ",
+      "searchKeywords": [
+        "アサヒ飲料",
+        "asahi"
+      ],
+      "presetProductIds": [
+        "asahi_wonda_black",
+        "asahi_jurokucha",
+        "asahi_mitsuya_cider",
+        "asahi_calpis",
+        "asahi_calpis_water",
+        "asahi_oishii_mizu"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo",
+      "name": "ダイドー",
+      "displayShortName": "ダイドー",
+      "searchKeywords": [
+        "ダイドードリンコ",
+        "dydo"
+      ],
+      "presetProductIds": [
+        "dydo_dydo_blend",
+        "dydo_miu",
+        "dydo_ha_no_cha"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka",
+      "name": "大塚製薬",
+      "displayShortName": "大塚",
+      "searchKeywords": [
+        "大塚",
+        "otsuka"
+      ],
+      "presetProductIds": [
+        "otsuka_pocari_sweat",
+        "otsuka_match",
+        "otsuka_oronamin_c"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "coca_cola_coca_cola",
+      "name": "コカ・コーラ",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "コカコーラ",
+        "coca cola",
+        "coca-cola",
+        "コーラ"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_ayataka",
+      "name": "綾鷹",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "あやたか",
+        "ayataka"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_irohas",
+      "name": "い・ろ・は・す",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "いろはす",
+        "irohas",
+        "i lohas"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_black",
+      "name": "ジョージア ブラック",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "georgia black",
+        "ジョージアブラック"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_fanta_grape",
+      "name": "ファンタ グレープ",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ファンタグレープ",
+        "fanta grape"
+      ],
+      "genreIds": [
+        "carbonated",
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_aquarius",
+      "name": "アクエリアス",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "aquarius"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_boss_black",
+      "name": "BOSS ブラック",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "boss black",
+        "ボス ブラック",
+        "ボスブラック"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon",
+      "name": "伊右衛門",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん",
+        "iemon"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_cc_lemon",
+      "name": "C.C.レモン",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ccレモン",
+        "c.c. lemon",
+        "cc lemon"
+      ],
+      "genreIds": [
+        "carbonated",
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_tennensui",
+      "name": "サントリー天然水",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "天然水",
+        "サントリー 天然水"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_green_dakara",
+      "name": "GREEN DA・KA・RA",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "グリーンダカラ",
+        "green dakara",
+        "ダカラ"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_green_tea",
+      "name": "お〜いお茶 緑茶",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶",
+        "お〜いお茶",
+        "おいお茶",
+        "oi ocha"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_kenko_mineral_mugicha",
+      "name": "健康ミネラルむぎ茶",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "健康ミネラル麦茶",
+        "むぎ茶",
+        "麦茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_tullys_coffee_black",
+      "name": "TULLY'S COFFEE ブラック",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "タリーズコーヒー ブラック",
+        "tullys coffee black",
+        "tully's coffee black"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_japanese_water",
+      "name": "磨かれて、澄みきった日本の水",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "日本の水",
+        "磨かれて澄みきった日本の水"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_jyujitsu_yasai",
+      "name": "充実野菜",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "じゅうじつやさい"
+      ],
+      "genreIds": [
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_milk_tea",
+      "name": "午後の紅茶 ミルクティー",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー ミルクティー",
+        "午後の紅茶ミルクティー"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_namacha",
+      "name": "生茶",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "なまちゃ",
+        "namacha"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_fire_black",
+      "name": "FIRE ブラック",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "fire black",
+        "ファイア ブラック",
+        "ファイアブラック"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_kirin_lemon",
+      "name": "キリンレモン",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "kirin lemon"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_alkali_ion_water",
+      "name": "アルカリイオンの水",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "アルカリイオン水"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_black",
+      "name": "ワンダ ブラック",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "wonda black",
+        "ワンダブラック"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_jurokucha",
+      "name": "十六茶",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "16茶",
+        "じゅうろくちゃ"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_mitsuya_cider",
+      "name": "三ツ矢サイダー",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "三ツ矢",
+        "みつやサイダー",
+        "mitsuya cider"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_calpis",
+      "name": "カルピス",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "calpis"
+      ],
+      "genreIds": [
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_calpis_water",
+      "name": "カルピスウォーター",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "calpis water",
+        "カルピス ウォーター"
+      ],
+      "genreIds": [
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_oishii_mizu",
+      "name": "おいしい水",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "おいしい水 天然水",
+        "アサヒ おいしい水"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_dydo_blend",
+      "name": "ダイドーブレンド",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ダイドー ブレンド",
+        "dydo blend"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_miu",
+      "name": "miu",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ミウ",
+        "ミュー"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_ha_no_cha",
+      "name": "葉の茶",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "葉のちゃ",
+        "はの茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_pocari_sweat",
+      "name": "ポカリスエット",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "ポカリ",
+        "pocari sweat",
+        "pocari"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_match",
+      "name": "MATCH",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "マッチ"
+      ],
+      "genreIds": [
+        "sports_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_oronamin_c",
+      "name": "オロナミンC",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "オロナミンc",
+        "oronamin c"
+      ],
+      "genreIds": [
+        "energy_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    }
+  ]
+}

@@ -8,6 +8,33 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 2 P2-05 Emulator seed／品質ゲート
+
+### 追加
+
+- Product／ManufacturerのEmulator seed snapshot
+- Firebase Admin SDKを使うEmulator専用seed script
+- public read／client write denyをRESTで確認するRules検証script
+- Dart固定fixtureとseed snapshotの同期テスト
+- Phase 2 Emulator自動結合ゲート
+- Phase 2品質ゲート
+- Phase 2完了レポート
+
+### Security Rules
+
+- `products/{productId}` はpublic readのみ許可。
+- `manufacturers/{manufacturerId}` はpublic readのみ許可。
+- 上記2コレクションへのクライアントwriteは禁止。
+- `vending_machines`を含むその他のパスはdeny-by-defaultを維持。
+
+### 安全策
+
+- seedはFirestore Emulator localhost系以外への接続を拒否する。
+- seed scriptから本番Firestoreへ書き込む導線を持たせない。
+- FunctionsのNode.js 20を維持するためFirebase Admin SDK 13.10.0を固定する。
+
+
+
 ## 2026-08-07 - Phase 2 P2-04 Repository／固定fixture
 
 ### 追加

@@ -1,6 +1,6 @@
 {
   "name": "vending-navi-v2-functions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "lib/src/index.js",
   "engines": {
@@ -10,9 +10,12 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "npm run build && node --test lib/test/health_payload.test.js",
+    "seed:master": "npm run build && node lib/scripts/seed_master_fixture.js",
+    "verify:master": "npm run build && node lib/scripts/verify_master_rules.js",
     "serve": "npm run build && firebase emulators:start --config ../firebase.v2.json --only functions"
   },
   "dependencies": {
+    "firebase-admin": "13.10.0",
     "firebase-functions": "7.2.5"
   },
   "devDependencies": {
