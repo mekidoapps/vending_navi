@@ -80,12 +80,15 @@ Phase 0 `DATA_MODEL_V2.md`のフィールド名と固定値を変更せず型へ
 - `/v2` production entryをHomeMapへ切替
 - まだ検索パネル／自販機ピンは接続しない
 
-### P3-05
-- 周辺自販機取得
+### P3-05 ✅
+- viewport基準の自販機取得
+- v2 geohash prefix query
+- legacy互換viewport filter
 - 地図移動と再取得
 - 状態ピン
 - 選択ピン
-- 周辺0件表示
+- 周辺0件／読込失敗表示
+- OI-003の固定検索半径は未決定のまま維持
 
 ### P3-06
 - 選択時カメラ移動

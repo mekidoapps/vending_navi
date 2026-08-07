@@ -8,6 +8,37 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 3 P3-05 周辺自販機・状態ピン
+
+### 追加
+
+- `MapViewportBounds`
+- pure Dart geohash encoder
+- viewport用geohash query planner
+- Firestore viewport source
+- `VendingMachineMapRepository`
+- Riverpod `VendingMachineMapController`
+- viewport移動時の再読込
+- 状態別Marker
+- Marker選択状態
+- 0件／読込失敗overlay
+- HomeMapと実自販機データの接続
+- viewport／geohash／Controller／Marker resolverテスト
+- P3-05設計文書
+
+### 方針
+
+- OI-003の固定検索半径をP3-05では決めない。
+- Google Mapのvisible regionを取得範囲とする。
+- schemaVersion=2は`geohash` prefix queryを使う。
+- legacy文書だけは移行期間の互換経路として全rootからviewport filterする。
+- legacy全件互換経路はv2位置index移行後に削除対象。
+- selected／confirmed／inferred／locationOnlyの状態をピンへ反映。
+- ピンタップ時は選択と中心移動のみ。固定吹き出しはP3-06。
+- Firebase Rules、Functions、v1 UIは変更しない。
+
+
+
 ## 2026-08-07 - Phase 3 P3-04 v2 HomeMapScreen
 
 ### 追加

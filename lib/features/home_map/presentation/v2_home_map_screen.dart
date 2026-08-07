@@ -11,6 +11,11 @@ import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
+import '../../vending_machine/domain/entities/vending_machine.dart';
+import '../application/vending_machine_map_controller.dart';
+import '../application/vending_machine_map_state.dart';
+import '../domain/value_objects/map_viewport_bounds.dart';
+import 'vending_machine_marker_kind.dart';
 
 typedef V2HomeMapBuilder = Widget Function(BuildContext context);
 
@@ -69,6 +74,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final locationState = ref.watch(currentLocationControllerProvider);
+    final machineState = ref.watch(vendingMachineMapControllerProvider);
 
     ref.listen<CurrentLocationState>(currentLocationControllerProvider, (
       previous,
@@ -94,12 +100,16 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
             body: Stack(
               fit: StackFit.expand,
               children: <Widget>[
-                _buildMap(context, locationState),
+                _buildMap(context, locationState, machineState),
                 const _AppLabel(),
                 _LocationStatusOverlay(
                   state: locationState,
                   onRetry: _retryLocation,
                   onOpenSettings: _openRelevantSettings,
+                ),
+                _MapDataStatusOverlay(
+                  state: machineState,
+                  onRetry: _retryMachines,
                 ),
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
@@ -115,7 +125,11 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     );
   }
 
-  Widget _buildMap(BuildContext context, CurrentLocationState locationState) {
+  Widget _buildMap(
+    BuildContext context,
+    CurrentLocationState locationState,
+    VendingMachineMapState machineState,
+  ) {
     final overrideBuilder = widget.mapBuilder;
     if (overrideBuilder != null) {
       return overrideBuilder(context);
@@ -131,6 +145,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       compassEnabled: true,
       rotateGesturesEnabled: true,
       tiltGesturesEnabled: true,
+      markers: _buildMarkers(machineState),
       onMapCreated: (controller) {
         _mapController = controller;
 
@@ -139,6 +154,76 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
           _moveCamera(location);
         }
       },
+      onCameraIdle: _loadVisibleMachines,
+      onTap: (_) {
+        ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
+      },
+    );
+  }
+
+  Set<Marker> _buildMarkers(VendingMachineMapState state) {
+    return state.machines.map((machine) {
+      final kind = VendingMachineMarkerKindResolver.resolve(
+        machine: machine,
+        selectedMachineId: state.selectedMachineId,
+      );
+
+      return Marker(
+        markerId: MarkerId(machine.id.value),
+        position: LatLng(machine.location.latitude, machine.location.longitude),
+        icon: BitmapDescriptor.defaultMarkerWithHue(_markerHue(kind)),
+        zIndexInt: kind == VendingMachineMarkerKind.selected ? 1000 : 0,
+        onTap: () => _selectMachine(machine),
+      );
+    }).toSet();
+  }
+
+  static double _markerHue(VendingMachineMarkerKind kind) {
+    return switch (kind) {
+      VendingMachineMarkerKind.selected => BitmapDescriptor.hueViolet,
+      VendingMachineMarkerKind.confirmedProducts => BitmapDescriptor.hueAzure,
+      VendingMachineMarkerKind.inferredProducts => BitmapDescriptor.hueOrange,
+      VendingMachineMarkerKind.locationOnly => BitmapDescriptor.hueCyan,
+    };
+  }
+
+  Future<void> _loadVisibleMachines() async {
+    final controller = _mapController;
+    if (controller == null) {
+      return;
+    }
+
+    final visibleRegion = await controller.getVisibleRegion();
+    if (!mounted) {
+      return;
+    }
+
+    final bounds = MapViewportBounds(
+      south: visibleRegion.southwest.latitude,
+      west: visibleRegion.southwest.longitude,
+      north: visibleRegion.northeast.latitude,
+      east: visibleRegion.northeast.longitude,
+    );
+
+    await ref
+        .read(vendingMachineMapControllerProvider.notifier)
+        .loadViewport(bounds);
+  }
+
+  Future<void> _selectMachine(VendingMachine machine) async {
+    ref
+        .read(vendingMachineMapControllerProvider.notifier)
+        .selectMachine(machine.id);
+
+    final controller = _mapController;
+    if (controller == null) {
+      return;
+    }
+
+    await controller.animateCamera(
+      CameraUpdate.newLatLng(
+        LatLng(machine.location.latitude, machine.location.longitude),
+      ),
     );
   }
 
@@ -160,6 +245,10 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     return ref.read(currentLocationControllerProvider.notifier).retry();
   }
 
+  Future<void> _retryMachines() {
+    return ref.read(vendingMachineMapControllerProvider.notifier).retry();
+  }
+
   Future<void> _recenter() {
     return ref.read(currentLocationControllerProvider.notifier).locate();
   }
@@ -172,8 +261,6 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       return;
     }
 
-    // Returning from settings does not guarantee the permission/service state
-    // has changed. Re-check explicitly.
     await controller.locate(requestPermissionIfNeeded: false);
   }
 
@@ -358,6 +445,115 @@ class _LabeledMapAction extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MapDataStatusOverlay extends StatelessWidget {
+  const _MapDataStatusOverlay({required this.state, required this.onRetry});
+
+  final VendingMachineMapState state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading && state.machines.isEmpty) {
+      return const _MapDataCard(
+        key: Key('mapMachineLoading'),
+        icon: Icons.location_searching_rounded,
+        message: 'この範囲の自販機を読み込んでいます',
+        showProgress: true,
+      );
+    }
+
+    if (state.failure != null) {
+      return _MapDataCard(
+        key: const Key('mapMachineError'),
+        icon: Icons.cloud_off_rounded,
+        message: '自販機情報を読み込めませんでした',
+        actionLabel: '再試行',
+        onAction: onRetry,
+      );
+    }
+
+    if (state.isEmpty) {
+      return const _MapDataCard(
+        key: Key('mapMachineEmpty'),
+        icon: Icons.location_off_outlined,
+        message: 'この範囲には登録された自販機がありません',
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+}
+
+class _MapDataCard extends StatelessWidget {
+  const _MapDataCard({
+    super.key,
+    required this.icon,
+    required this.message,
+    this.showProgress = false,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool showProgress;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = V2ColorTokens.of(context);
+
+    return SafeArea(
+      minimum: const EdgeInsets.only(
+        left: V2Spacing.md,
+        right: 104,
+        bottom: V2Spacing.md,
+      ),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceElevated.withValues(alpha: 0.97),
+            borderRadius: V2Radius.control,
+            border: Border.all(color: colors.border),
+            boxShadow: V2Shadows.mapFloating,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: V2Spacing.sm,
+              vertical: V2Spacing.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (showProgress)
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                else
+                  Icon(icon, size: 19, color: colors.textSecondary),
+                const SizedBox(width: V2Spacing.xs),
+                Flexible(
+                  child: Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...<Widget>[
+                  const SizedBox(width: V2Spacing.xs),
+                  TextButton(onPressed: onAction, child: Text(actionLabel!)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
