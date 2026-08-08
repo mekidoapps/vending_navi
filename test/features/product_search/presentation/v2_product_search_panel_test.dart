@@ -143,6 +143,102 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('genreCandidate_coffee')), findsOneWidget);
   });
+
+  testWidgets('初期状態では架空データを作らずよく飲む商品の空状態を表示する', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 420,
+              child: V2ProductSearchPanel(
+                onProductSelected: (_) {},
+                onGenreSelected: (_) {},
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('よく飲む商品'), findsOneWidget);
+    expect(find.byKey(const Key('frequentProductsEmpty')), findsOneWidget);
+  });
+
+  testWidgets('Phase 5から商品を渡せる接続口を持ち選択時は通常商品選択を使う', (
+    WidgetTester tester,
+  ) async {
+    final product = ProductMasterFixture.products.firstWhere(
+      (item) => item.name == '綾鷹',
+    );
+    Product? selected;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 420,
+              child: V2ProductSearchPanel(
+                frequentProducts: <Product>[product],
+                onProductSelected: (value) => selected = value,
+                onGenreSelected: (_) {},
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(Key('frequentProduct_${product.id.value}')));
+    await tester.pump();
+
+    expect(selected?.id, product.id);
+  });
+
+  testWidgets('商品名を入力するとよく飲む商品から検索候補表示へ切り替える', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          productCandidateSearchServiceProvider.overrideWithValue(
+            ProductCandidateSearchService(
+              productRepository: _FixtureProductRepository(),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 420,
+              child: V2ProductSearchPanel(
+                onProductSelected: (_) {},
+                onGenreSelected: (_) {},
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('よく飲む商品'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('productSearchField')), '綾鷹');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(find.text('候補'), findsOneWidget);
+    expect(find.byKey(const Key('frequentProductsEmpty')), findsNothing);
+    expect(
+      find.byKey(const Key('productCandidate_coca_cola_ayataka')),
+      findsOneWidget,
+    );
+  });
 }
 
 final class _FixtureProductRepository implements ProductRepository {

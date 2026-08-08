@@ -11,6 +11,7 @@ import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
 import '../application/product_search_controller.dart';
 import '../application/product_search_state.dart';
+import 'v2_frequent_products_section.dart';
 
 class V2ProductSearchPanel extends ConsumerStatefulWidget {
   const V2ProductSearchPanel({
@@ -18,11 +19,13 @@ class V2ProductSearchPanel extends ConsumerStatefulWidget {
     required this.onProductSelected,
     required this.onGenreSelected,
     required this.onClose,
+    this.frequentProducts = const <Product>[],
   });
 
   final ValueChanged<Product> onProductSelected;
   final ValueChanged<ProductGenre> onGenreSelected;
   final VoidCallback onClose;
+  final List<Product> frequentProducts;
 
   @override
   ConsumerState<V2ProductSearchPanel> createState() =>
@@ -60,6 +63,9 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
   Widget build(BuildContext context) {
     final colors = V2ColorTokens.of(context);
     final state = ref.watch(productSearchControllerProvider);
+    final hasSearchInput = _textController.text.trim().isNotEmpty;
+    final showFrequentProducts =
+        !hasSearchInput && state.query.isEmpty && !state.isLoading;
 
     return Material(
       key: const Key('productSearchPanel'),
@@ -102,7 +108,8 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
               _GenreSelector(onSelected: _selectGenre),
               const SizedBox(height: V2Spacing.sm),
               Text(
-                '候補',
+                showFrequentProducts ? 'よく飲む商品' : '候補',
+                key: const Key('productSearchSectionTitle'),
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: colors.textSecondary,
                   fontWeight: FontWeight.w700,
@@ -112,6 +119,8 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
               Expanded(
                 child: _CandidateBody(
                   state: state,
+                  showFrequentProducts: showFrequentProducts,
+                  frequentProducts: widget.frequentProducts,
                   maxVisibleCandidates: _maxVisibleCandidates,
                   onRetry: () => _searchImmediately(_textController.text),
                   onSelected: _selectProduct,
@@ -254,12 +263,16 @@ class _PanelHeader extends StatelessWidget {
 class _CandidateBody extends StatelessWidget {
   const _CandidateBody({
     required this.state,
+    required this.showFrequentProducts,
+    required this.frequentProducts,
     required this.maxVisibleCandidates,
     required this.onRetry,
     required this.onSelected,
   });
 
   final ProductSearchState state;
+  final bool showFrequentProducts;
+  final List<Product> frequentProducts;
   final int maxVisibleCandidates;
   final VoidCallback onRetry;
   final ValueChanged<Product> onSelected;
@@ -268,11 +281,15 @@ class _CandidateBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = V2ColorTokens.of(context);
 
-    if (state.query.isEmpty && !state.isLoading) {
-      return _PanelMessage(
-        icon: Icons.search_rounded,
-        message: '飲みたい商品の名前を入力してください。',
+    if (showFrequentProducts) {
+      return V2FrequentProductsSection(
+        products: frequentProducts,
+        onSelected: onSelected,
       );
+    }
+
+    if (state.query.isEmpty && !state.isLoading) {
+      return const SizedBox.shrink();
     }
 
     if (state.isLoading) {

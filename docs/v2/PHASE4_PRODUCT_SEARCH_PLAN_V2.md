@@ -98,7 +98,7 @@ Product ID
 Genre自体を保存用Product IDへ変換しない。
 Genreに属するProduct ID群を検索条件にする。
 
-### P4-06 よく飲む商品
+### P4-06 よく飲む商品 ✅
 
 UI位置だけPhase 4で確保する。
 

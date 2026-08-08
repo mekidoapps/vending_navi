@@ -8,6 +8,33 @@
 # 変更履歴
 
 
+## 2026-08-09 - Phase 4 P4-06 よく飲む商品表示領域
+
+### 追加
+
+- `V2FrequentProductsSection`
+- 検索パネル初期状態の「よく飲む商品」領域
+- 実データなし時の自然な空状態
+- `List<Product> frequentProducts`によるPhase 5接続口
+- selectable Productだけを表示
+- よく飲む商品選択時の既存Product検索フロー再利用
+- 商品名入力時の検索候補表示への切り替え
+- 空欄へ戻した時のよく飲む商品表示復帰
+- Component／Panel Widget tests
+- P4-06設計文書
+
+### 方針
+
+- Phase 4ではユーザー認証・ユーザー保存を実装しない。
+- 架空の商品や固定お気に入りを表示しない。
+- デフォルト`frequentProducts`は空配列。
+- Phase 5から実Product一覧を渡せるpresentation seamだけを作る。
+- よく飲む商品選択後はP4-04のProduct ID検索経路をそのまま利用する。
+- Premium上限や利用回数ランキングはP4-06で決めない。
+- Firebase Rules、Functions、本番設定は変更しない。
+
+
+
 ## 2026-08-09 - Phase 4 P4-05 ジャンル検索
 
 ### 追加
