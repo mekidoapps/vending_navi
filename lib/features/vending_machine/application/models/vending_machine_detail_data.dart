@@ -1,3 +1,4 @@
+import '../../../product_master/domain/entities/product_genre.dart';
 import '../../../product_master/domain/value_objects/master_id.dart';
 import '../../domain/entities/vending_machine.dart';
 import '../../domain/entities/vending_machine_enums.dart';
@@ -25,12 +26,14 @@ final class VendingMachineProductDetailItem {
     required this.productName,
     required this.evidenceType,
     required this.availability,
+    this.genres = const <ProductGenre>[],
   });
 
   final ProductId productId;
   final String productName;
   final ProductEvidenceType? evidenceType;
   final ProductAvailability availability;
+  final List<ProductGenre> genres;
 
   bool get isConfirmed => evidenceType?.isConfirmed ?? false;
 

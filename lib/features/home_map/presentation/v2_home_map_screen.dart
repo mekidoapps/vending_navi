@@ -971,6 +971,77 @@ class _LabeledMapAction extends StatelessWidget {
   }
 }
 
+class _SelectedMachineSearchMatch extends ConsumerWidget {
+  const _SelectedMachineSearchMatch({required this.machine});
+
+  final VendingMachine machine;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
+    final selectedGenre = ref.watch(genreSearchSelectionControllerProvider);
+
+    if (selectedProduct == null && selectedGenre == null) {
+      return const SizedBox.shrink();
+    }
+
+    final colors = V2ColorTokens.of(context);
+    final productState = ref.watch(productMachineSearchControllerProvider);
+    final genreState = ref.watch(genreMachineSearchControllerProvider);
+
+    final evidence = selectedProduct != null
+        ? ProductSearchMapFilter.evidenceForMachine(
+            machine: machine,
+            selectedProduct: selectedProduct,
+            searchState: productState,
+          )
+        : GenreSearchMapFilter.evidenceForMachine(
+            machine: machine,
+            searchState: genreState,
+          );
+
+    final label = selectedProduct?.name ?? '${selectedGenre!.label}の商品';
+
+    return DecoratedBox(
+      key: const Key('selectedMachineSearchMatch'),
+      decoration: BoxDecoration(
+        color: colors.surfaceTint,
+        borderRadius: V2Radius.control,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: V2Spacing.sm,
+          vertical: V2Spacing.xs,
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.search_rounded, size: 18, color: colors.primaryStrong),
+            const SizedBox(width: V2Spacing.xs),
+            Expanded(
+              child: Text(
+                label,
+                key: const Key('selectedMachineSearchMatchLabel'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: V2Spacing.xs),
+            if (evidence?.isConfirmed ?? false)
+              const V2StatusBadge(type: V2StatusBadgeType.confirmed)
+            else if (evidence?.isInferred ?? false)
+              const V2StatusBadge(type: V2StatusBadgeType.inferred),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SelectedMachineBubble extends ConsumerWidget {
   const _SelectedMachineBubble({
     required this.machine,
@@ -1069,6 +1140,8 @@ class _SelectedMachineBubble extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: V2Spacing.xs),
+                  _SelectedMachineSearchMatch(machine: selected),
                   const SizedBox(height: V2Spacing.xs),
                   Wrap(
                     spacing: V2Spacing.xs,

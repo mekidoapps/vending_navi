@@ -9,7 +9,12 @@ import '../../../core/errors/app_failure.dart';
 import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/states/v2_error_state.dart';
 import '../../../core/ui/states/v2_loading_state.dart';
+import '../../product_master/domain/entities/product.dart';
+import '../../product_master/domain/entities/product_genre.dart';
+import '../../product_search/application/genre_search_selection_controller.dart';
+import '../../product_search/application/product_search_selection_controller.dart';
 import '../application/models/vending_machine_detail_data.dart';
+import '../application/vending_machine_detail_search_priority.dart';
 import '../application/providers/external_map_service_provider.dart';
 import '../application/providers/vending_machine_detail_providers.dart';
 import '../domain/entities/vending_machine_enums.dart';
@@ -23,6 +28,8 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(vendingMachineDetailProvider(machineId));
+    final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
+    final selectedGenre = ref.watch(genreSearchSelectionControllerProvider);
 
     return Theme(
       data: V2Theme.light(),
@@ -41,6 +48,8 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
             return result.fold(
               onSuccess: (data) => _DetailBody(
                 data: data,
+                selectedProduct: selectedProduct,
+                selectedGenre: selectedGenre,
                 onDirectionsPressed: () => _openDirections(context, ref, data),
               ),
               onFailure: (failure) => _FailureBody(
@@ -98,14 +107,30 @@ class _FailureBody extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.data, required this.onDirectionsPressed});
+  const _DetailBody({
+    required this.data,
+    required this.selectedProduct,
+    required this.selectedGenre,
+    required this.onDirectionsPressed,
+  });
 
   final VendingMachineDetailData data;
+  final Product? selectedProduct;
+  final ProductGenre? selectedGenre;
   final VoidCallback onDirectionsPressed;
 
   @override
   Widget build(BuildContext context) {
     final machine = data.machine;
+    final orderedProducts = VendingMachineDetailSearchPriority.orderedProducts(
+      products: data.products,
+      selectedProduct: selectedProduct,
+      selectedGenre: selectedGenre,
+    );
+    final searchLabel = VendingMachineDetailSearchPriority.searchLabel(
+      selectedProduct: selectedProduct,
+      selectedGenre: selectedGenre,
+    );
 
     return ListView(
       padding: const EdgeInsets.all(V2Spacing.md),
@@ -153,17 +178,30 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: V2Spacing.md),
         _SectionCard(
           title: 'ドリンク',
-          child: data.products.isEmpty
+          child: orderedProducts.isEmpty
               ? const _NoProducts()
               : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    if (searchLabel != null) ...<Widget>[
+                      _SearchPriorityNotice(label: searchLabel),
+                      const SizedBox(height: V2Spacing.md),
+                    ],
                     for (
                       var index = 0;
-                      index < data.products.length;
+                      index < orderedProducts.length;
                       index++
                     ) ...<Widget>[
-                      _ProductRow(item: data.products[index]),
-                      if (index != data.products.length - 1)
+                      _ProductRow(
+                        item: orderedProducts[index],
+                        isSearchMatch:
+                            VendingMachineDetailSearchPriority.isSearchMatch(
+                              item: orderedProducts[index],
+                              selectedProduct: selectedProduct,
+                              selectedGenre: selectedGenre,
+                            ),
+                      ),
+                      if (index != orderedProducts.length - 1)
                         const Divider(height: V2Spacing.lg),
                     ],
                   ],
@@ -318,16 +356,57 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+class _SearchPriorityNotice extends StatelessWidget {
+  const _SearchPriorityNotice({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = V2ColorTokens.of(context);
+
+    return DecoratedBox(
+      key: const Key('detailSearchPriorityNotice'),
+      decoration: BoxDecoration(
+        color: colors.surfaceTint,
+        borderRadius: V2Radius.control,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(V2Spacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(Icons.search_rounded, size: 19, color: colors.primaryStrong),
+            const SizedBox(width: V2Spacing.xs),
+            Expanded(
+              child: Text(
+                '検索条件「$label」に合う商品を先に表示しています',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.item});
+  const _ProductRow({required this.item, required this.isSearchMatch});
 
   final VendingMachineProductDetailItem item;
+  final bool isSearchMatch;
 
   @override
   Widget build(BuildContext context) {
     final colors = V2ColorTokens.of(context);
 
     return Row(
+      key: Key('detailProduct_${item.productId.value}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Expanded(
@@ -346,6 +425,11 @@ class _ProductRow extends StatelessWidget {
                 spacing: V2Spacing.xs,
                 runSpacing: V2Spacing.xs,
                 children: <Widget>[
+                  if (isSearchMatch)
+                    const _PlainStatusChip(
+                      icon: Icons.search_rounded,
+                      label: '検索対象',
+                    ),
                   if (item.isConfirmed)
                     const V2StatusBadge(type: V2StatusBadgeType.confirmed)
                   else if (item.isInferred)

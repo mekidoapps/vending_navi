@@ -8,6 +8,35 @@
 # 変更履歴
 
 
+## 2026-08-09 - Phase 4 P4-07 検索対象の固定カード・詳細優先表示
+
+### 追加
+
+- `VendingMachineProductDetailItem.genres`
+- Product master Genreの詳細データ結合
+- `VendingMachineDetailSearchPriority`
+- Product検索対象の商品先頭表示
+- Genre検索対象の商品群先頭表示
+- 検索一致グループ内のconfirmed優先
+- HomeMap固定カードの検索一致サマリー
+- 検索対象evidenceによる固定カードBadge
+- 詳細画面の検索条件Notice
+- 詳細商品行の「検索対象」表示
+- loader／priority／固定カード／詳細Widget tests
+- P4-07設計文書
+
+### 方針
+
+- 検索条件は既存Riverpod selection stateを詳細画面でも利用する。
+- route query parameterは増やさない。
+- Product検索対象は一般的なevidence順より優先する。
+- Genre検索対象群も非該当商品より優先する。
+- GenreはProduct masterから取得し、取得失敗時に推測しない。
+- OI-004のstale期間はP4-07では決めない。
+- Firebase Rules、Functions、本番設定は変更しない。
+
+
+
 ## 2026-08-09 - Phase 4 P4-06 よく飲む商品表示領域
 
 ### 追加

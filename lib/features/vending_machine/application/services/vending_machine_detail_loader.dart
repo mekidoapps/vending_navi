@@ -38,17 +38,21 @@ final class VendingMachineDetailLoader {
     }
 
     final manufacturerName = await _manufacturerName(machine.manufacturerId);
-    final productNames = await _productNames();
+    final productCatalog = await _productCatalog();
 
     final products =
         machine.activeProducts
             .map((product) {
+              final masterProduct = productCatalog[product.productId];
+
               return VendingMachineProductDetailItem(
                 productId: product.productId,
-                productName:
-                    productNames[product.productId] ?? product.productId.value,
+                productName: masterProduct?.name.trim().isNotEmpty == true
+                    ? masterProduct!.name.trim()
+                    : product.productId.value,
                 evidenceType: product.evidenceType,
                 availability: product.availability,
+                genres: List.unmodifiable(masterProduct?.genres ?? const []),
               );
             })
             .toList(growable: false)
@@ -84,15 +88,12 @@ final class VendingMachineDetailLoader {
     return name.isEmpty ? id.value : name;
   }
 
-  Future<Map<ProductId, String>> _productNames() async {
+  Future<Map<ProductId, Product>> _productCatalog() async {
     final result = await _productRepository.getProducts(activeOnly: false);
     final products = result.valueOrNull ?? const <Product>[];
 
-    return <ProductId, String>{
-      for (final product in products)
-        product.id: product.name.trim().isEmpty
-            ? product.id.value
-            : product.name.trim(),
+    return <ProductId, Product>{
+      for (final product in products) product.id: product,
     };
   }
 

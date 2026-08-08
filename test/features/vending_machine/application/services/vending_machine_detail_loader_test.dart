@@ -4,6 +4,7 @@ import 'package:vending_app/core/result/app_result.dart';
 import 'package:vending_app/features/product_master/data/fixtures/product_master_fixture.dart';
 import 'package:vending_app/features/product_master/domain/entities/manufacturer.dart';
 import 'package:vending_app/features/product_master/domain/entities/product.dart';
+import 'package:vending_app/features/product_master/domain/entities/product_genre.dart';
 import 'package:vending_app/features/product_master/domain/repositories/manufacturer_repository.dart';
 import 'package:vending_app/features/product_master/domain/repositories/product_repository.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
@@ -30,6 +31,10 @@ void main() {
     expect(result.failureOrNull, isNull);
     expect(result.valueOrNull?.manufacturerName, 'サントリー');
     expect(result.valueOrNull?.products.first.productName, 'BOSS ブラック');
+    expect(
+      result.valueOrNull?.products.first.genres,
+      contains(ProductGenre.coffee),
+    );
     expect(result.valueOrNull?.products.first.isConfirmed, isTrue);
     expect(result.valueOrNull?.products.last.isInferred, isTrue);
   });
@@ -49,6 +54,7 @@ void main() {
       result.valueOrNull?.products.first.productName,
       'suntory_boss_black',
     );
+    expect(result.valueOrNull?.products.first.genres, isEmpty);
   });
 
   test('自販機取得Failureはそのまま返す', () async {
