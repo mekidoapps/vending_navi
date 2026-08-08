@@ -269,7 +269,7 @@ class _CandidateBody extends StatelessWidget {
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: candidates.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final candidate = candidates[index];
         final product = candidate.product;

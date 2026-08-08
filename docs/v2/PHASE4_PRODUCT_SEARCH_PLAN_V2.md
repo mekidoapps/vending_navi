@@ -74,7 +74,7 @@ Product ID
 
 クライアントからindexへwriteしない。
 
-### P4-04 Product検索結果とHomeMap接続
+### P4-04 Product検索結果とHomeMap接続 ✅
 
 選択Product IDと現在地図範囲を組み合わせ、
 該当自販機だけを検索結果Markerとして表示する。

@@ -44,7 +44,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
 
-    expect(find.text('綾鷹'), findsOneWidget);
+    expect(
+      find.byKey(const Key('productCandidate_coca_cola_ayataka')),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const Key('productCandidate_coca_cola_ayataka')),

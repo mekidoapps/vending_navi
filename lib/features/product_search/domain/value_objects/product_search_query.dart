@@ -1,7 +1,6 @@
 final class ProductSearchQuery {
-  ProductSearchQuery(String rawText)
-    : rawText = rawText,
-      trimmedText = rawText.trim(),
+  ProductSearchQuery(this.rawText)
+    : trimmedText = rawText.trim(),
       normalizedText = ProductSearchNormalizer.normalize(rawText);
 
   final String rawText;

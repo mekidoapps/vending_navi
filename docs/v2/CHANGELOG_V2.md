@@ -8,6 +8,38 @@
 # 変更履歴
 
 
+## 2026-08-07 - Phase 4 P4-04 Product検索結果とHomeMap接続
+
+### 追加
+
+- `ProductMachineSearchState`
+- `ProductMachineSearchController`
+- Product ID + viewport検索状態
+- stale response防止
+- `ProductSearchMapFilter`
+- v2 index machineId filtering
+- legacy Product ID互換filter
+- 検索対象商品evidence基準Marker
+- 商品検索loading／0件／Map Failure／Index Failure overlay
+- 地図移動後のProduct index再検索
+- 商品検索解除時の通常Marker即時復帰
+- Controller／filter／Marker resolver／HomeMap status tests
+- P4-04設計文書
+
+### 方針
+
+- Product検索範囲はGoogle Map visible regionを利用する。
+- OI-003の固定検索半径はまだ決めない。
+- v2は`machine_product_index`を検索候補の正規経路にする。
+- legacyはP2/P3でProduct ID解決済みの商品だけ互換合流する。
+- 旧商品文字列をP4-04で再推測しない。
+- 検索中Markerは検索対象商品のconfirmed/inferredを反映する。
+- soldOutを検索結果から除外するPolicyはまだ追加しない。
+- OI-004情報古さ期間も未決定のまま。
+- Firebase Rules、Functions、本番設定は変更しない。
+
+
+
 ## 2026-08-07 - Phase 4 P4-03 machine_product_index read
 
 ### 追加

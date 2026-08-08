@@ -13,7 +13,10 @@ import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../../app/router/app_route.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../product_master/domain/entities/product.dart';
+import '../../product_search/application/product_machine_search_controller.dart';
+import '../../product_search/application/product_machine_search_state.dart';
 import '../../product_search/application/product_search_controller.dart';
+import '../../product_search/application/product_search_map_filter.dart';
 import '../../product_search/application/product_search_selection_controller.dart';
 import '../../product_search/presentation/v2_product_search_panel.dart';
 import '../../product_search/presentation/v2_selected_product_label.dart';
@@ -24,6 +27,7 @@ import '../../vending_machine/domain/entities/vending_machine.dart';
 import '../application/vending_machine_map_controller.dart';
 import '../application/vending_machine_map_state.dart';
 import '../domain/value_objects/map_viewport_bounds.dart';
+import 'product_search_marker_kind_resolver.dart';
 import 'vending_machine_marker_kind.dart';
 
 typedef V2HomeMapBuilder = Widget Function(BuildContext context);
@@ -88,6 +92,25 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     final locationState = ref.watch(currentLocationControllerProvider);
     final machineState = ref.watch(vendingMachineMapControllerProvider);
     final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
+    final productMachineSearchState = ref.watch(
+      productMachineSearchControllerProvider,
+    );
+
+    final visibleMachines = ProductSearchMapFilter.visibleMachines(
+      machines: machineState.machines,
+      selectedProduct: selectedProduct,
+      searchState: productMachineSearchState,
+    );
+
+    final visibleSelectedMachine = machineState.selectedMachine;
+    final selectedMachineForBubble =
+        visibleSelectedMachine != null &&
+            ProductSearchMapFilter.containsMachine(
+              machineId: visibleSelectedMachine.id,
+              visibleMachines: visibleMachines,
+            )
+        ? visibleSelectedMachine
+        : null;
 
     ref.listen<CurrentLocationState>(currentLocationControllerProvider, (
       previous,
@@ -113,19 +136,34 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
             body: Stack(
               fit: StackFit.expand,
               children: <Widget>[
-                _buildMap(context, locationState, machineState),
+                _buildMap(
+                  context,
+                  locationState,
+                  machineState,
+                  selectedProduct,
+                  productMachineSearchState,
+                ),
                 const _AppLabel(),
                 _LocationStatusOverlay(
                   state: locationState,
                   onRetry: _retryLocation,
                   onOpenSettings: _openRelevantSettings,
                 ),
-                _MapDataStatusOverlay(
-                  state: machineState,
-                  onRetry: _retryMachines,
-                ),
+                if (selectedProduct == null)
+                  _MapDataStatusOverlay(
+                    state: machineState,
+                    onRetry: _retryMachines,
+                  )
+                else
+                  _ProductSearchResultStatusOverlay(
+                    product: selectedProduct,
+                    machineState: machineState,
+                    state: productMachineSearchState,
+                    visibleResultCount: visibleMachines.length,
+                    onRetry: _retryProductSearchFlow,
+                  ),
                 _SelectedMachineBubble(
-                  machine: machineState.selectedMachine,
+                  machine: selectedMachineForBubble,
                   onDetailPressed: _openMachineDetail,
                 ),
                 if (!_isProductSearchPanelOpen &&
@@ -158,6 +196,8 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     BuildContext context,
     CurrentLocationState locationState,
     VendingMachineMapState machineState,
+    Product? selectedProduct,
+    ProductMachineSearchState productMachineSearchState,
   ) {
     final overrideBuilder = widget.mapBuilder;
     if (overrideBuilder != null) {
@@ -174,7 +214,11 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       compassEnabled: true,
       rotateGesturesEnabled: true,
       tiltGesturesEnabled: true,
-      markers: _buildMarkers(machineState),
+      markers: _buildMarkers(
+        machineState,
+        selectedProduct,
+        productMachineSearchState,
+      ),
       onMapCreated: (controller) {
         _mapController = controller;
 
@@ -190,11 +234,23 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     );
   }
 
-  Set<Marker> _buildMarkers(VendingMachineMapState state) {
-    return state.machines.map((machine) {
-      final kind = VendingMachineMarkerKindResolver.resolve(
+  Set<Marker> _buildMarkers(
+    VendingMachineMapState state,
+    Product? selectedProduct,
+    ProductMachineSearchState productMachineSearchState,
+  ) {
+    final visibleMachines = ProductSearchMapFilter.visibleMachines(
+      machines: state.machines,
+      selectedProduct: selectedProduct,
+      searchState: productMachineSearchState,
+    );
+
+    return visibleMachines.map((machine) {
+      final kind = ProductSearchMarkerKindResolver.resolve(
         machine: machine,
         selectedMachineId: state.selectedMachineId,
+        selectedProduct: selectedProduct,
+        searchState: productMachineSearchState,
       );
 
       return Marker(
@@ -216,27 +272,58 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     };
   }
 
-  Future<void> _loadVisibleMachines() async {
+  Future<void> _loadVisibleMachines({
+    Product? productOverride,
+    bool forceProductSearch = false,
+  }) async {
     final controller = _mapController;
-    if (controller == null) {
+
+    MapViewportBounds? bounds;
+    if (controller != null) {
+      final visibleRegion = await controller.getVisibleRegion();
+      if (!mounted) {
+        return;
+      }
+
+      bounds = MapViewportBounds(
+        south: visibleRegion.southwest.latitude,
+        west: visibleRegion.southwest.longitude,
+        north: visibleRegion.northeast.latitude,
+        east: visibleRegion.northeast.longitude,
+      );
+
+      await ref
+          .read(vendingMachineMapControllerProvider.notifier)
+          .loadViewport(bounds);
+    } else {
+      bounds = ref.read(vendingMachineMapControllerProvider).lastViewport;
+    }
+
+    if (!mounted || bounds == null) {
       return;
     }
 
-    final visibleRegion = await controller.getVisibleRegion();
+    final product =
+        productOverride ?? ref.read(productSearchSelectionControllerProvider);
+
+    if (product == null) {
+      ref.read(productMachineSearchControllerProvider.notifier).clear();
+      return;
+    }
+
+    await ref
+        .read(productMachineSearchControllerProvider.notifier)
+        .search(
+          productId: product.id,
+          viewport: bounds,
+          force: forceProductSearch,
+        );
+
     if (!mounted) {
       return;
     }
 
-    final bounds = MapViewportBounds(
-      south: visibleRegion.southwest.latitude,
-      west: visibleRegion.southwest.longitude,
-      north: visibleRegion.northeast.latitude,
-      east: visibleRegion.northeast.longitude,
-    );
-
-    await ref
-        .read(vendingMachineMapControllerProvider.notifier)
-        .loadViewport(bounds);
+    _clearMachineSelectionIfFilteredOut(product);
   }
 
   Future<void> _selectMachine(VendingMachine machine) async {
@@ -304,14 +391,47 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   void _selectProduct(Product product) {
     ref.read(productSearchSelectionControllerProvider.notifier).select(product);
     ref.read(productSearchControllerProvider.notifier).clear();
+    ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
 
     setState(() {
       _isProductSearchPanelOpen = false;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadVisibleMachines(productOverride: product, forceProductSearch: true);
     });
   }
 
   void _clearSelectedProduct() {
     ref.read(productSearchSelectionControllerProvider.notifier).clear();
+    ref.read(productMachineSearchControllerProvider.notifier).clear();
+  }
+
+  void _clearMachineSelectionIfFilteredOut(Product product) {
+    final mapState = ref.read(vendingMachineMapControllerProvider);
+    final selectedId = mapState.selectedMachineId;
+    if (selectedId == null) {
+      return;
+    }
+
+    final searchState = ref.read(productMachineSearchControllerProvider);
+    final visibleMachines = ProductSearchMapFilter.visibleMachines(
+      machines: mapState.machines,
+      selectedProduct: product,
+      searchState: searchState,
+    );
+
+    if (ProductSearchMapFilter.containsMachine(
+      machineId: selectedId,
+      visibleMachines: visibleMachines,
+    )) {
+      return;
+    }
+
+    ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
   }
 
   static bool _canShowSelectedProductLabel(CurrentLocationState state) {
@@ -325,6 +445,29 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
 
   Future<void> _retryMachines() {
     return ref.read(vendingMachineMapControllerProvider.notifier).retry();
+  }
+
+  Future<void> _retryProductSearchFlow() async {
+    await ref.read(vendingMachineMapControllerProvider.notifier).retry();
+
+    if (!mounted) {
+      return;
+    }
+
+    final product = ref.read(productSearchSelectionControllerProvider);
+    final viewport = ref.read(vendingMachineMapControllerProvider).lastViewport;
+
+    if (product == null || viewport == null) {
+      return;
+    }
+
+    await ref
+        .read(productMachineSearchControllerProvider.notifier)
+        .search(productId: product.id, viewport: viewport, force: true);
+
+    if (mounted) {
+      _clearMachineSelectionIfFilteredOut(product);
+    }
   }
 
   Future<void> _recenter() {
@@ -691,7 +834,7 @@ class _SelectedMachineBubble extends ConsumerWidget {
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: colors.textSecondary),
                               ),
-                              error: (_, __) => Text(
+                              error: (_, _) => Text(
                                 selected.manufacturerId?.value ?? 'メーカー不明',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: colors.textSecondary),
@@ -778,6 +921,67 @@ class _SelectedMachineBubble extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _ProductSearchResultStatusOverlay extends StatelessWidget {
+  const _ProductSearchResultStatusOverlay({
+    required this.product,
+    required this.machineState,
+    required this.state,
+    required this.visibleResultCount,
+    required this.onRetry,
+  });
+
+  final Product product;
+  final VendingMachineMapState machineState;
+  final ProductMachineSearchState state;
+  final int visibleResultCount;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (machineState.failure != null) {
+      return _MapDataCard(
+        key: const Key('productSearchMachineLoadError'),
+        icon: Icons.cloud_off_rounded,
+        message: '自販機情報を読み込めませんでした',
+        actionLabel: '再試行',
+        onAction: onRetry,
+      );
+    }
+
+    if (machineState.isLoading ||
+        state.isLoading ||
+        state.productId != product.id ||
+        !state.hasSearched) {
+      return _MapDataCard(
+        key: const Key('productMachineSearchLoading'),
+        icon: Icons.search_rounded,
+        message: '「${product.name}」のある自販機を探しています',
+        showProgress: true,
+      );
+    }
+
+    if (state.failure != null) {
+      return _MapDataCard(
+        key: const Key('productMachineSearchError'),
+        icon: Icons.cloud_off_rounded,
+        message: '商品検索結果を読み込めませんでした',
+        actionLabel: '再試行',
+        onAction: onRetry,
+      );
+    }
+
+    if (visibleResultCount == 0) {
+      return _MapDataCard(
+        key: const Key('productMachineSearchEmpty'),
+        icon: Icons.search_off_rounded,
+        message: 'この範囲では「${product.name}」が見つかりませんでした',
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
 

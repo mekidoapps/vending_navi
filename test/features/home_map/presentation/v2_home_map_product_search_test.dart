@@ -38,7 +38,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('searchMapAction')));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.byKey(const Key('productSearchPanel')), findsOneWidget);
 
@@ -51,7 +51,11 @@ void main() {
     );
 
     await tester.tap(find.byKey(Key('productCandidate_${product.id.value}')));
-    await tester.pumpAndSettle();
+
+    // First frame applies the closed state.
+    // The next pump advances AnimatedSwitcher past its reverse duration.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byKey(const Key('productSearchPanel')), findsNothing);
     expect(find.byKey(const Key('selectedProductLabel')), findsOneWidget);
@@ -85,7 +89,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('searchMapAction')));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('productSearchPanel')), findsOneWidget);
