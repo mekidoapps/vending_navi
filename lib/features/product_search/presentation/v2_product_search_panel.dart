@@ -8,6 +8,7 @@ import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_shadows.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../product_master/domain/entities/product.dart';
+import '../../product_master/domain/entities/product_genre.dart';
 import '../application/product_search_controller.dart';
 import '../application/product_search_state.dart';
 
@@ -15,10 +16,12 @@ class V2ProductSearchPanel extends ConsumerStatefulWidget {
   const V2ProductSearchPanel({
     super.key,
     required this.onProductSelected,
+    required this.onGenreSelected,
     required this.onClose,
   });
 
   final ValueChanged<Product> onProductSelected;
+  final ValueChanged<ProductGenre> onGenreSelected;
   final VoidCallback onClose;
 
   @override
@@ -96,6 +99,8 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
                 onSubmitted: _searchImmediately,
               ),
               const SizedBox(height: V2Spacing.sm),
+              _GenreSelector(onSelected: _selectGenre),
+              const SizedBox(height: V2Spacing.sm),
               Text(
                 '候補',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -155,11 +160,61 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
     widget.onProductSelected(product);
   }
 
+  void _selectGenre(ProductGenre genre) {
+    _debounce?.cancel();
+    FocusScope.of(context).unfocus();
+    ref.read(productSearchControllerProvider.notifier).clear();
+    widget.onGenreSelected(genre);
+  }
+
   void _close() {
     _debounce?.cancel();
     FocusScope.of(context).unfocus();
     ref.read(productSearchControllerProvider.notifier).clear();
     widget.onClose();
+  }
+}
+
+class _GenreSelector extends StatelessWidget {
+  const _GenreSelector({required this.onSelected});
+
+  final ValueChanged<ProductGenre> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = V2ColorTokens.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'ジャンルから探す',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: colors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: V2Spacing.xs),
+        SizedBox(
+          height: 38,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: ProductGenre.values.length,
+            separatorBuilder: (_, _) => const SizedBox(width: V2Spacing.xs),
+            itemBuilder: (context, index) {
+              final genre = ProductGenre.values[index];
+
+              return ActionChip(
+                key: Key('genreCandidate_${genre.id}'),
+                avatar: const Icon(Icons.category_outlined, size: 16),
+                label: Text(genre.label),
+                onPressed: () => onSelected(genre),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -230,20 +285,25 @@ class _CandidateBody extends StatelessWidget {
     }
 
     if (state.failure != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(Icons.cloud_off_outlined, color: colors.textSecondary),
-            const SizedBox(height: V2Spacing.xs),
-            Text(
-              '商品候補を読み込めませんでした',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+      return SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: V2Spacing.xxs),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(Icons.cloud_off_outlined, color: colors.textSecondary),
+                const SizedBox(height: V2Spacing.xs),
+                Text(
+                  '商品候補を読み込めませんでした',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: V2Spacing.xs),
+                TextButton(onPressed: onRetry, child: const Text('再試行')),
+              ],
             ),
-            const SizedBox(height: V2Spacing.xs),
-            TextButton(onPressed: onRetry, child: const Text('再試行')),
-          ],
+          ),
         ),
       );
     }
@@ -314,24 +374,32 @@ class _PanelMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = V2ColorTokens.of(context);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(V2Spacing.sm),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, color: colors.textSecondary),
-            const SizedBox(height: V2Spacing.xs),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 64;
+
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(compact ? V2Spacing.xxs : V2Spacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (!compact) ...<Widget>[
+                  Icon(icon, color: colors.textSecondary),
+                  const SizedBox(height: V2Spacing.xs),
+                ],
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

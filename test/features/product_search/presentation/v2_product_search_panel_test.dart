@@ -5,6 +5,7 @@ import 'package:vending_app/core/errors/app_failure.dart';
 import 'package:vending_app/core/result/app_result.dart';
 import 'package:vending_app/features/product_master/data/fixtures/product_master_fixture.dart';
 import 'package:vending_app/features/product_master/domain/entities/product.dart';
+import 'package:vending_app/features/product_master/domain/entities/product_genre.dart';
 import 'package:vending_app/features/product_master/domain/repositories/product_repository.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
 import 'package:vending_app/features/product_search/application/providers/product_search_providers.dart';
@@ -32,6 +33,7 @@ void main() {
               height: 420,
               child: V2ProductSearchPanel(
                 onProductSelected: (product) => selected = product,
+                onGenreSelected: (_) {},
                 onClose: () => closed += 1,
               ),
             ),
@@ -70,6 +72,7 @@ void main() {
               height: 420,
               child: V2ProductSearchPanel(
                 onProductSelected: (_) {},
+                onGenreSelected: (_) {},
                 onClose: () => closed += 1,
               ),
             ),
@@ -82,6 +85,63 @@ void main() {
     await tester.pump();
 
     expect(closed, 1);
+  });
+
+  testWidgets('ジャンル候補を表示して選択できる', (WidgetTester tester) async {
+    ProductGenre? selectedGenre;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 420,
+              child: V2ProductSearchPanel(
+                onProductSelected: (_) {},
+                onGenreSelected: (genre) => selectedGenre = genre,
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('genreCandidate_coffee')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('genreCandidate_coffee')));
+    await tester.pump();
+
+    expect(selectedGenre, ProductGenre.coffee);
+  });
+
+  testWidgets('ジャンル追加後も低い検索パネルでoverflowしない', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 312,
+                height: 320,
+                child: V2ProductSearchPanel(
+                  onProductSelected: (_) {},
+                  onGenreSelected: (_) {},
+                  onClose: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('genreCandidate_coffee')), findsOneWidget);
   });
 }
 

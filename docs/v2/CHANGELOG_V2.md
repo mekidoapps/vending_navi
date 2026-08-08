@@ -8,6 +8,37 @@
 # 変更履歴
 
 
+## 2026-08-09 - Phase 4 P4-05 ジャンル検索
+
+### 追加
+
+- Genre selection Controller
+- Genre machine search Service / State / Controller
+- Product masterからGenre所属Product ID群を解決
+- Product ID単位の既存`machine_product_index`検索統合
+- 同一machineのconfirmed優先縮約
+- Genre用HomeMap filter
+- Genre用Marker状態判定
+- 検索パネルの横スクロールGenre候補
+- 選択Genre小ラベル
+- Genre loading／0件／Failure表示
+- legacy Product ID互換Genre filter
+- Service／filter／Marker／Panel／HomeMap tests
+- P4-05設計文書
+
+### 方針
+
+- GenreをProduct IDへ偽装しない。
+- Product masterからactive Product ID群を解決して既存index経路を再利用する。
+- Product検索とGenre検索は排他的にする。
+- 旧商品名文字列をGenre検索で再推測しない。
+- 一部Product query Failureを不完全な成功結果として扱わない。
+- 新しいGenre専用Firestore indexはMVP段階では追加しない。
+- OI-003検索半径、OI-004情報古さ期間は未決定のまま。
+- Firebase Rules、Functions、本番設定は変更しない。
+
+
+
 ## 2026-08-07 - Phase 4 P4-04 Product検索結果とHomeMap接続
 
 ### 追加

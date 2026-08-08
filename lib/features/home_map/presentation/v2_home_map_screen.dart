@@ -13,20 +13,28 @@ import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../../app/router/app_route.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../product_master/domain/entities/product.dart';
+import '../../product_master/domain/entities/product_genre.dart';
+import '../../product_search/application/genre_machine_search_controller.dart';
+import '../../product_search/application/genre_machine_search_state.dart';
+import '../../product_search/application/genre_search_map_filter.dart';
+import '../../product_search/application/genre_search_selection_controller.dart';
 import '../../product_search/application/product_machine_search_controller.dart';
 import '../../product_search/application/product_machine_search_state.dart';
 import '../../product_search/application/product_search_controller.dart';
 import '../../product_search/application/product_search_map_filter.dart';
 import '../../product_search/application/product_search_selection_controller.dart';
 import '../../product_search/presentation/v2_product_search_panel.dart';
+import '../../product_search/presentation/v2_selected_genre_label.dart';
 import '../../product_search/presentation/v2_selected_product_label.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
 import '../../vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../vending_machine/domain/entities/vending_machine.dart';
+import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../application/vending_machine_map_controller.dart';
 import '../application/vending_machine_map_state.dart';
 import '../domain/value_objects/map_viewport_bounds.dart';
+import 'genre_search_marker_kind_resolver.dart';
 import 'product_search_marker_kind_resolver.dart';
 import 'vending_machine_marker_kind.dart';
 
@@ -92,22 +100,27 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     final locationState = ref.watch(currentLocationControllerProvider);
     final machineState = ref.watch(vendingMachineMapControllerProvider);
     final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
+    final selectedGenre = ref.watch(genreSearchSelectionControllerProvider);
     final productMachineSearchState = ref.watch(
       productMachineSearchControllerProvider,
     );
+    final genreMachineSearchState = ref.watch(
+      genreMachineSearchControllerProvider,
+    );
 
-    final visibleMachines = ProductSearchMapFilter.visibleMachines(
-      machines: machineState.machines,
+    final visibleMachines = _visibleMachinesForSearch(
+      machineState: machineState,
       selectedProduct: selectedProduct,
-      searchState: productMachineSearchState,
+      selectedGenre: selectedGenre,
+      productSearchState: productMachineSearchState,
+      genreSearchState: genreMachineSearchState,
     );
 
     final visibleSelectedMachine = machineState.selectedMachine;
     final selectedMachineForBubble =
         visibleSelectedMachine != null &&
-            ProductSearchMapFilter.containsMachine(
-              machineId: visibleSelectedMachine.id,
-              visibleMachines: visibleMachines,
+            visibleMachines.any(
+              (machine) => machine.id == visibleSelectedMachine.id,
             )
         ? visibleSelectedMachine
         : null;
@@ -141,7 +154,9 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   locationState,
                   machineState,
                   selectedProduct,
+                  selectedGenre,
                   productMachineSearchState,
+                  genreMachineSearchState,
                 ),
                 const _AppLabel(),
                 _LocationStatusOverlay(
@@ -149,34 +164,48 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   onRetry: _retryLocation,
                   onOpenSettings: _openRelevantSettings,
                 ),
-                if (selectedProduct == null)
-                  _MapDataStatusOverlay(
-                    state: machineState,
-                    onRetry: _retryMachines,
-                  )
-                else
+                if (selectedProduct != null)
                   _ProductSearchResultStatusOverlay(
                     product: selectedProduct,
                     machineState: machineState,
                     state: productMachineSearchState,
                     visibleResultCount: visibleMachines.length,
                     onRetry: _retryProductSearchFlow,
+                  )
+                else if (selectedGenre != null)
+                  _GenreSearchResultStatusOverlay(
+                    genre: selectedGenre,
+                    machineState: machineState,
+                    state: genreMachineSearchState,
+                    visibleResultCount: visibleMachines.length,
+                    onRetry: _retryGenreSearchFlow,
+                  )
+                else
+                  _MapDataStatusOverlay(
+                    state: machineState,
+                    onRetry: _retryMachines,
                   ),
                 _SelectedMachineBubble(
                   machine: selectedMachineForBubble,
                   onDetailPressed: _openMachineDetail,
                 ),
                 if (!_isProductSearchPanelOpen &&
-                    selectedProduct != null &&
-                    _canShowSelectedProductLabel(locationState))
-                  _SelectedProductOverlay(
-                    product: selectedProduct,
-                    onClear: _clearSelectedProduct,
-                  ),
+                    _canShowSelectedSearchLabel(locationState))
+                  if (selectedProduct != null)
+                    _SelectedProductOverlay(
+                      product: selectedProduct,
+                      onClear: _clearSelectedProduct,
+                    )
+                  else if (selectedGenre != null)
+                    _SelectedGenreOverlay(
+                      genre: selectedGenre,
+                      onClear: _clearSelectedGenre,
+                    ),
                 _ProductSearchPanelOverlay(
                   isOpen: _isProductSearchPanelOpen,
                   onClose: _closeProductSearchPanel,
                   onProductSelected: _selectProduct,
+                  onGenreSelected: _selectGenre,
                 ),
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
@@ -197,7 +226,9 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     CurrentLocationState locationState,
     VendingMachineMapState machineState,
     Product? selectedProduct,
+    ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
+    GenreMachineSearchState genreMachineSearchState,
   ) {
     final overrideBuilder = widget.mapBuilder;
     if (overrideBuilder != null) {
@@ -217,7 +248,9 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       markers: _buildMarkers(
         machineState,
         selectedProduct,
+        selectedGenre,
         productMachineSearchState,
+        genreMachineSearchState,
       ),
       onMapCreated: (controller) {
         _mapController = controller;
@@ -237,20 +270,26 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   Set<Marker> _buildMarkers(
     VendingMachineMapState state,
     Product? selectedProduct,
+    ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
+    GenreMachineSearchState genreMachineSearchState,
   ) {
-    final visibleMachines = ProductSearchMapFilter.visibleMachines(
-      machines: state.machines,
+    final visibleMachines = _visibleMachinesForSearch(
+      machineState: state,
       selectedProduct: selectedProduct,
-      searchState: productMachineSearchState,
+      selectedGenre: selectedGenre,
+      productSearchState: productMachineSearchState,
+      genreSearchState: genreMachineSearchState,
     );
 
     return visibleMachines.map((machine) {
-      final kind = ProductSearchMarkerKindResolver.resolve(
+      final kind = _markerKindForSearch(
         machine: machine,
         selectedMachineId: state.selectedMachineId,
         selectedProduct: selectedProduct,
-        searchState: productMachineSearchState,
+        selectedGenre: selectedGenre,
+        productSearchState: productMachineSearchState,
+        genreSearchState: genreMachineSearchState,
       );
 
       return Marker(
@@ -261,6 +300,64 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         onTap: () => _selectMachine(machine),
       );
     }).toSet();
+  }
+
+  static List<VendingMachine> _visibleMachinesForSearch({
+    required VendingMachineMapState machineState,
+    required Product? selectedProduct,
+    required ProductGenre? selectedGenre,
+    required ProductMachineSearchState productSearchState,
+    required GenreMachineSearchState genreSearchState,
+  }) {
+    if (selectedProduct != null) {
+      return ProductSearchMapFilter.visibleMachines(
+        machines: machineState.machines,
+        selectedProduct: selectedProduct,
+        searchState: productSearchState,
+      );
+    }
+
+    if (selectedGenre != null) {
+      return GenreSearchMapFilter.visibleMachines(
+        machines: machineState.machines,
+        selectedGenre: selectedGenre,
+        searchState: genreSearchState,
+      );
+    }
+
+    return List<VendingMachine>.unmodifiable(machineState.machines);
+  }
+
+  static VendingMachineMarkerKind _markerKindForSearch({
+    required VendingMachine machine,
+    required VendingMachineId? selectedMachineId,
+    required Product? selectedProduct,
+    required ProductGenre? selectedGenre,
+    required ProductMachineSearchState productSearchState,
+    required GenreMachineSearchState genreSearchState,
+  }) {
+    if (selectedProduct != null) {
+      return ProductSearchMarkerKindResolver.resolve(
+        machine: machine,
+        selectedMachineId: selectedMachineId,
+        selectedProduct: selectedProduct,
+        searchState: productSearchState,
+      );
+    }
+
+    if (selectedGenre != null) {
+      return GenreSearchMarkerKindResolver.resolve(
+        machine: machine,
+        selectedMachineId: selectedMachineId,
+        selectedGenre: selectedGenre,
+        searchState: genreSearchState,
+      );
+    }
+
+    return VendingMachineMarkerKindResolver.resolve(
+      machine: machine,
+      selectedMachineId: selectedMachineId,
+    );
   }
 
   static double _markerHue(VendingMachineMarkerKind kind) {
@@ -274,7 +371,9 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
 
   Future<void> _loadVisibleMachines({
     Product? productOverride,
+    ProductGenre? genreOverride,
     bool forceProductSearch = false,
+    bool forceGenreSearch = false,
   }) async {
     final controller = _mapController;
 
@@ -305,25 +404,41 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
 
     final product =
         productOverride ?? ref.read(productSearchSelectionControllerProvider);
+    final genre =
+        genreOverride ?? ref.read(genreSearchSelectionControllerProvider);
 
-    if (product == null) {
+    if (product != null) {
+      ref.read(genreMachineSearchControllerProvider.notifier).clear();
+
+      await ref
+          .read(productMachineSearchControllerProvider.notifier)
+          .search(
+            productId: product.id,
+            viewport: bounds,
+            force: forceProductSearch,
+          );
+
+      if (mounted) {
+        _clearMachineSelectionIfProductFilteredOut(product);
+      }
+      return;
+    }
+
+    if (genre != null) {
       ref.read(productMachineSearchControllerProvider.notifier).clear();
+
+      await ref
+          .read(genreMachineSearchControllerProvider.notifier)
+          .search(genre: genre, viewport: bounds, force: forceGenreSearch);
+
+      if (mounted) {
+        _clearMachineSelectionIfGenreFilteredOut(genre);
+      }
       return;
     }
 
-    await ref
-        .read(productMachineSearchControllerProvider.notifier)
-        .search(
-          productId: product.id,
-          viewport: bounds,
-          force: forceProductSearch,
-        );
-
-    if (!mounted) {
-      return;
-    }
-
-    _clearMachineSelectionIfFilteredOut(product);
+    ref.read(productMachineSearchControllerProvider.notifier).clear();
+    ref.read(genreMachineSearchControllerProvider.notifier).clear();
   }
 
   Future<void> _selectMachine(VendingMachine machine) async {
@@ -389,6 +504,8 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   }
 
   void _selectProduct(Product product) {
+    ref.read(genreSearchSelectionControllerProvider.notifier).clear();
+    ref.read(genreMachineSearchControllerProvider.notifier).clear();
     ref.read(productSearchSelectionControllerProvider.notifier).select(product);
     ref.read(productSearchControllerProvider.notifier).clear();
     ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
@@ -405,12 +522,36 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     });
   }
 
+  void _selectGenre(ProductGenre genre) {
+    ref.read(productSearchSelectionControllerProvider.notifier).clear();
+    ref.read(productMachineSearchControllerProvider.notifier).clear();
+    ref.read(genreSearchSelectionControllerProvider.notifier).select(genre);
+    ref.read(productSearchControllerProvider.notifier).clear();
+    ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
+
+    setState(() {
+      _isProductSearchPanelOpen = false;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadVisibleMachines(genreOverride: genre, forceGenreSearch: true);
+    });
+  }
+
   void _clearSelectedProduct() {
     ref.read(productSearchSelectionControllerProvider.notifier).clear();
     ref.read(productMachineSearchControllerProvider.notifier).clear();
   }
 
-  void _clearMachineSelectionIfFilteredOut(Product product) {
+  void _clearSelectedGenre() {
+    ref.read(genreSearchSelectionControllerProvider.notifier).clear();
+    ref.read(genreMachineSearchControllerProvider.notifier).clear();
+  }
+
+  void _clearMachineSelectionIfProductFilteredOut(Product product) {
     final mapState = ref.read(vendingMachineMapControllerProvider);
     final selectedId = mapState.selectedMachineId;
     if (selectedId == null) {
@@ -434,7 +575,31 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
   }
 
-  static bool _canShowSelectedProductLabel(CurrentLocationState state) {
+  void _clearMachineSelectionIfGenreFilteredOut(ProductGenre genre) {
+    final mapState = ref.read(vendingMachineMapControllerProvider);
+    final selectedId = mapState.selectedMachineId;
+    if (selectedId == null) {
+      return;
+    }
+
+    final searchState = ref.read(genreMachineSearchControllerProvider);
+    final visibleMachines = GenreSearchMapFilter.visibleMachines(
+      machines: mapState.machines,
+      selectedGenre: genre,
+      searchState: searchState,
+    );
+
+    if (GenreSearchMapFilter.containsMachine(
+      machineId: selectedId,
+      visibleMachines: visibleMachines,
+    )) {
+      return;
+    }
+
+    ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
+  }
+
+  static bool _canShowSelectedSearchLabel(CurrentLocationState state) {
     return state.phase == CurrentLocationPhase.idle ||
         state.phase == CurrentLocationPhase.ready;
   }
@@ -466,7 +631,30 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         .search(productId: product.id, viewport: viewport, force: true);
 
     if (mounted) {
-      _clearMachineSelectionIfFilteredOut(product);
+      _clearMachineSelectionIfProductFilteredOut(product);
+    }
+  }
+
+  Future<void> _retryGenreSearchFlow() async {
+    await ref.read(vendingMachineMapControllerProvider.notifier).retry();
+
+    if (!mounted) {
+      return;
+    }
+
+    final genre = ref.read(genreSearchSelectionControllerProvider);
+    final viewport = ref.read(vendingMachineMapControllerProvider).lastViewport;
+
+    if (genre == null || viewport == null) {
+      return;
+    }
+
+    await ref
+        .read(genreMachineSearchControllerProvider.notifier)
+        .search(genre: genre, viewport: viewport, force: true);
+
+    if (mounted) {
+      _clearMachineSelectionIfGenreFilteredOut(genre);
     }
   }
 
@@ -556,16 +744,36 @@ class _SelectedProductOverlay extends StatelessWidget {
   }
 }
 
+class _SelectedGenreOverlay extends StatelessWidget {
+  const _SelectedGenreOverlay({required this.genre, required this.onClear});
+
+  final ProductGenre genre;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.only(top: 62, left: V2Spacing.sm, right: 76),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: V2SelectedGenreLabel(genre: genre, onClear: onClear),
+      ),
+    );
+  }
+}
+
 class _ProductSearchPanelOverlay extends StatelessWidget {
   const _ProductSearchPanelOverlay({
     required this.isOpen,
     required this.onClose,
     required this.onProductSelected,
+    required this.onGenreSelected,
   });
 
   final bool isOpen;
   final VoidCallback onClose;
   final ValueChanged<Product> onProductSelected;
+  final ValueChanged<ProductGenre> onGenreSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -582,8 +790,11 @@ class _ProductSearchPanelOverlay extends StatelessWidget {
             final panelWidth = constraints.maxWidth
                 .clamp(196.0, 360.0)
                 .toDouble();
-            final panelHeight = (constraints.maxHeight * 0.56)
-                .clamp(280.0, 420.0)
+            final desiredPanelHeight = (constraints.maxHeight * 0.70)
+                .clamp(320.0, 460.0)
+                .toDouble();
+            final panelHeight = desiredPanelHeight
+                .clamp(0.0, constraints.maxHeight)
                 .toDouble();
 
             return AnimatedSwitcher(
@@ -613,6 +824,7 @@ class _ProductSearchPanelOverlay extends StatelessWidget {
                       height: panelHeight,
                       child: V2ProductSearchPanel(
                         onProductSelected: onProductSelected,
+                        onGenreSelected: onGenreSelected,
                         onClose: onClose,
                       ),
                     )
@@ -921,6 +1133,67 @@ class _SelectedMachineBubble extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _GenreSearchResultStatusOverlay extends StatelessWidget {
+  const _GenreSearchResultStatusOverlay({
+    required this.genre,
+    required this.machineState,
+    required this.state,
+    required this.visibleResultCount,
+    required this.onRetry,
+  });
+
+  final ProductGenre genre;
+  final VendingMachineMapState machineState;
+  final GenreMachineSearchState state;
+  final int visibleResultCount;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (machineState.failure != null) {
+      return _MapDataCard(
+        key: const Key('genreSearchMachineLoadError'),
+        icon: Icons.cloud_off_rounded,
+        message: '自販機情報を読み込めませんでした',
+        actionLabel: '再試行',
+        onAction: onRetry,
+      );
+    }
+
+    if (machineState.isLoading ||
+        state.isLoading ||
+        state.genre != genre ||
+        !state.hasSearched) {
+      return _MapDataCard(
+        key: const Key('genreMachineSearchLoading'),
+        icon: Icons.category_outlined,
+        message: '「${genre.label}」のある自販機を探しています',
+        showProgress: true,
+      );
+    }
+
+    if (state.failure != null) {
+      return _MapDataCard(
+        key: const Key('genreMachineSearchError'),
+        icon: Icons.cloud_off_rounded,
+        message: 'ジャンル検索結果を読み込めませんでした',
+        actionLabel: '再試行',
+        onAction: onRetry,
+      );
+    }
+
+    if (visibleResultCount == 0) {
+      return _MapDataCard(
+        key: const Key('genreMachineSearchEmpty'),
+        icon: Icons.search_off_rounded,
+        message: 'この範囲では「${genre.label}」が見つかりませんでした',
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
 
