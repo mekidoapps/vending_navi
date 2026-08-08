@@ -8,6 +8,36 @@
 # 変更履歴
 
 
+## 2026-08-09 - Phase 4 P4-08 品質ゲート
+
+### 追加
+
+- `tool/phase4_quality_gate.sh`
+- HomeMap検索パネルの320x568 / 390x844 / 600x960 responsive regression
+- 検索条件付き詳細画面の320x568 / 390x844 / 600x960 responsive regression
+- Phase 4品質ゲート文書
+- Phase 4完了レポート
+- Phase 4実装計画の完了更新
+
+### 品質ゲート
+
+- Flutter analyze
+- Flutter全体test
+- Product master / Product search / HomeMap / VendingMachine strict analyze
+- 検索UI responsive regression
+- Functions build/test
+- `machine_product_index` Emulator integration
+- 本番Firebase config guard
+- Android実機Product / Genre検索確認
+
+### 未確定事項
+
+- OI-003は固定半径を仮置きせず、現行viewport検索を維持する。
+- OI-004はstale期間を仮置きせず、更新・報告データ取得後に決定する。
+- どちらもPhase 5開始のblocking issueとはしない。
+
+
+
 ## 2026-08-09 - Phase 4 P4-07 検索対象の固定カード・詳細優先表示
 
 ### 追加
