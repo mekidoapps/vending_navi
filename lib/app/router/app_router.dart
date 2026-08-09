@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/v2_email_auth_screen.dart';
 import '../../features/home_map/presentation/v2_home_map_screen.dart';
 import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
@@ -17,6 +18,7 @@ GoRouter createAppRouter({
   AppRouteWidgetBuilder? legacyBuilder,
   AppRouteWidgetBuilder? v2Builder,
   AppMachineDetailWidgetBuilder? machineDetailBuilder,
+  AppRouteWidgetBuilder? emailAuthBuilder,
 }) {
   return GoRouter(
     initialLocation: entryMode.initialLocation,
@@ -48,6 +50,13 @@ GoRouter createAppRouter({
 
           return machineDetailBuilder?.call(context, machineId) ??
               V2VendingMachineDetailScreen(machineId: machineId);
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2EmailAuth.name,
+        path: AppRoute.v2EmailAuth.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return emailAuthBuilder?.call(context) ?? const V2EmailAuthScreen();
         },
       ),
     ],

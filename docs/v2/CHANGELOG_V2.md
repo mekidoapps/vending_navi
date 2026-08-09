@@ -7,6 +7,34 @@
 
 # 変更履歴
 
+## 2026-08-09 - Phase 5 P5-03 メール認証
+
+### 追加
+
+- Email/Password sign-in
+- Email/Password register
+- Firebase sign-out
+- password reset
+- `FirebaseAuthFailureMapper`
+- `EmailAuthValidator`
+- `EmailAuthController`
+- `V2EmailAuthScreen`
+- `/v2/auth/email`
+- Auth Emulator register/sign-in/reset gate
+- email auth unit/widget/router tests
+
+### セキュリティ / UX
+
+- Firebase `UserCredential`をPresentationへ露出しない。
+- invalid credential / wrong password / user-not-foundのUI文言を統一。
+- password resetでaccount existenceを表示しない。
+- password値をtrimしない。
+- emailのみ前後空白を除去する。
+- GoogleはP5-04へ分離。
+- HomeMap登録Actionとの接続はP5-05へ分離。
+- users / favorites / Firestore Rulesは変更しない。
+
+
 ## 2026-08-09 - Phase 5 P5-02 Auth Domain / Repository骨格
 
 ### 追加

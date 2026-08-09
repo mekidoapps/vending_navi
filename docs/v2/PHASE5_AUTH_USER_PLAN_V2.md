@@ -180,12 +180,14 @@ Googleログインのユーザーキャンセルは、
 - [ ] 実Auth Emulator email test（P5-03で実施）
 
 ### P5-03 メール認証
-- [ ] メールログイン
-- [ ] 新規登録
-- [ ] サインアウト
-- [ ] 入力validation
-- [ ] Firebase例外→AppFailure
-- [ ] UI
+- [x] メールログイン
+- [x] 新規登録
+- [x] サインアウト
+- [x] パスワード再設定
+- [x] 入力validation
+- [x] Firebase例外→AppFailure
+- [x] UI
+- [x] Auth Emulator gate
 
 ### P5-04 Googleログイン
 - [ ] 既存設定再利用確認

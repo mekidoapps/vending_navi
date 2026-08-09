@@ -20,4 +20,48 @@ final class FirebaseAuthDataSource implements AuthDataSource {
       (user) => user == null ? null : AuthUserDto.fromFirebase(user),
     );
   }
+
+  @override
+  Future<AuthUserDto> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    return _requiredUser(credential);
+  }
+
+  @override
+  Future<AuthUserDto> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    return _requiredUser(credential);
+  }
+
+  @override
+  Future<void> signOut() {
+    return _auth.signOut();
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) {
+    return _auth.sendPasswordResetEmail(email: email);
+  }
+
+  AuthUserDto _requiredUser(UserCredential credential) {
+    final user = credential.user;
+    if (user == null) {
+      throw StateError('Firebase Auth completed without a user.');
+    }
+    return AuthUserDto.fromFirebase(user);
+  }
 }

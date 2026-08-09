@@ -73,6 +73,30 @@ final class _FakeAuthDataSource implements AuthDataSource {
     return _controller.stream;
   }
 
+  @override
+  Future<AuthUserDto> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    return _current ?? _userDto();
+  }
+
+  @override
+  Future<AuthUserDto> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    return _current ?? _userDto();
+  }
+
+  @override
+  Future<void> signOut() async {
+    _current = null;
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) async {}
+
   void emit(AuthUserDto? user) {
     _current = user;
     _controller.add(user);
