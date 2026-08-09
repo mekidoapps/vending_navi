@@ -4,6 +4,10 @@ import 'package:vending_app/core/firebase/firebase_emulator_connector.dart';
 
 void main() {
   group('FirebaseEmulatorConnector', () {
+    test('hostはアプリ側で明示解決しFlutterFire自動mappingを使わない', () {
+      expect(FirebaseEmulatorConnector.automaticHostMapping, isFalse);
+    });
+
     test('有効時は4サービスへ決められた順番で接続する', () async {
       final calls = <String>[];
       const config = FirebaseEmulatorConfig(

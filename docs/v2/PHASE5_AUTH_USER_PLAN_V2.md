@@ -197,7 +197,7 @@ Googleログインのユーザーキャンセルは、
 - [x] cancel/error
 - [x] UI
 - [x] local config audit
-- [ ] Android実機acceptance（P5-05接続直後）
+- [x] Android実機acceptance（P5-05で確認済み）
 
 ### P5-05 Auth Gate / 中断フロー復帰
 - [ ] 認証必須Action abstraction
@@ -248,3 +248,12 @@ Googleログインのユーザーキャンセルは、
 ```
 
 まで成立すること。
+
+
+### P5-05 Auth Gate / interrupted flow resume
+- [x] AuthRequiredActionRunner
+- [x] Login Required Sheet
+- [x] interrupted action
+- [x] resume original action
+- [x] HomeMap registration callback gate
+- [x] cancel時は元Action未実行

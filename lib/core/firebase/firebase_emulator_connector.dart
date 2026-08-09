@@ -10,6 +10,13 @@ typedef EmulatorConnectorStep = Future<void> Function(String host, int port);
 
 @immutable
 class FirebaseEmulatorConnector {
+  /// VendingNavi resolves the emulator host explicitly via dart-define.
+  ///
+  /// Physical Android devices use 127.0.0.1 with adb reverse.
+  /// Android emulators use 10.0.2.2 explicitly.
+  /// FlutterFire's automatic Android host mapping must therefore stay off.
+  static const bool automaticHostMapping = false;
+
   const FirebaseEmulatorConnector({
     required this.config,
     required this.connectAuth,
@@ -22,16 +29,32 @@ class FirebaseEmulatorConnector {
     return FirebaseEmulatorConnector(
       config: config,
       connectAuth: (String host, int port) async {
-        await FirebaseAuth.instance.useAuthEmulator(host, port);
+        await FirebaseAuth.instance.useAuthEmulator(
+          host,
+          port,
+          automaticHostMapping: automaticHostMapping,
+        );
       },
       connectFirestore: (String host, int port) async {
-        FirebaseFirestore.instance.useFirestoreEmulator(host, port);
+        FirebaseFirestore.instance.useFirestoreEmulator(
+          host,
+          port,
+          automaticHostMapping: automaticHostMapping,
+        );
       },
       connectFunctions: (String host, int port) async {
-        FirebaseFunctions.instance.useFunctionsEmulator(host, port);
+        FirebaseFunctions.instance.useFunctionsEmulator(
+          host,
+          port,
+          automaticHostMapping: automaticHostMapping,
+        );
       },
       connectStorage: (String host, int port) async {
-        await FirebaseStorage.instance.useStorageEmulator(host, port);
+        await FirebaseStorage.instance.useStorageEmulator(
+          host,
+          port,
+          automaticHostMapping: automaticHostMapping,
+        );
       },
     );
   }

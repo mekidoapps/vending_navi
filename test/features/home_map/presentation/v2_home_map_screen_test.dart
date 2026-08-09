@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/result/app_result.dart';
+import 'package:vending_app/features/auth/application/providers/auth_providers.dart';
+import 'package:vending_app/features/auth/domain/entities/auth_session.dart';
+import 'package:vending_app/features/auth/domain/entities/auth_user.dart';
+import 'package:vending_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:vending_app/features/home_map/presentation/v2_home_map_screen.dart';
 import 'package:vending_app/features/location/application/providers/location_service_provider.dart';
 import 'package:vending_app/features/location/domain/entities/app_location_permission.dart';
@@ -17,6 +21,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authRepositoryProvider.overrideWithValue(
+            _AuthenticatedAuthRepository(),
+          ),
           locationServiceProvider.overrideWithValue(_FakeLocationService()),
         ],
         child: MaterialApp(
@@ -194,5 +201,53 @@ final class _FakeLocationService implements LocationService {
   Future<bool> openLocationSettings() async {
     openLocationSettingsCalls += 1;
     return true;
+  }
+}
+
+final class _AuthenticatedAuthRepository implements AuthRepository {
+  final AuthSession _session = AuthenticatedAuthSession(
+    AuthUser(
+      uid: 'home_map_test_user',
+      email: 'test@example.com',
+      displayName: null,
+      providerIds: const <String>['password'],
+      emailVerified: false,
+    ),
+  );
+
+  @override
+  AuthSession get currentSession => _session;
+
+  @override
+  Stream<AuthSession> watchSession() {
+    return Stream<AuthSession>.value(_session);
+  }
+
+  @override
+  Future<AppResult<AuthSession>> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppResult<AuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<AppResult<AuthSession>> signOut() {
+    return Future<AppResult<AuthSession>>.value(
+      const AppResult<AuthSession>.success(GuestAuthSession()),
+    );
+  }
+
+  @override
+  Future<AppResult<bool>> sendPasswordResetEmail({required String email}) {
+    throw UnimplementedError();
   }
 }

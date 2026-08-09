@@ -7,6 +7,18 @@
 
 # 変更履歴
 
+## 2026-08-09 - Phase 5 P5-05 Auth Gate / 中断フロー復帰
+
+- `AuthRequiredActionRunner`を追加。
+- 未ログインAction用`V2LoginRequiredSheet`を追加。
+- HomeMap「登録」にAuth Gateを接続。
+- 認証成功後に元`onRegisterPressed` callbackを再開。
+- cancel/back時は元Actionを実行しない。
+- Auth画面が成功を返しても`currentSession`がGuestなら再開しない。
+- 自販機登録画面本体はPhase 6へ分離。
+- users / favorites / Rulesは変更しない。
+
+
 ## 2026-08-09 - Phase 5 P5-04 Googleログイン
 
 - GoogleSignInClient / Firebase Google Auth Client境界を追加。

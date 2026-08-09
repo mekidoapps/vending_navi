@@ -11,6 +11,9 @@ import '../../../app/theme/v2_theme.dart';
 import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/buttons/v2_map_action_button.dart';
 import '../../../app/router/app_route.dart';
+import '../../auth/application/auth_required_action_runner.dart';
+import '../../auth/application/providers/auth_action_gate_provider.dart';
+import '../../auth/presentation/v2_login_required_sheet.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
@@ -39,6 +42,7 @@ import 'product_search_marker_kind_resolver.dart';
 import 'vending_machine_marker_kind.dart';
 
 typedef V2HomeMapBuilder = Widget Function(BuildContext context);
+typedef V2AuthenticationRequester = Future<bool> Function();
 
 class V2HomeMapScreen extends ConsumerStatefulWidget {
   const V2HomeMapScreen({
@@ -47,6 +51,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
     this.autoLocate = true,
     this.onSearchPressed,
     this.onRegisterPressed,
+    this.authenticationRequester,
     this.onProfilePressed,
     this.onMachineDetailPressed,
   });
@@ -57,6 +62,11 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
   final bool autoLocate;
   final VoidCallback? onSearchPressed;
   final VoidCallback? onRegisterPressed;
+
+  /// Test/preview seam. Production uses the v2 login-required sheet
+  /// followed by the named email/Google auth route.
+  final V2AuthenticationRequester? authenticationRequester;
+
   final VoidCallback? onProfilePressed;
   final ValueChanged<VendingMachine>? onMachineDetailPressed;
 
@@ -210,7 +220,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
                   onSearchPressed: _toggleProductSearchPanel,
-                  onRegisterPressed: widget.onRegisterPressed ?? _noop,
+                  onRegisterPressed: _handleRegisterPressed,
                   onProfilePressed: widget.onProfilePressed ?? _noop,
                 ),
               ],
@@ -219,6 +229,48 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _handleRegisterPressed() async {
+    final action = widget.onRegisterPressed ?? _noop;
+
+    final result = await ref
+        .read(authRequiredActionRunnerProvider)
+        .run(
+          requestAuthentication:
+              widget.authenticationRequester ??
+              _requestRegistrationAuthentication,
+          action: () async {
+            action();
+          },
+        );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result == AuthRequiredActionResult.authenticationNotEstablished) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ログイン状態を確認できませんでした。もう一度お試しください。')),
+      );
+    }
+  }
+
+  Future<bool> _requestRegistrationAuthentication() async {
+    final shouldOpenAuth = await V2LoginRequiredSheet.show(
+      context,
+      actionLabel: '自販機の登録',
+    );
+
+    if (!mounted || !shouldOpenAuth) {
+      return false;
+    }
+
+    final authenticated = await context.pushNamed<bool>(
+      AppRoute.v2EmailAuth.name,
+    );
+
+    return authenticated == true;
   }
 
   Widget _buildMap(
