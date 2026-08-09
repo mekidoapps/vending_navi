@@ -190,12 +190,14 @@ Googleログインのユーザーキャンセルは、
 - [x] Auth Emulator gate
 
 ### P5-04 Googleログイン
-- [ ] 既存設定再利用確認
-- [ ] Android OAuth/SHA確認
-- [ ] Google sign-in
-- [ ] Firebase credential
-- [ ] cancel/error
-- [ ] 実機
+- [x] 既存`google_sign_in ^6.3.0`継続
+- [x] Google plugin境界
+- [x] Firebase credential境界
+- [x] Google sign-in
+- [x] cancel/error
+- [x] UI
+- [x] local config audit
+- [ ] Android実機acceptance（P5-05接続直後）
 
 ### P5-05 Auth Gate / 中断フロー復帰
 - [ ] 認証必須Action abstraction

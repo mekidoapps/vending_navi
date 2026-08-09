@@ -7,7 +7,10 @@ import '../../../app/theme/v2_color_tokens.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../../core/ui/buttons/v2_primary_button.dart';
+import '../../../core/ui/buttons/v2_secondary_button.dart';
 import '../application/email_auth_controller.dart';
+import '../application/google_auth_controller.dart';
+import '../application/google_auth_state.dart';
 
 final class V2EmailAuthScreen extends ConsumerStatefulWidget {
   const V2EmailAuthScreen({super.key, this.onAuthenticated});
@@ -37,6 +40,8 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
+    ref.read(googleAuthControllerProvider.notifier).clearFailure();
+
     final controller = ref.read(emailAuthControllerProvider.notifier);
 
     final success = _isRegisterMode
@@ -60,6 +65,8 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
   Future<void> _resetPassword() async {
     FocusScope.of(context).unfocus();
 
+    ref.read(googleAuthControllerProvider.notifier).clearFailure();
+
     final success = await ref
         .read(emailAuthControllerProvider.notifier)
         .sendPasswordReset(email: _emailController.text);
@@ -71,6 +78,24 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('パスワード再設定メールを送信しました。メールをご確認ください。')),
     );
+  }
+
+  Future<void> _signInWithGoogle() async {
+    FocusScope.of(context).unfocus();
+
+    ref.read(emailAuthControllerProvider.notifier).clearFailure();
+
+    final result = await ref
+        .read(googleAuthControllerProvider.notifier)
+        .signIn();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result == GoogleAuthActionResult.authenticated) {
+      _finishAuthenticated();
+    }
   }
 
   void _finishAuthenticated() {
@@ -101,7 +126,9 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(emailAuthControllerProvider);
+    final googleState = ref.watch(googleAuthControllerProvider);
     final colors = V2ColorTokens.of(context);
+    final isBusy = authState.isLoading || googleState.isLoading;
 
     return Scaffold(
       appBar: AppBar(title: const Text('ログイン / 新規登録')),
@@ -153,7 +180,7 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
                 TextField(
                   key: const Key('emailField'),
                   controller: _emailController,
-                  enabled: !authState.isLoading,
+                  enabled: !isBusy,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   autofillHints: const <String>[AutofillHints.email],
@@ -169,7 +196,7 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
                 TextField(
                   key: const Key('passwordField'),
                   controller: _passwordController,
-                  enabled: !authState.isLoading,
+                  enabled: !isBusy,
                   obscureText: _obscurePassword,
                   textInputAction: _isRegisterMode
                       ? TextInputAction.next
@@ -208,7 +235,7 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
                   TextField(
                     key: const Key('passwordConfirmationField'),
                     controller: _confirmationController,
-                    enabled: !authState.isLoading,
+                    enabled: !isBusy,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.done,
                     autofillHints: const <String>[AutofillHints.newPassword],
@@ -234,24 +261,49 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
                       ? Icons.person_add_alt_1_rounded
                       : Icons.login_rounded,
                   isLoading: authState.isLoading,
-                  onPressed: authState.isLoading ? null : _submit,
+                  onPressed: isBusy ? null : _submit,
                 ),
                 if (!_isRegisterMode) ...<Widget>[
                   const SizedBox(height: V2Spacing.sm),
                   TextButton(
                     key: const Key('passwordResetButton'),
-                    onPressed: authState.isLoading ? null : _resetPassword,
+                    onPressed: isBusy ? null : _resetPassword,
                     child: const Text('パスワードを忘れた場合'),
                   ),
                 ],
-                const SizedBox(height: V2Spacing.md),
-                Text(
-                  'Googleログインは次の実装段階でこの画面に追加します。',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+                const SizedBox(height: V2Spacing.lg),
+                Row(
+                  children: <Widget>[
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: V2Spacing.sm,
+                      ),
+                      child: Text(
+                        'または',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
                 ),
+                const SizedBox(height: V2Spacing.md),
+                V2SecondaryButton(
+                  key: const Key('googleAuthButton'),
+                  label: googleState.isLoading ? 'Googleで処理中…' : 'Googleで続ける',
+                  icon: Icons.account_circle_outlined,
+                  onPressed: isBusy ? null : _signInWithGoogle,
+                ),
+                if (googleState.failure != null) ...<Widget>[
+                  const SizedBox(height: V2Spacing.md),
+                  _FailureCard(
+                    cardKey: const Key('googleAuthFailure'),
+                    title: googleState.failure!.userTitle,
+                    message: googleState.failure!.userMessage,
+                  ),
+                ],
               ],
             ),
           ),
@@ -284,8 +336,13 @@ final class _ModeButton extends StatelessWidget {
 }
 
 final class _FailureCard extends StatelessWidget {
-  const _FailureCard({required this.title, required this.message});
+  const _FailureCard({
+    this.cardKey = const Key('emailAuthFailure'),
+    required this.title,
+    required this.message,
+  });
 
+  final Key cardKey;
   final String title;
   final String message;
 
@@ -294,7 +351,7 @@ final class _FailureCard extends StatelessWidget {
     final colors = V2ColorTokens.of(context);
 
     return DecoratedBox(
-      key: const Key('emailAuthFailure'),
+      key: cardKey,
       decoration: BoxDecoration(
         color: colors.surfaceTint,
         borderRadius: V2Radius.control,

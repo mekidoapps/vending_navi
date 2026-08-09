@@ -7,6 +7,18 @@
 
 # 変更履歴
 
+## 2026-08-09 - Phase 5 P5-04 Googleログイン
+
+- GoogleSignInClient / Firebase Google Auth Client境界を追加。
+- GoogleSignInOutcomeでsuccess/cancel/failureを分離。
+- `Googleで続ける`をP5-03 Auth画面へ追加。
+- account chooser cancelは非エラー。
+- 既存`google_sign_in ^6.3.0`を維持し、7.x migrationは分離。
+- local Google config auditを追加。
+- users / favorites / Rulesは変更しない。
+- Android実機acceptanceはP5-05 Auth Gate接続直後に実施。
+
+
 ## 2026-08-09 - Phase 5 P5-03 メール認証
 
 ### 追加
