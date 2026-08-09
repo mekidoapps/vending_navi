@@ -7,6 +7,50 @@
 
 # 変更履歴
 
+## 2026-08-09 - Phase 5 P5-01 認証・ユーザー監査完了
+
+- `firebase_auth` / `google_sign_in`は既存dependencyを再利用。
+- v2 `firebaseAuthProvider` / Auth Emulator connectorを再利用。
+- Android/iOS Firebase設定ファイルの存在を確認。
+- v1 LoginScreenはv2へ直接再利用しない。
+- v1 AuthServiceはFirebase API利用の参照のみ。
+- v1 AuthGateのUX思想は再利用し、widget実装はv2で作り直す。
+- `users/{uid}`は既存フィールドがあるためbridge required。
+- 旧`favoriteDrinkNames`はv2 Product IDへ後続でfallback/migration設計。
+- SharedPreferences favoriteをv2正本にしない。
+- anonymous sign-inはMVP対象外。
+- Apple sign-inは将来。
+- Auth専用testは新規構築する。
+- P5-01ではproduction Rulesを変更しない。
+
+
+
+## 2026-08-09 - Phase 5 P5-01 認証・ユーザー設計 / v1監査開始
+
+### 追加
+
+- `PHASE5_AUTH_USER_PLAN_V2.md`
+- `P5_01_AUTH_USER_AUDIT_V2.md`
+- `tool/phase5_auth_audit.sh`
+
+### 確定境界
+
+- 閲覧・検索は未ログイン可。
+- 投稿・ユーザー固有保存はログイン必須。
+- MVP認証はメール＋Google。
+- Appleは将来。
+- Firebase Authentication / 既存platform設定は再利用を優先。
+- v1 UI構造はそのままv2へ持ち込まない。
+- Firebase UserをPresentationへ直接依存させない。
+- ログイン後は元の認証必須Actionへ復帰する設計とする。
+
+### P5-01
+
+現行repoのFirebase Auth、Google sign-in、users、favorites、
+router、tests、platform設定をread-only監査し、
+P5-02前に再利用範囲を確定する。
+
+
 
 ## 2026-08-09 - Phase 4 P4-08 品質ゲート
 
