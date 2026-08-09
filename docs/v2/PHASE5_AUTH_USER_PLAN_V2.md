@@ -171,12 +171,13 @@ Googleログインのユーザーキャンセルは、
 - [x] 再利用・廃止リスト確定
 
 ### P5-02 Auth Domain / Repository骨格
-- [ ] AuthUser
-- [ ] AuthSession
-- [ ] AuthRepository interface
-- [ ] Firebase DTO / Mapper
-- [ ] authStateChanges
-- [ ] Emulator unit tests
+- [x] AuthUser
+- [x] AuthSession
+- [x] AuthRepository interface
+- [x] Firebase DTO / Mapper
+- [x] authStateChanges
+- [x] Fake DataSource unit tests
+- [ ] 実Auth Emulator email test（P5-03で実施）
 
 ### P5-03 メール認証
 - [ ] メールログイン

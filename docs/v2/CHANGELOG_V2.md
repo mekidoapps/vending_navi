@@ -7,6 +7,33 @@
 
 # 変更履歴
 
+## 2026-08-09 - Phase 5 P5-02 Auth Domain / Repository骨格
+
+### 追加
+
+- `AuthUser`
+- `GuestAuthSession`
+- `AuthenticatedAuthSession`
+- `AuthUserDto`
+- `AuthUserMapper`
+- `AuthDataSource`
+- `FirebaseAuthDataSource`
+- `AuthRepository`
+- `AuthRepositoryImpl`
+- Auth Riverpod providers
+- Mapper / Repository / Provider tests
+- P5-02設計文書
+
+### 境界
+
+- Firebase `User`をPresentationへ直接露出しない。
+- v2 `firebaseAuthProvider`を再利用する。
+- P5-02はread-onlyな認証状態境界だけを作る。
+- email / Google操作はまだRepositoryへ追加しない。
+- `users/{uid}` / favorites / Rulesは変更しない。
+- Auth Emulator実操作testはP5-03へ送る。
+
+
 ## 2026-08-09 - Phase 5 P5-01 認証・ユーザー監査完了
 
 - `firebase_auth` / `google_sign_in`は既存dependencyを再利用。
