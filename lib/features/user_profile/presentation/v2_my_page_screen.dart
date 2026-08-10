@@ -5,11 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_route.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
+import '../../favorite_products/application/favorite_products_controller.dart';
+import '../../favorite_products/presentation/v2_favorite_products_card.dart';
 import '../application/v2_my_page_controller.dart';
 import '../application/v2_my_page_state.dart';
 
 class V2MyPageScreen extends ConsumerStatefulWidget {
-  const V2MyPageScreen({super.key});
+  const V2MyPageScreen({super.key, this.enableFavoriteProducts = false});
+
+  final bool enableFavoriteProducts;
 
   @override
   ConsumerState<V2MyPageScreen> createState() => _V2MyPageScreenState();
@@ -24,7 +28,7 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
       if (!mounted) {
         return;
       }
-      ref.read(v2MyPageControllerProvider.notifier).refresh();
+      _refreshAll();
     });
   }
 
@@ -37,9 +41,7 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
-          onRefresh: () {
-            return ref.read(v2MyPageControllerProvider.notifier).refresh();
-          },
+          onRefresh: _refreshAll,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
@@ -65,6 +67,7 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
                   state: state,
                   onEditDisplayName: _editDisplayName,
                   onSignOut: _confirmSignOut,
+                  enableFavoriteProducts: widget.enableFavoriteProducts,
                 )
               else
                 _GuestMyPage(onLogin: _openAuthentication),
@@ -75,6 +78,16 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
     );
   }
 
+  Future<void> _refreshAll() async {
+    await ref.read(v2MyPageControllerProvider.notifier).refresh();
+
+    if (!mounted || !widget.enableFavoriteProducts) {
+      return;
+    }
+
+    await ref.read(favoriteProductsControllerProvider.notifier).refresh();
+  }
+
   Future<void> _openAuthentication() async {
     await context.pushNamed<bool>(AppRoute.v2EmailAuth.name);
 
@@ -82,7 +95,7 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
       return;
     }
 
-    await ref.read(v2MyPageControllerProvider.notifier).refresh();
+    await _refreshAll();
   }
 
   Future<void> _editDisplayName() async {
@@ -184,6 +197,10 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
     }
 
     await ref.read(v2MyPageControllerProvider.notifier).signOut();
+
+    if (widget.enableFavoriteProducts) {
+      ref.read(favoriteProductsControllerProvider.notifier).clearForGuest();
+    }
   }
 }
 
@@ -238,11 +255,13 @@ class _AuthenticatedMyPage extends StatelessWidget {
     required this.state,
     required this.onEditDisplayName,
     required this.onSignOut,
+    required this.enableFavoriteProducts,
   });
 
   final V2MyPageState state;
   final VoidCallback onEditDisplayName;
   final VoidCallback onSignOut;
+  final bool enableFavoriteProducts;
 
   @override
   Widget build(BuildContext context) {
@@ -261,11 +280,14 @@ class _AuthenticatedMyPage extends StatelessWidget {
           onEditDisplayName: onEditDisplayName,
         ),
         const SizedBox(height: V2Spacing.md),
-        const _InfoCard(
-          icon: Icons.local_drink_outlined,
-          title: 'よく飲む商品',
-          description: 'P5-07でProduct IDベースの保存機能を接続します。',
-        ),
+        if (enableFavoriteProducts)
+          const V2FavoriteProductsCard()
+        else
+          const _InfoCard(
+            icon: Icons.local_drink_outlined,
+            title: 'よく飲む商品',
+            description: 'P5-07でProduct IDベースの保存機能を接続します。',
+          ),
         const SizedBox(height: V2Spacing.md),
         OutlinedButton.icon(
           key: const Key('myPageSignOutButton'),

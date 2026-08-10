@@ -38,6 +38,7 @@ GoRouter createAppRouter({
         builder: (BuildContext context, GoRouterState state) {
           return v2Builder?.call(context) ??
               V2HomeMapScreen(
+                enableUserFeatures: true,
                 onProfilePressed: () {
                   context.pushNamed(AppRoute.v2MyPage.name);
                 },
@@ -70,7 +71,8 @@ GoRouter createAppRouter({
         name: AppRoute.v2MyPage.name,
         path: AppRoute.v2MyPage.path,
         builder: (BuildContext context, GoRouterState state) {
-          return myPageBuilder?.call(context) ?? const V2MyPageScreen();
+          return myPageBuilder?.call(context) ??
+              const V2MyPageScreen(enableFavoriteProducts: true);
         },
       ),
     ],

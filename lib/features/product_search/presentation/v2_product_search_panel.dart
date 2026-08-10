@@ -20,12 +20,18 @@ class V2ProductSearchPanel extends ConsumerStatefulWidget {
     required this.onGenreSelected,
     required this.onClose,
     this.frequentProducts = const <Product>[],
+    this.frequentProductsLoading = false,
+    this.frequentProductsAuthenticated = true,
+    this.onFrequentProductsLoginRequested,
   });
 
   final ValueChanged<Product> onProductSelected;
   final ValueChanged<ProductGenre> onGenreSelected;
   final VoidCallback onClose;
   final List<Product> frequentProducts;
+  final bool frequentProductsLoading;
+  final bool frequentProductsAuthenticated;
+  final VoidCallback? onFrequentProductsLoginRequested;
 
   @override
   ConsumerState<V2ProductSearchPanel> createState() =>
@@ -121,6 +127,11 @@ class _V2ProductSearchPanelState extends ConsumerState<V2ProductSearchPanel> {
                   state: state,
                   showFrequentProducts: showFrequentProducts,
                   frequentProducts: widget.frequentProducts,
+                  frequentProductsLoading: widget.frequentProductsLoading,
+                  frequentProductsAuthenticated:
+                      widget.frequentProductsAuthenticated,
+                  onFrequentProductsLoginRequested:
+                      widget.onFrequentProductsLoginRequested,
                   maxVisibleCandidates: _maxVisibleCandidates,
                   onRetry: () => _searchImmediately(_textController.text),
                   onSelected: _selectProduct,
@@ -265,6 +276,9 @@ class _CandidateBody extends StatelessWidget {
     required this.state,
     required this.showFrequentProducts,
     required this.frequentProducts,
+    required this.frequentProductsLoading,
+    required this.frequentProductsAuthenticated,
+    required this.onFrequentProductsLoginRequested,
     required this.maxVisibleCandidates,
     required this.onRetry,
     required this.onSelected,
@@ -273,6 +287,9 @@ class _CandidateBody extends StatelessWidget {
   final ProductSearchState state;
   final bool showFrequentProducts;
   final List<Product> frequentProducts;
+  final bool frequentProductsLoading;
+  final bool frequentProductsAuthenticated;
+  final VoidCallback? onFrequentProductsLoginRequested;
   final int maxVisibleCandidates;
   final VoidCallback onRetry;
   final ValueChanged<Product> onSelected;
@@ -284,6 +301,9 @@ class _CandidateBody extends StatelessWidget {
     if (showFrequentProducts) {
       return V2FrequentProductsSection(
         products: frequentProducts,
+        isLoading: frequentProductsLoading,
+        isAuthenticated: frequentProductsAuthenticated,
+        onLoginRequested: onFrequentProductsLoginRequested,
         onSelected: onSelected,
       );
     }

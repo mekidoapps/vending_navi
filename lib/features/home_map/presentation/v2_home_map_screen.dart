@@ -14,6 +14,8 @@ import '../../../app/router/app_route.dart';
 import '../../auth/application/auth_required_action_runner.dart';
 import '../../auth/application/providers/auth_action_gate_provider.dart';
 import '../../auth/presentation/v2_login_required_sheet.dart';
+import '../../favorite_products/application/favorite_products_controller.dart';
+import '../../favorite_products/application/favorite_products_state.dart';
 import '../../location/application/current_location_controller.dart';
 import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
@@ -54,6 +56,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
     this.authenticationRequester,
     this.onProfilePressed,
     this.onMachineDetailPressed,
+    this.enableUserFeatures = false,
   });
 
   /// Test/preview seam. Production leaves this null and renders GoogleMap.
@@ -69,6 +72,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
 
   final VoidCallback? onProfilePressed;
   final ValueChanged<VendingMachine>? onMachineDetailPressed;
+  final bool enableUserFeatures;
 
   @override
   ConsumerState<V2HomeMapScreen> createState() => _V2HomeMapScreenState();
@@ -117,6 +121,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     final genreMachineSearchState = ref.watch(
       genreMachineSearchControllerProvider,
     );
+    final favoriteProductsState = ref.watch(favoriteProductsControllerProvider);
 
     final visibleMachines = _visibleMachinesForSearch(
       machineState: machineState,
@@ -216,10 +221,13 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   onClose: _closeProductSearchPanel,
                   onProductSelected: _selectProduct,
                   onGenreSelected: _selectGenre,
+                  favoriteProductsState: favoriteProductsState,
+                  enableUserFeatures: widget.enableUserFeatures,
+                  onLoginRequested: _openProfileForFrequentProducts,
                 ),
                 _CurrentLocationButton(onPressed: _recenter),
                 _HomeActionCluster(
-                  onSearchPressed: _toggleProductSearchPanel,
+                  onSearchPressed: _handleSearchPressed,
                   onRegisterPressed: _handleRegisterPressed,
                   onProfilePressed: widget.onProfilePressed ?? _noop,
                 ),
@@ -537,6 +545,18 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     );
   }
 
+  void _handleSearchPressed() {
+    if (widget.enableUserFeatures) {
+      ref.read(favoriteProductsControllerProvider.notifier).refresh();
+    }
+    _toggleProductSearchPanel();
+  }
+
+  void _openProfileForFrequentProducts() {
+    _closeProductSearchPanel();
+    (widget.onProfilePressed ?? _noop)();
+  }
+
   void _toggleProductSearchPanel() {
     setState(() {
       _isProductSearchPanelOpen = !_isProductSearchPanelOpen;
@@ -820,12 +840,18 @@ class _ProductSearchPanelOverlay extends StatelessWidget {
     required this.onClose,
     required this.onProductSelected,
     required this.onGenreSelected,
+    required this.favoriteProductsState,
+    required this.enableUserFeatures,
+    required this.onLoginRequested,
   });
 
   final bool isOpen;
   final VoidCallback onClose;
   final ValueChanged<Product> onProductSelected;
   final ValueChanged<ProductGenre> onGenreSelected;
+  final FavoriteProductsState favoriteProductsState;
+  final bool enableUserFeatures;
+  final VoidCallback onLoginRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -878,6 +904,18 @@ class _ProductSearchPanelOverlay extends StatelessWidget {
                         onProductSelected: onProductSelected,
                         onGenreSelected: onGenreSelected,
                         onClose: onClose,
+                        frequentProducts: enableUserFeatures
+                            ? favoriteProductsState.products
+                            : const <Product>[],
+                        frequentProductsLoading:
+                            enableUserFeatures &&
+                            favoriteProductsState.isLoading,
+                        frequentProductsAuthenticated:
+                            !enableUserFeatures ||
+                            favoriteProductsState.isAuthenticated,
+                        onFrequentProductsLoginRequested: enableUserFeatures
+                            ? onLoginRequested
+                            : null,
                       ),
                     )
                   : const SizedBox(

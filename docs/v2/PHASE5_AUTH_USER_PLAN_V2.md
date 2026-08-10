@@ -214,11 +214,11 @@ Googleログインのユーザーキャンセルは、
 - [x] logout
 
 ### P5-07 favorite_products / よく飲む商品
-- [ ] Product ID保存
-- [ ] 重複防止
-- [ ] 削除
-- [ ] P4-06表示領域へ実データ接続
-- [ ] 未ログイン導線
+- [x] Product ID保存
+- [x] 重複防止
+- [x] 削除
+- [x] P4-06表示領域へ実データ接続
+- [x] 未ログイン導線
 
 ### P5-08 Phase 5品質ゲート
 - [ ] Email Emulator

@@ -9,13 +9,32 @@ class V2FrequentProductsSection extends StatelessWidget {
     super.key,
     required this.products,
     required this.onSelected,
+    this.isLoading = false,
+    this.isAuthenticated = true,
+    this.onLoginRequested,
   });
 
   final List<Product> products;
   final ValueChanged<Product> onSelected;
+  final bool isLoading;
+  final bool isAuthenticated;
+  final VoidCallback? onLoginRequested;
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(
+        child: SizedBox.square(
+          dimension: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
+        ),
+      );
+    }
+
+    if (!isAuthenticated) {
+      return _GuestFrequentProducts(onLoginRequested: onLoginRequested);
+    }
+
     final visibleProducts = products
         .where((product) => product.isSelectable)
         .toList(growable: false);
@@ -65,6 +84,46 @@ class V2FrequentProductsSection extends StatelessWidget {
           onTap: () => onSelected(product),
         );
       },
+    );
+  }
+}
+
+class _GuestFrequentProducts extends StatelessWidget {
+  const _GuestFrequentProducts({required this.onLoginRequested});
+
+  final VoidCallback? onLoginRequested;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = V2ColorTokens.of(context);
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(V2Spacing.sm),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.person_outline_rounded, color: colors.textSecondary),
+            const SizedBox(height: V2Spacing.xs),
+            Text(
+              'ログインすると、よく飲む商品を登録して\nここからすぐ探せます。',
+              key: const Key('frequentProductsLoginRequired'),
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+            ),
+            if (onLoginRequested != null) ...<Widget>[
+              const SizedBox(height: V2Spacing.xs),
+              TextButton(
+                key: const Key('frequentProductsLoginButton'),
+                onPressed: onLoginRequested,
+                child: const Text('ログインして登録'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

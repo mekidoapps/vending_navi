@@ -86,6 +86,48 @@ service cloud.firestore {
         && hasValidOptionalDisplayNames();
 
       allow delete: if false;
+
+      match /favorite_products/{productId} {
+        allow read: if isOwner();
+
+        allow create: if isOwner()
+          && request.resource.data.keys().hasOnly([
+            'productId',
+            'sortOrder',
+            'createdAt'
+          ])
+          && request.resource.data.productId == productId
+          && request.resource.data.productId is string
+          && request.resource.data.productId.size() > 0
+          && request.resource.data.sortOrder is int
+          && request.resource.data.sortOrder >= 0
+          && request.resource.data.createdAt == request.time;
+
+        allow update: if isOwner()
+          && request.resource.data.keys().hasOnly([
+            'productId',
+            'sortOrder',
+            'createdAt'
+          ])
+          && request.resource.data.productId == productId
+          && request.resource.data.productId == resource.data.productId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.sortOrder is int
+          && request.resource.data.sortOrder >= 0;
+
+        allow delete: if isOwner();
+      }
+
+      match /migration_state/{migrationId} {
+        allow read: if isOwner();
+
+        allow create, update: if isOwner()
+          && migrationId == 'favorite_products'
+          && request.resource.data.keys().hasOnly(['completedAt'])
+          && request.resource.data.completedAt == request.time;
+
+        allow delete: if false;
+      }
     }
 
     // photos, revisions and all other paths remain deny-by-default until
