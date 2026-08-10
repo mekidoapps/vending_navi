@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/v2_email_auth_screen.dart';
 import '../../features/home_map/presentation/v2_home_map_screen.dart';
+import '../../features/user_profile/presentation/v2_my_page_screen.dart';
 import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
 import '../../screens/startup_router_screen.dart';
@@ -19,6 +20,7 @@ GoRouter createAppRouter({
   AppRouteWidgetBuilder? v2Builder,
   AppMachineDetailWidgetBuilder? machineDetailBuilder,
   AppRouteWidgetBuilder? emailAuthBuilder,
+  AppRouteWidgetBuilder? myPageBuilder,
 }) {
   return GoRouter(
     initialLocation: entryMode.initialLocation,
@@ -34,7 +36,12 @@ GoRouter createAppRouter({
         name: AppRoute.v2Foundation.name,
         path: AppRoute.v2Foundation.path,
         builder: (BuildContext context, GoRouterState state) {
-          return v2Builder?.call(context) ?? const V2HomeMapScreen();
+          return v2Builder?.call(context) ??
+              V2HomeMapScreen(
+                onProfilePressed: () {
+                  context.pushNamed(AppRoute.v2MyPage.name);
+                },
+              );
         },
       ),
       GoRoute(
@@ -57,6 +64,13 @@ GoRouter createAppRouter({
         path: AppRoute.v2EmailAuth.path,
         builder: (BuildContext context, GoRouterState state) {
           return emailAuthBuilder?.call(context) ?? const V2EmailAuthScreen();
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2MyPage.name,
+        path: AppRoute.v2MyPage.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return myPageBuilder?.call(context) ?? const V2MyPageScreen();
         },
       ),
     ],

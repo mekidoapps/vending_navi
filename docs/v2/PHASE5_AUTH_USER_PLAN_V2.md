@@ -177,7 +177,7 @@ Googleログインのユーザーキャンセルは、
 - [x] Firebase DTO / Mapper
 - [x] authStateChanges
 - [x] Fake DataSource unit tests
-- [ ] 実Auth Emulator email test（P5-03で実施）
+- [x] 実Auth Emulator email test（P5-03で実施）
 
 ### P5-03 メール認証
 - [x] メールログイン
@@ -200,18 +200,18 @@ Googleログインのユーザーキャンセルは、
 - [x] Android実機acceptance（P5-05で確認済み）
 
 ### P5-05 Auth Gate / 中断フロー復帰
-- [ ] 認証必須Action abstraction
-- [ ] HomeMap登録
-- [ ] ログイン後復帰
-- [ ] 二重実行防止
-- [ ] back/cancel
+- [x] 認証必須Action abstraction
+- [x] HomeMap登録
+- [x] ログイン後復帰
+- [x] 二重実行防止
+- [x] back/cancel
 
 ### P5-06 users / マイページ基礎
-- [ ] users schema互換
-- [ ] profile read
-- [ ] displayName
-- [ ] ログイン状態表示
-- [ ] logout
+- [x] users schema互換
+- [x] profile read
+- [x] displayName
+- [x] ログイン状態表示
+- [x] logout
 
 ### P5-07 favorite_products / よく飲む商品
 - [ ] Product ID保存

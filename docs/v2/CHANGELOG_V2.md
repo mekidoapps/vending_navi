@@ -1,4 +1,16 @@
 > 文書状態: Phase 2 実装中  
+
+## 2026-08-09 - Phase 5 P5-06 users / v2マイページ基礎
+
+- `users/{uid}`を置換せず、v1 legacy fieldsを保持するprofile bridgeを追加。
+- `appDisplayName → displayName → Firebase Auth`の表示名fallbackを実装。
+- 未作成user documentはMyPage初回表示時に最小schemaで作成。
+- v2 MyPageにゲスト表示、ログイン導線、ユーザー情報、表示名変更、ログアウトを追加。
+- HomeMap「マイ」を`/v2/my`へ接続。
+- private user profileは本人document・表示名field限定でdirect Firestore writeを採用。
+- `firebase/v2/firestore.rules`へ本人profile Rulesを追加。
+- production `firestore.rules` / `firebase.json`は未変更。統合はP5-08で実施。
+- `favorite_products`実装はP5-07へ継続。
 > 更新日: 2026-08-06  
 > 対象: 自販機ナビ / VendingNavi v2  
 > パッケージID: `com.mekidoapps.vendingnavi`  

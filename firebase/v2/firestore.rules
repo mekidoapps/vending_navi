@@ -34,6 +34,60 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Private user profile.
+    //
+    // Public/community writes continue to use Callable Functions.
+    // This rule is intentionally limited to the authenticated user's own
+    // profile document and to the two display-name compatibility fields.
+    match /users/{uid} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function hasValidOptionalDisplayNames() {
+        return (
+            !request.resource.data.keys().hasAny(['appDisplayName'])
+            || (
+              request.resource.data.appDisplayName is string
+              && request.resource.data.appDisplayName.size() > 0
+              && request.resource.data.appDisplayName.size() <= 30
+            )
+          )
+          && (
+            !request.resource.data.keys().hasAny(['displayName'])
+            || (
+              request.resource.data.displayName is string
+              && request.resource.data.displayName.size() > 0
+              && request.resource.data.displayName.size() <= 30
+            )
+          );
+      }
+
+      allow read: if isOwner();
+
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'appDisplayName',
+          'displayName',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && hasValidOptionalDisplayNames();
+
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'appDisplayName',
+          'displayName',
+          'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && hasValidOptionalDisplayNames();
+
+      allow delete: if false;
+    }
+
     // photos, revisions and all other paths remain deny-by-default until
     // their own implementation phases.
     match /{document=**} {
