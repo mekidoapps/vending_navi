@@ -1,4 +1,18 @@
-> 文書状態: Phase 2 実装中  
+> 文書状態: Phase 5 完了
+
+## 2026-08-11 - Phase 5 P5-08 品質ゲート / Phase 5 完了
+
+- Email Authentication Emulatorの登録・ログイン・resetフローを確認。
+- GoogleログインをAndroid実機で確認。
+- 未ログイン状態で地図・商品検索・詳細閲覧が継続利用できることを確認。
+- Auth Gateから認証後に中断した元Actionへ復帰することを確認。
+- `favorite_products`の追加・重複防止・Home検索連携・削除を実機確認。
+- v1 `favoriteDrinkNames`からProduct IDへのfallback / migrationを実機確認。
+- responsiveテストを含むPhase 5関連テストを確認。
+- `flutter analyze --no-fatal-infos --no-fatal-warnings`でerror 0を確認。
+- `flutter test`のfull regressionを通過。
+- production `firebase.json` / `firestore.rules` / `functions` / `pubspec.yaml`にPhase 5由来の未意図変更がないことを確認。
+- Phase 5 Auth / Userを完了。
 
 ## 2026-08-10 - Phase 5 P5-07 favorite_products / よく飲む商品
 

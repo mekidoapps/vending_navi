@@ -221,13 +221,13 @@ Googleログインのユーザーキャンセルは、
 - [x] 未ログイン導線
 
 ### P5-08 Phase 5品質ゲート
-- [ ] Email Emulator
-- [ ] Google実機
-- [ ] 未ログイン閲覧回帰
-- [ ] Auth gate回帰
-- [ ] favorite_products
-- [ ] responsive
-- [ ] full regression
+- [x] Email Emulator
+- [x] Google実機
+- [x] 未ログイン閲覧回帰
+- [x] Auth gate回帰
+- [x] favorite_products
+- [x] responsive
+- [x] full regression
 
 ## 10. Phase 5完了条件
 
