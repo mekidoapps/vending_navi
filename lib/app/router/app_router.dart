@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/v2_email_auth_screen.dart';
+import '../../features/home_map/application/vending_machine_map_controller.dart';
 import '../../features/home_map/presentation/v2_home_map_screen.dart';
+import '../../features/machine_registration/application/machine_registration_controller.dart';
+import '../../features/machine_registration/presentation/v2_registration_confirmation_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_duplicate_candidates_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_manufacturer_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_method_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
+import '../../features/product_search/application/genre_machine_search_controller.dart';
+import '../../features/product_search/application/genre_search_selection_controller.dart';
+import '../../features/product_search/application/product_machine_search_controller.dart';
+import '../../features/product_search/application/product_search_selection_controller.dart';
 import '../../features/user_profile/presentation/v2_my_page_screen.dart';
 import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
@@ -21,6 +33,11 @@ GoRouter createAppRouter({
   AppMachineDetailWidgetBuilder? machineDetailBuilder,
   AppRouteWidgetBuilder? emailAuthBuilder,
   AppRouteWidgetBuilder? myPageBuilder,
+  AppRouteWidgetBuilder? registrationPositionBuilder,
+  AppRouteWidgetBuilder? registrationDuplicatesBuilder,
+  AppRouteWidgetBuilder? registrationMethodBuilder,
+  AppRouteWidgetBuilder? registrationManufacturerBuilder,
+  AppRouteWidgetBuilder? registrationConfirmationBuilder,
 }) {
   return GoRouter(
     initialLocation: entryMode.initialLocation,
@@ -36,13 +53,28 @@ GoRouter createAppRouter({
         name: AppRoute.v2Foundation.name,
         path: AppRoute.v2Foundation.path,
         builder: (BuildContext context, GoRouterState state) {
-          return v2Builder?.call(context) ??
-              V2HomeMapScreen(
+          final override = v2Builder;
+          if (override != null) {
+            return override(context);
+          }
+
+          return Consumer(
+            builder: (context, ref, _) {
+              return V2HomeMapScreen(
                 enableUserFeatures: true,
+                onRegisterPressed: () {
+                  ref
+                      .read(machineRegistrationControllerProvider.notifier)
+                      .reset();
+
+                  context.pushNamed(AppRoute.v2RegistrationPosition.name);
+                },
                 onProfilePressed: () {
                   context.pushNamed(AppRoute.v2MyPage.name);
                 },
               );
+            },
+          );
         },
       ),
       GoRoute(
@@ -75,11 +107,152 @@ GoRouter createAppRouter({
               const V2MyPageScreen(enableFavoriteProducts: true);
         },
       ),
+      GoRoute(
+        name: AppRoute.v2RegistrationPosition.name,
+        path: AppRoute.v2RegistrationPosition.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return registrationPositionBuilder?.call(context) ??
+              V2RegistrationPositionScreen(
+                onContinue: () {
+                  context.pushNamed(AppRoute.v2RegistrationDuplicates.name);
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationDuplicates.name,
+        path: AppRoute.v2RegistrationDuplicates.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return registrationDuplicatesBuilder?.call(context) ??
+              V2RegistrationDuplicateCandidatesScreen(
+                onContinue: () {
+                  context.pushNamed(AppRoute.v2RegistrationMethod.name);
+                },
+                onViewCandidate: (machine) {
+                  context.pushNamed(
+                    AppRoute.v2MachineDetail.name,
+                    pathParameters: <String, String>{
+                      'machineId': machine.id.value,
+                    },
+                  );
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationMethod.name,
+        path: AppRoute.v2RegistrationMethod.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return registrationMethodBuilder?.call(context) ??
+              V2RegistrationMethodScreen(
+                onManufacturerSelected: () {
+                  context.pushNamed(AppRoute.v2RegistrationManufacturer.name);
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationManufacturer.name,
+        path: AppRoute.v2RegistrationManufacturer.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return registrationManufacturerBuilder?.call(context) ??
+              V2RegistrationManufacturerScreen(
+                onManufacturerSelected: (_) {
+                  context.pushNamed(AppRoute.v2RegistrationConfirmation.name);
+                },
+                onUnknownSelected: () {
+                  context.pushNamed(AppRoute.v2RegistrationConfirmation.name);
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationConfirmation.name,
+        path: AppRoute.v2RegistrationConfirmation.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final override = registrationConfirmationBuilder;
+          if (override != null) {
+            return override(context);
+          }
+
+          return Consumer(
+            builder: (context, ref, _) {
+              return V2RegistrationConfirmationScreen(
+                onSubmit: () async {
+                  final registration = ref.read(
+                    machineRegistrationControllerProvider.notifier,
+                  );
+                  final submitted = await registration.submit();
+                  if (!submitted || !context.mounted) {
+                    return;
+                  }
+
+                  final machineId = ref
+                      .read(machineRegistrationControllerProvider)
+                      .createdMachineId;
+                  if (machineId == null) {
+                    return;
+                  }
+
+                  await _refreshRegistrationAffectedSearches(ref);
+                  if (!context.mounted) {
+                    return;
+                  }
+
+                  final router = GoRouter.of(context);
+
+                  // The detail provider reads Firestore directly, so the
+                  // created machine can be opened immediately after Callable
+                  // completion. Reset only after machineId is captured.
+                  registration.reset();
+
+                  // Remove the registration stack before opening detail.
+                  router.goNamed(AppRoute.v2Foundation.name);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    router.pushNamed(
+                      AppRoute.v2MachineDetail.name,
+                      pathParameters: <String, String>{
+                        'machineId': machineId.value,
+                      },
+                    );
+                  });
+                },
+              );
+            },
+          );
+        },
+      ),
     ],
     errorBuilder: (BuildContext context, GoRouterState state) {
       return RouteErrorScreen(location: state.uri.toString());
     },
   );
+}
+
+Future<void> _refreshRegistrationAffectedSearches(WidgetRef ref) async {
+  final viewport = ref.read(vendingMachineMapControllerProvider).lastViewport;
+  if (viewport == null) {
+    return;
+  }
+
+  await ref
+      .read(vendingMachineMapControllerProvider.notifier)
+      .loadViewport(viewport, force: true);
+
+  final selectedProduct = ref.read(productSearchSelectionControllerProvider);
+  if (selectedProduct != null) {
+    await ref
+        .read(productMachineSearchControllerProvider.notifier)
+        .search(productId: selectedProduct.id, viewport: viewport, force: true);
+    return;
+  }
+
+  final selectedGenre = ref.read(genreSearchSelectionControllerProvider);
+  if (selectedGenre != null) {
+    await ref
+        .read(genreMachineSearchControllerProvider.notifier)
+        .search(genre: selectedGenre, viewport: viewport, force: true);
+  }
 }
 
 class RouteErrorScreen extends StatelessWidget {
