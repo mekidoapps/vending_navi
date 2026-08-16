@@ -1,4 +1,57 @@
-> 文書状態: Phase 5 完了
+## 2026-08-16 - Phase 7 写真AI登録
+
+### 追加
+
+- 実機カメラからの自販機写真撮影フロー
+- JPEG正規化と5MiB以下への画像処理
+- 認証ユーザー専用の一時Storageアップロード
+- 写真認識Callable `recognizeVendingMachinePhoto`
+- Vertex AIを利用する本番Recognition Provider
+- Functions Emulator専用の決定論的Recognition Provider
+- メーカー・商品ラベルから正式Master IDへの解決
+- 未解決・曖昧ラベルを推測で確定しないMaster解決
+- AI認識候補の確認・手動修正画面
+- Recognition request/sessionの冪等処理
+- 写真バイト列と認識結果を結び付けるphoto binding
+- 写真登録時のメーカー確認状態・商品evidence管理
+- `photo_confirmed` / `manual_confirmed` の商品根拠
+- 確認済み商品のみを公開データへ書き込む登録処理
+- 一時写真から正式Storage領域への確定処理
+- 登録成功後の一時写真削除
+- 写真登録後の新規自販機詳細画面への遷移
+- 本番用Storage RulesとEmulator用Storage Rulesの分離
+- Android debug build限定のFirebase Emulator HTTP接続設定
+- Storage Rules検証ツール
+- Vertex AI PoCツール
+- 写真認識・登録のFunctions Emulator検証スクリプト
+- 写真AI登録に関する単体・Widget・Functionsテスト
+
+### 方針
+
+- AI認識結果は自動公開せず、ユーザーが確認したメーカー・商品のみ登録する。
+- AIが認識した商品でもユーザーが選択しなければ公開データへ書き込まない。
+- ユーザーがAI候補外の商品を選択した場合は`manual_confirmed`として扱う。
+- 自販機メーカーと商品メーカーは独立して扱い、混在商品を許容する。
+- 一時写真は認証ユーザー本人の領域だけへアップロード可能とする。
+- 一時Storageは初回書き込みのみ許可し、クライアントからの上書きを禁止する。
+- 正式写真領域への書き込みと一時写真削除はAdmin SDK側で行う。
+- Functions Emulatorでは実Vertex AIを呼ばず、固定fixture Providerを使用する。
+- 本番環境では従来どおりVertex AI Providerを使用する。
+- Emulator専用HTTP許可はAndroid debug buildに限定し、releaseへ含めない。
+- AIサービス障害・未知ラベル・Master不一致を推測で補正せず、安全な失敗またはユーザー確認へ戻す。
+
+### 検証
+
+- Flutter全テスト 343件成功
+- Functionsテスト 79件成功
+- Phase 7変更Dart 40ファイルのformat確認成功
+- `git diff --check`成功
+- Pixel 6a実機でFirebase Emulator Suiteへ接続
+- 実機カメラ撮影から一時Storageアップロードまで確認
+- Emulator Recognition Providerから「アサヒ」「カルピス」「カルピスウォーター」の候補表示を確認
+- 候補確認から`createVendingMachine`、正式登録、自販機詳細画面遷移までE2E成功
+
+> 文書状態: Phase 7 完了
 
 ## 2026-08-11 - Phase 5 P5-08 品質ゲート / Phase 5 完了
 

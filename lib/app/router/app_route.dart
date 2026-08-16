@@ -16,6 +16,11 @@ enum AppRoute {
     name: 'v2RegistrationMethod',
     path: '/v2/register/method',
   ),
+  v2RegistrationPhoto(name: 'v2RegistrationPhoto', path: '/v2/register/photo'),
+  v2RegistrationPhotoCandidates(
+    name: 'v2RegistrationPhotoCandidates',
+    path: '/v2/register/photo/candidates',
+  ),
   v2RegistrationManufacturer(
     name: 'v2RegistrationManufacturer',
     path: '/v2/register/manufacturer',

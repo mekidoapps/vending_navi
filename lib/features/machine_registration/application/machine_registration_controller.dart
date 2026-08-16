@@ -61,6 +61,40 @@ final class MachineRegistrationController
     );
   }
 
+  void choosePhotoMethod() {
+    state = state.copyWith(
+      draft: state.draft.copyWith(
+        registrationMethod: MachineRegistrationMethod.photo,
+        clearManufacturerId: true,
+        confirmedProductIds: const <ProductId>[],
+        clearTemporaryPhotoUploadId: true,
+      ),
+      step: MachineRegistrationStep.photoCapture,
+      clearFailure: true,
+    );
+  }
+
+  void setTemporaryPhotoUploadId(String uploadId) {
+    final normalized = uploadId.trim();
+    if (normalized.isEmpty) {
+      state = state.copyWith(
+        failure: const ValidationFailure(field: 'temporaryPhotoUploadId'),
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      draft: state.draft.copyWith(
+        registrationMethod: MachineRegistrationMethod.photo,
+        clearManufacturerId: true,
+        confirmedProductIds: const <ProductId>[],
+        temporaryPhotoUploadId: normalized,
+      ),
+      step: MachineRegistrationStep.photoReady,
+      clearFailure: true,
+    );
+  }
+
   void chooseManufacturerMethod() {
     state = state.copyWith(
       draft: state.draft.copyWith(
@@ -93,6 +127,29 @@ final class MachineRegistrationController
         registrationMethod: MachineRegistrationMethod.manufacturer,
         manufacturerId: manufacturerId,
         clearTemporaryPhotoUploadId: true,
+      ),
+      step: MachineRegistrationStep.confirm,
+      clearFailure: true,
+    );
+  }
+
+  void applyPhotoRecognitionConfirmation({
+    required ManufacturerId? manufacturerId,
+    required List<ProductId> productIds,
+  }) {
+    if (state.draft.temporaryPhotoUploadId == null) {
+      state = state.copyWith(
+        failure: const ValidationFailure(field: 'temporaryPhotoUploadId'),
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      draft: state.draft.copyWith(
+        registrationMethod: MachineRegistrationMethod.photo,
+        manufacturerId: manufacturerId,
+        clearManufacturerId: manufacturerId == null,
+        confirmedProductIds: List<ProductId>.unmodifiable(productIds),
       ),
       step: MachineRegistrationStep.confirm,
       clearFailure: true,

@@ -1,10 +1,36 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
-    // Phase 1 starts deny-by-default.
-    // Temporary and published photo paths will be opened separately only
-    // after ownership, content type, size, and lifecycle tests are present.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isUuidV4(value) {
+      return value.matches(
+        '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+      );
+    }
+
+    // Phase 7 temporary upload area.
+    // Production intent: first write only. Existing objects are immutable to
+    // clients; cleanup remains server-side through Admin SDK.
+    match /machine_uploads/{uid}/{uploadId}/original.jpg {
+      allow read: if isOwner(uid);
+
+      allow write: if resource == null
+                   && isOwner(uid)
+                   && isUuidV4(uploadId)
+                   && request.resource.size > 0
+                   && request.resource.size <= 5 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
+
+    // Formal vending-machine photos and every other path remain closed until
+    // their dedicated read/write policy is implemented.
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -6,8 +6,10 @@ import {
   buildAutoMachineName,
   buildRequestDeduplicationId,
   encodeGeohash,
+  mergePhotoProductWritePlans,
   mergeProductWritePlans,
   parseCreateVendingMachineInput,
+  resolvePhotoManufacturerStatus,
 } from "../src/create_vending_machine_core";
 
 const REQUEST_ID = "123e4567-e89b-42d3-a456-426614174000";
@@ -122,4 +124,59 @@ test("dedupe ID is deterministic and scoped by uid", () => {
   assert.equal(first, second);
   assert.notEqual(first, otherUser);
   assert.match(first, /^[0-9a-f]{64}$/);
+});
+
+test("photo registration requires UUID v4 upload ID", () => {
+  assert.throws(
+    () => parseCreateVendingMachineInput({
+      requestId: REQUEST_ID,
+      registrationMethod: "photo",
+      location: {latitude: 35.68, longitude: 139.76},
+      name: null,
+      manufacturerId: null,
+      confirmedProductIds: [],
+      temporaryPhotoUploadId: null,
+      placeDescription: null,
+      installationType: "unknown",
+    }),
+    CreateVendingMachineValidationError,
+  );
+});
+
+test("photo confirmation uses photo evidence only for recognized IDs", () => {
+  const plans = mergePhotoProductWritePlans(
+    ["asahi_wonda_black", "otsuka_pocari_sweat"],
+    new Set(["asahi_wonda_black"]),
+  );
+
+  assert.deepEqual(plans, [
+    {
+      productId: "asahi_wonda_black",
+      evidenceType: "photo_confirmed",
+      availability: "available",
+      isConfirmed: true,
+    },
+    {
+      productId: "otsuka_pocari_sweat",
+      evidenceType: "manual_confirmed",
+      availability: "available",
+      isConfirmed: true,
+    },
+  ]);
+});
+
+test("photo machine brand status distinguishes recognized and manual", () => {
+  const recognized = new Set(["asahi"]);
+  assert.equal(
+    resolvePhotoManufacturerStatus("asahi", recognized),
+    "recognized_and_confirmed",
+  );
+  assert.equal(
+    resolvePhotoManufacturerStatus("suntory", recognized),
+    "confirmed",
+  );
+  assert.equal(
+    resolvePhotoManufacturerStatus(null, recognized),
+    "unknown",
+  );
 });

@@ -13,7 +13,10 @@ const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
 export type RegistrationMethod = "photo" | "manufacturer" | "locationOnly";
 export type InstallationType = "outdoor" | "indoor" | "unknown";
-export type ProductEvidenceType = "manual_confirmed" | "manufacturer_inferred";
+export type ProductEvidenceType =
+  | "manual_confirmed"
+  | "photo_confirmed"
+  | "manufacturer_inferred";
 
 export interface CreateVendingMachineInput {
   readonly requestId: string;
@@ -112,6 +115,26 @@ export function parseCreateVendingMachineInput(
     if (temporaryPhotoUploadId !== null) {
       throw new CreateVendingMachineValidationError(
         "locationOnly registration must not contain temporaryPhotoUploadId.",
+      );
+    }
+  }
+
+  if (registrationMethod === "manufacturer" &&
+      temporaryPhotoUploadId !== null) {
+    throw new CreateVendingMachineValidationError(
+      "manufacturer registration must not contain temporaryPhotoUploadId.",
+    );
+  }
+
+  if (registrationMethod === "photo") {
+    if (temporaryPhotoUploadId === null) {
+      throw new CreateVendingMachineValidationError(
+        "photo registration requires temporaryPhotoUploadId.",
+      );
+    }
+    if (!UUID_V4_PATTERN.test(temporaryPhotoUploadId)) {
+      throw new CreateVendingMachineValidationError(
+        "temporaryPhotoUploadId must be an RFC 4122 UUID v4.",
       );
     }
   }
@@ -261,6 +284,39 @@ export function mergeProductWritePlans(
         isConfirmed: false,
       };
     });
+}
+
+export function mergePhotoProductWritePlans(
+  confirmedProductIds: readonly string[],
+  recognizedProductIds: ReadonlySet<string>,
+): readonly ProductWritePlan[] {
+  return [...new Set(confirmedProductIds)]
+    .sort()
+    .map((productId): ProductWritePlan => ({
+      productId,
+      evidenceType: recognizedProductIds.has(productId) ?
+        "photo_confirmed" :
+        "manual_confirmed",
+      availability: "available",
+      isConfirmed: true,
+    }));
+}
+
+export type ManufacturerStatus =
+  | "confirmed"
+  | "recognized_and_confirmed"
+  | "unknown";
+
+export function resolvePhotoManufacturerStatus(
+  manufacturerId: string | null,
+  recognizedManufacturerIds: ReadonlySet<string>,
+): ManufacturerStatus {
+  if (manufacturerId === null) {
+    return "unknown";
+  }
+  return recognizedManufacturerIds.has(manufacturerId) ?
+    "recognized_and_confirmed" :
+    "confirmed";
 }
 
 export function isMasterId(value: string): boolean {

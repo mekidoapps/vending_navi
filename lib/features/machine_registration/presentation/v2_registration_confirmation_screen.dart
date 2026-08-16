@@ -11,7 +11,7 @@ import '../domain/entities/machine_registration_method.dart';
 class V2RegistrationConfirmationScreen extends ConsumerWidget {
   const V2RegistrationConfirmationScreen({super.key, this.onSubmit});
 
-  /// Production supplies the P6-09 Callable-backed submit action from the
+  /// Production supplies the Callable-backed submit action from the
   /// app composition layer. Tests/previews may leave it null.
   final Future<void> Function()? onSubmit;
 
@@ -27,8 +27,11 @@ class V2RegistrationConfirmationScreen extends ConsumerWidget {
       manufacturerState.manufacturers,
       draft.manufacturerId?.value,
     );
+
     final isLocationOnly =
         draft.registrationMethod == MachineRegistrationMethod.locationOnly;
+    final isPhoto = draft.registrationMethod == MachineRegistrationMethod.photo;
+
     final isSubmitting = registrationState.isSubmitting;
     final failure = registrationState.failure;
 
@@ -48,6 +51,8 @@ class V2RegistrationConfirmationScreen extends ConsumerWidget {
             Text(
               isLocationOnly
                   ? 'メーカーや商品を推定せず、自販機の位置を登録します。'
+                  : isPhoto
+                  ? '写真から確認したメーカー・商品を登録します。'
                   : 'メーカーの代表商品は、確認済みではなく「あるかも」として登録されます。',
             ),
             const SizedBox(height: V2Spacing.lg),
@@ -92,6 +97,7 @@ class V2RegistrationConfirmationScreen extends ConsumerWidget {
               icon: Icons.inventory_2_outlined,
               child: _ProductSummary(
                 isLocationOnly: isLocationOnly,
+                isPhoto: isPhoto,
                 manufacturer: manufacturer,
                 confirmedCount: draft.confirmedProductIds.length,
               ),
@@ -116,7 +122,7 @@ class V2RegistrationConfirmationScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: V2Spacing.lg),
-            const _ReliabilityNotice(),
+            _ReliabilityNotice(isPhoto: isPhoto),
             if (failure != null) ...<Widget>[
               const SizedBox(height: V2Spacing.md),
               _SubmitFailureCard(
@@ -233,11 +239,13 @@ class _ReviewCard extends StatelessWidget {
 class _ProductSummary extends StatelessWidget {
   const _ProductSummary({
     required this.isLocationOnly,
+    required this.isPhoto,
     required this.manufacturer,
     required this.confirmedCount,
   });
 
   final bool isLocationOnly;
+  final bool isPhoto;
   final Manufacturer? manufacturer;
   final int confirmedCount;
 
@@ -247,6 +255,18 @@ class _ProductSummary extends StatelessWidget {
       return const Text(
         '商品情報なし',
         key: Key('registrationConfirmationProductSummary'),
+      );
+    }
+
+    if (isPhoto) {
+      return Column(
+        key: const Key('registrationConfirmationProductSummary'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(confirmedCount == 0 ? '確認済み商品なし' : '確認済み商品 $confirmedCount件'),
+          const SizedBox(height: V2Spacing.xxs),
+          const Text('AI候補は自動確定せず、確認して選んだ商品だけを登録します。'),
+        ],
       );
     }
 
@@ -274,7 +294,9 @@ class _ProductSummary extends StatelessWidget {
 }
 
 class _ReliabilityNotice extends StatelessWidget {
-  const _ReliabilityNotice();
+  const _ReliabilityNotice({required this.isPhoto});
+
+  final bool isPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -283,15 +305,19 @@ class _ReliabilityNotice extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: V2Radius.card,
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(V2Spacing.md),
+      child: Padding(
+        padding: const EdgeInsets.all(V2Spacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(Icons.info_outline_rounded, size: 20),
-            SizedBox(width: V2Spacing.sm),
+            const Icon(Icons.info_outline_rounded, size: 20),
+            const SizedBox(width: V2Spacing.sm),
             Expanded(
-              child: Text('メーカーから推定した商品は、実際に置いてあることを確認した情報とは区別して公開します。'),
+              child: Text(
+                isPhoto
+                    ? '写真認識の候補は自動では確定せず、確認したメーカー・商品だけを確定情報として登録します。'
+                    : 'メーカーから推定した商品は、実際に置いてあることを確認した情報とは区別して公開します。',
+              ),
             ),
           ],
         ),

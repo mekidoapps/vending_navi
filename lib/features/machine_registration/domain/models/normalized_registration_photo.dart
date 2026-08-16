@@ -1,0 +1,15 @@
+import 'dart:typed_data';
+
+final class NormalizedRegistrationPhoto {
+  const NormalizedRegistrationPhoto({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+
+  int get sizeBytes => bytes.lengthInBytes;
+}

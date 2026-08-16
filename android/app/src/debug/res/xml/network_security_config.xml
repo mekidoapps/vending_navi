@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Debug builds may connect to the local Firebase Emulator Suite over HTTP.
+      This file is not packaged into release builds.
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

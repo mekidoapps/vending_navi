@@ -6,10 +6,13 @@ import '../../features/auth/presentation/v2_email_auth_screen.dart';
 import '../../features/home_map/application/vending_machine_map_controller.dart';
 import '../../features/home_map/presentation/v2_home_map_screen.dart';
 import '../../features/machine_registration/application/machine_registration_controller.dart';
+import '../../features/machine_registration/application/registration_photo_recognition_controller.dart';
 import '../../features/machine_registration/presentation/v2_registration_confirmation_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_duplicate_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_manufacturer_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_method_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_photo_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_photo_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
 import '../../features/product_search/application/genre_machine_search_controller.dart';
 import '../../features/product_search/application/genre_search_selection_controller.dart';
@@ -36,6 +39,8 @@ GoRouter createAppRouter({
   AppRouteWidgetBuilder? registrationPositionBuilder,
   AppRouteWidgetBuilder? registrationDuplicatesBuilder,
   AppRouteWidgetBuilder? registrationMethodBuilder,
+  AppRouteWidgetBuilder? registrationPhotoBuilder,
+  AppRouteWidgetBuilder? registrationPhotoCandidatesBuilder,
   AppRouteWidgetBuilder? registrationManufacturerBuilder,
   AppRouteWidgetBuilder? registrationConfirmationBuilder,
 }) {
@@ -145,10 +150,67 @@ GoRouter createAppRouter({
         builder: (BuildContext context, GoRouterState state) {
           return registrationMethodBuilder?.call(context) ??
               V2RegistrationMethodScreen(
+                onPhotoSelected: () {
+                  context.pushNamed(AppRoute.v2RegistrationPhoto.name);
+                },
                 onManufacturerSelected: () {
                   context.pushNamed(AppRoute.v2RegistrationManufacturer.name);
                 },
               );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationPhoto.name,
+        path: AppRoute.v2RegistrationPhoto.path,
+        builder: (BuildContext context, GoRouterState state) {
+          return registrationPhotoBuilder?.call(context) ??
+              V2RegistrationPhotoScreen(
+                onPhotoPrepared: () {
+                  context.pushNamed(
+                    AppRoute.v2RegistrationPhotoCandidates.name,
+                  );
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2RegistrationPhotoCandidates.name,
+        path: AppRoute.v2RegistrationPhotoCandidates.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final override = registrationPhotoCandidatesBuilder;
+          if (override != null) {
+            return override(context);
+          }
+
+          return Consumer(
+            builder: (context, ref, _) {
+              return V2RegistrationPhotoCandidatesScreen(
+                onRetake: () {
+                  ref
+                      .read(
+                        registrationPhotoRecognitionControllerProvider.notifier,
+                      )
+                      .reset();
+                  context.pop();
+                },
+                onManufacturerFallback: () {
+                  ref
+                      .read(machineRegistrationControllerProvider.notifier)
+                      .chooseManufacturerMethod();
+                  context.pushNamed(AppRoute.v2RegistrationManufacturer.name);
+                },
+                onLocationOnlyFallback: () {
+                  ref
+                      .read(machineRegistrationControllerProvider.notifier)
+                      .chooseLocationOnly();
+                  context.pushNamed(AppRoute.v2RegistrationConfirmation.name);
+                },
+                onConfirmed: () {
+                  context.pushNamed(AppRoute.v2RegistrationConfirmation.name);
+                },
+              );
+            },
+          );
         },
       ),
       GoRoute(

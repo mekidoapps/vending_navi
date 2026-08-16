@@ -62,3 +62,5 @@ web/index.html
 # Env
 .env
 *.env
+# Node.js dependencies
+**/node_modules/

@@ -6,6 +6,8 @@ enum MachineRegistrationStep {
   position,
   duplicateCheck,
   method,
+  photoCapture,
+  photoReady,
   manufacturer,
   confirm,
   submitting,

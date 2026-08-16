@@ -45,7 +45,14 @@ class V2RegistrationMethodScreen extends ConsumerWidget {
               title: '写真から登録',
               description: '自販機を撮影して、メーカーや商品の候補を探します。候補は確認・修正してから登録します。',
               actionLabel: onPhotoSelected == null ? '準備中' : '写真から登録',
-              onPressed: onPhotoSelected,
+              onPressed: onPhotoSelected == null
+                  ? null
+                  : () {
+                      ref
+                          .read(machineRegistrationControllerProvider.notifier)
+                          .choosePhotoMethod();
+                      onPhotoSelected?.call();
+                    },
             ),
             const SizedBox(height: V2Spacing.md),
             _RegistrationMethodCard(

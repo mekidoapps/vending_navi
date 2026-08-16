@@ -9,9 +9,23 @@ import {
   buildRequestDeduplicationId,
   encodeGeohash,
   isMasterId,
+  mergePhotoProductWritePlans,
   mergeProductWritePlans,
   parseCreateVendingMachineInput,
+  resolvePhotoManufacturerStatus,
 } from "./create_vending_machine_core";
+
+import type {
+  FormalPhotoStorageBucketLike,
+  PreparedPhotoRegistration,
+} from "./photo_recognition/photo_registration_finalization";
+import {
+  buildFormalPhotoStoragePath,
+  buildPhotoRegistrationIds,
+  deleteTemporaryPhotoBestEffort,
+  preparePhotoRegistration,
+  saveFormalPhoto,
+} from "./photo_recognition/photo_registration_finalization";
 
 export interface CreateVendingMachineResult {
   readonly machineId: string;
@@ -36,6 +50,7 @@ const ALLOWED_RESTRICTED_STATUSES = new Set(["restricted", "suspended"]);
 
 export async function createVendingMachineForUser(
   firestore: Firestore,
+  bucket: FormalPhotoStorageBucketLike | null,
   uid: string,
   rawInput: unknown,
 ): Promise<CreateVendingMachineResult> {
@@ -58,17 +73,6 @@ export async function createVendingMachineForUser(
     throw error;
   }
 
-  if (
-    input.registrationMethod === "photo" ||
-    input.temporaryPhotoUploadId !== null
-  ) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Photo registration is not available in Phase 6.",
-      {appCode: "photo-registration-not-ready"},
-    );
-  }
-
   const dedupeId = buildRequestDeduplicationId(
     normalizedUid,
     input.requestId,
@@ -76,11 +80,53 @@ export async function createVendingMachineForUser(
   const dedupeRef = firestore
     .collection("request_deduplication")
     .doc(dedupeId);
+
+  // A completed replay must not depend on the temporary image still
+  // existing after best-effort cleanup.
+  const completedDedupe = await dedupeRef.get();
+  if (completedDedupe.exists) {
+    return parseStoredResult(completedDedupe.data()?.result);
+  }
+
+  let photoContext: PreparedPhotoRegistration | null = null;
+  let photoId: string | null = null;
+  let formalPhotoPath: string | null = null;
+  let machineRef: DocumentReference;
+
+  if (input.registrationMethod === "photo") {
+    if (bucket === null || input.temporaryPhotoUploadId === null) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Photo registration storage is unavailable.",
+        {appCode: "photo-storage-unavailable"},
+      );
+    }
+
+    photoContext = await preparePhotoRegistration(
+      firestore,
+      bucket,
+      normalizedUid,
+      input.temporaryPhotoUploadId,
+      new Date(),
+    );
+
+    const ids = buildPhotoRegistrationIds(
+      normalizedUid,
+      input.requestId,
+      input.temporaryPhotoUploadId,
+    );
+    machineRef = firestore.collection("vending_machines").doc(ids.machineId);
+    photoId = ids.photoId;
+    formalPhotoPath = buildFormalPhotoStoragePath(ids.machineId, ids.photoId);
+    await saveFormalPhoto(bucket, formalPhotoPath, photoContext.photo);
+  } else {
+    machineRef = firestore.collection("vending_machines").doc();
+  }
+
   const userRef = firestore.collection("users").doc(normalizedUid);
-  const machineRef = firestore.collection("vending_machines").doc();
   const revisionRef = machineRef.collection("revisions").doc();
 
-  return firestore.runTransaction<CreateVendingMachineResult>(
+  const result = await firestore.runTransaction<CreateVendingMachineResult>(
     async (transaction) => {
       const dedupeSnapshot = await transaction.get(dedupeRef);
       if (dedupeSnapshot.exists) {
@@ -93,6 +139,44 @@ export async function createVendingMachineForUser(
         userSnapshot.data(),
       );
 
+      let recognitionSessionRef: DocumentReference | null = null;
+      if (input.registrationMethod === "photo" && photoContext !== null) {
+        recognitionSessionRef = firestore
+          .collection("photo_recognition_sessions")
+          .doc(photoContext.sessionId);
+        const sessionSnapshot = await transaction.get(recognitionSessionRef);
+        const sessionData = sessionSnapshot.data();
+
+        if (
+          !sessionSnapshot.exists ||
+          sessionData === undefined ||
+          sessionData.uid !== normalizedUid ||
+          sessionData.uploadId !== input.temporaryPhotoUploadId ||
+          sessionData.status !== "completed"
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Photo recognition session changed before finalization.",
+            {appCode: "recognition-session-mismatch"},
+          );
+        }
+
+        const finalizedMachineId =
+          typeof sessionData.finalizedMachineId === "string" ?
+            sessionData.finalizedMachineId.trim() :
+            "";
+        if (
+          finalizedMachineId.length > 0 &&
+          finalizedMachineId !== machineRef.id
+        ) {
+          throw new HttpsError(
+            "already-exists",
+            "This recognized photo has already been used for another machine.",
+            {appCode: "recognition-session-already-finalized"},
+          );
+        }
+      }
+
       let manufacturer: ManufacturerMasterRecord | null = null;
       if (input.manufacturerId !== null) {
         manufacturer = await readManufacturer(
@@ -102,7 +186,9 @@ export async function createVendingMachineForUser(
         );
       }
 
-      const presetIds = manufacturer?.presetProductIds ?? [];
+      const presetIds = input.registrationMethod === "manufacturer" ?
+        manufacturer?.presetProductIds ?? [] :
+        [];
       const requestedProductIds = new Set<string>([
         ...input.confirmedProductIds,
         ...presetIds,
@@ -138,10 +224,16 @@ export async function createVendingMachineForUser(
         return productMasters.get(productId)?.isActive === true;
       });
 
-      const productPlans = mergeProductWritePlans(
-        input.confirmedProductIds,
-        activePresetIds,
-      );
+      const productPlans =
+        input.registrationMethod === "photo" && photoContext !== null ?
+          mergePhotoProductWritePlans(
+            input.confirmedProductIds,
+            photoContext.recognizedProductIds,
+          ) :
+          mergeProductWritePlans(
+            input.confirmedProductIds,
+            activePresetIds,
+          );
       const now = Timestamp.now();
       const geoPoint = new GeoPoint(
         input.location.latitude,
@@ -164,13 +256,18 @@ export async function createVendingMachineForUser(
       );
 
       const manufacturerStatus =
-        input.registrationMethod === "manufacturer" ?
-          "confirmed" :
-          "unknown";
+        input.registrationMethod === "photo" && photoContext !== null ?
+          resolvePhotoManufacturerStatus(
+            input.manufacturerId,
+            photoContext.recognizedManufacturerIds,
+          ) :
+          input.registrationMethod === "manufacturer" ?
+            "confirmed" :
+            "unknown";
       const dataLevel =
         input.confirmedProductIds.length > 0 ?
           "productsConfirmed" :
-          input.registrationMethod === "manufacturer" ?
+          input.manufacturerId !== null ?
             "manufacturerOnly" :
             "locationOnly";
 
@@ -186,12 +283,31 @@ export async function createVendingMachineForUser(
         status: "active",
         mergedIntoMachineId: null,
         dataLevel,
-        primaryPhotoId: null,
+        primaryPhotoId: photoId,
         createdBy: normalizedUid,
         createdAt: now,
         updatedAt: now,
         lastProductUpdatedAt: productPlans.length > 0 ? now : null,
       });
+
+      if (
+        input.registrationMethod === "photo" &&
+        photoContext !== null &&
+        photoId !== null &&
+        formalPhotoPath !== null
+      ) {
+        const photoRef = machineRef.collection("photos").doc(photoId);
+        transaction.create(photoRef, {
+          storagePath: formalPhotoPath,
+          thumbnailPath: null,
+          status: "active",
+          uploadedBy: normalizedUid,
+          uploadedAt: now,
+          recognitionStatus: "completed",
+          recognitionProvider: photoContext.provider,
+          isPrimary: true,
+        });
+      }
 
       for (const plan of productPlans) {
         const productMaster = productMasters.get(plan.productId);
@@ -248,13 +364,18 @@ export async function createVendingMachineForUser(
       if (productPlans.length > 0) {
         changedFields.push("products");
       }
+      if (photoId !== null) {
+        changedFields.push("primaryPhotoId", "photos");
+      }
 
       transaction.create(revisionRef, {
         updateType: "machineCreated",
         source:
-          input.registrationMethod === "manufacturer" ?
-            "manufacturerPreset" :
-            "manual",
+          input.registrationMethod === "photo" ?
+            "photoRecognition" :
+            input.registrationMethod === "manufacturer" ?
+              "manufacturerPreset" :
+              "manual",
         updatedBy: normalizedUid,
         updatedAt: now,
         changedFields,
@@ -271,6 +392,7 @@ export async function createVendingMachineForUser(
           installationType: input.installationType,
           status: "active",
           dataLevel,
+          primaryPhotoId: photoId,
           productIds: productPlans.map((item) => item.productId),
         },
         requestId: input.requestId,
@@ -281,6 +403,18 @@ export async function createVendingMachineForUser(
         created: true,
         duplicateCandidates: [],
       };
+
+      if (
+        recognitionSessionRef !== null &&
+        photoId !== null
+      ) {
+        transaction.update(recognitionSessionRef, {
+          finalizedMachineId: machineRef.id,
+          finalizedPhotoId: photoId,
+          finalizedRequestId: input.requestId,
+          finalizedAt: now,
+        });
+      }
 
       transaction.create(dedupeRef, {
         uid: normalizedUid,
@@ -295,6 +429,15 @@ export async function createVendingMachineForUser(
       return result;
     },
   );
+
+  if (photoContext !== null && bucket !== null) {
+    await deleteTemporaryPhotoBestEffort(
+      bucket,
+      photoContext.photo.objectPath,
+    );
+  }
+
+  return result;
 }
 
 async function readManufacturer(

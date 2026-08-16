@@ -34,6 +34,7 @@ void main() {
     await container
         .read(manufacturerSelectionControllerProvider.notifier)
         .load();
+
     registration.selectManufacturer(manufacturer.id);
 
     var submitCount = 0;
@@ -106,7 +107,59 @@ void main() {
     final button = tester.widget<FilledButton>(
       find.byKey(const Key('registrationConfirmationSubmitButton')),
     );
+
     expect(button.onPressed, isNull);
+  });
+
+  testWidgets('photo登録では確認済み商品を表示しメーカー推定文言を出さない', (WidgetTester tester) async {
+    final manufacturer = _asahiManufacturer();
+
+    final container = ProviderContainer(
+      overrides: [
+        manufacturerRepositoryProvider.overrideWithValue(
+          _FakeManufacturerRepository(<Manufacturer>[manufacturer]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final registration = container.read(
+      machineRegistrationControllerProvider.notifier,
+    );
+
+    registration.setLocation(GeoCoordinate(latitude: 35.68, longitude: 139.76));
+    registration.continueFromPosition();
+    registration.continueAfterDuplicateCheck();
+    registration.choosePhotoMethod();
+    registration.setTemporaryPhotoUploadId(
+      '123e4567-e89b-42d3-a456-426614174001',
+    );
+
+    await container
+        .read(manufacturerSelectionControllerProvider.notifier)
+        .load();
+
+    registration.applyPhotoRecognitionConfirmation(
+      manufacturerId: manufacturer.id,
+      productIds: <ProductId>[
+        ProductId.parse('asahi_wonda_black'),
+        ProductId.parse('asahi_calpis_water'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: V2RegistrationConfirmationScreen()),
+      ),
+    );
+
+    expect(find.text('写真から確認したメーカー・商品を登録します。'), findsOneWidget);
+    expect(find.text('アサヒ'), findsOneWidget);
+    expect(find.text('確認済み商品 2件'), findsOneWidget);
+    expect(find.textContaining('確認して選んだ商品だけを登録'), findsOneWidget);
+    expect(find.textContaining('代表商品'), findsNothing);
+    expect(find.textContaining('「あるかも」として登録'), findsNothing);
   });
 }
 
@@ -116,6 +169,17 @@ Manufacturer _manufacturer() {
     name: 'コカ・コーラ',
     displayShortName: 'コカ・コーラ',
     presetProductIds: <ProductId>[ProductId.parse('ayataka_regular')],
+    createdAt: DateTime.utc(2026, 8, 11),
+    updatedAt: DateTime.utc(2026, 8, 11),
+  );
+}
+
+Manufacturer _asahiManufacturer() {
+  return Manufacturer(
+    id: ManufacturerId.parse('asahi'),
+    name: 'アサヒ飲料',
+    displayShortName: 'アサヒ',
+    presetProductIds: <ProductId>[ProductId.parse('asahi_wonda_black')],
     createdAt: DateTime.utc(2026, 8, 11),
     updatedAt: DateTime.utc(2026, 8, 11),
   );
@@ -136,6 +200,7 @@ final class _FakeManufacturerRepository implements ManufacturerRepository {
   @override
   Future<AppResult<Manufacturer>> getManufacturer(ManufacturerId id) async {
     final manufacturer = manufacturers.firstWhere((item) => item.id == id);
+
     return AppResult<Manufacturer>.success(manufacturer);
   }
 }

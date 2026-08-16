@@ -37,7 +37,8 @@ final class MachineRegistrationDraft {
         manufacturerId == null &&
             confirmedProductIds.isEmpty &&
             temporaryPhotoUploadId == null,
-      MachineRegistrationMethod.photo => false,
+      MachineRegistrationMethod.photo =>
+        temporaryPhotoUploadId?.trim().isNotEmpty == true,
       null => false,
     };
   }

@@ -39,6 +39,20 @@ final class CreateVendingMachineRequestDto {
       );
     }
 
+    if (method == MachineRegistrationMethod.photo &&
+        _normalizedNullable(draft.temporaryPhotoUploadId) == null) {
+      throw const FormatException(
+        'temporaryPhotoUploadId is required for photo registration',
+      );
+    }
+
+    if (method == MachineRegistrationMethod.manufacturer &&
+        draft.temporaryPhotoUploadId != null) {
+      throw const FormatException(
+        'manufacturer registration cannot include temporary photo',
+      );
+    }
+
     if (method == MachineRegistrationMethod.locationOnly &&
         (draft.manufacturerId != null ||
             draft.confirmedProductIds.isNotEmpty ||

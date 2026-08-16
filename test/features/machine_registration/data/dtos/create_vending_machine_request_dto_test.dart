@@ -48,6 +48,36 @@ void main() {
     expect(map['temporaryPhotoUploadId'], isNull);
   });
 
+  test('photo登録を写真・メーカー・確認済み商品込みでCallable契約へ変換する', () {
+    final dto = CreateVendingMachineRequestDto.fromDraft(
+      MachineRegistrationDraft(
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
+        location: GeoCoordinate(latitude: 35.68, longitude: 139.76),
+        registrationMethod: MachineRegistrationMethod.photo,
+        manufacturerId: ManufacturerId.parse('asahi'),
+        confirmedProductIds: <ProductId>[
+          ProductId.parse('asahi_wonda_black'),
+          ProductId.parse('asahi_calpis_water'),
+          ProductId.parse('asahi_wonda_black'),
+        ],
+        temporaryPhotoUploadId: '123e4567-e89b-42d3-a456-426614174001',
+      ),
+    );
+
+    final map = dto.toMap();
+
+    expect(map['registrationMethod'], 'photo');
+    expect(map['manufacturerId'], 'asahi');
+    expect(map['confirmedProductIds'], <String>[
+      'asahi_wonda_black',
+      'asahi_calpis_water',
+    ]);
+    expect(
+      map['temporaryPhotoUploadId'],
+      '123e4567-e89b-42d3-a456-426614174001',
+    );
+  });
+
   test('manufacturer登録でmanufacturerId欠損は拒否する', () {
     expect(
       () => CreateVendingMachineRequestDto.fromDraft(

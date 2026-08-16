@@ -4,7 +4,7 @@
     "indexes": "firebase/v2/firestore.indexes.json"
   },
   "storage": {
-    "rules": "firebase/v2/storage.rules"
+    "rules": "firebase/v2/storage.emulator.rules"
   },
   "functions": [
     {
