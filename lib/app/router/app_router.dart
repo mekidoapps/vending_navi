@@ -20,6 +20,11 @@ import '../../features/product_search/application/product_machine_search_control
 import '../../features/product_search/application/product_search_selection_controller.dart';
 import '../../features/user_profile/presentation/v2_my_page_screen.dart';
 import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
+import '../../features/machine_update/application/machine_product_update_controller.dart';
+import '../../features/machine_update/presentation/v2_product_update_confirmation_screen.dart';
+import '../../features/vending_machine/application/providers/vending_machine_detail_providers.dart';
+import '../../features/machine_update/presentation/v2_machine_update_menu_screen.dart';
+import '../../features/machine_update/presentation/v2_manual_product_update_screen.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
 import '../../screens/startup_router_screen.dart';
 import 'app_route.dart';
@@ -34,6 +39,9 @@ GoRouter createAppRouter({
   AppRouteWidgetBuilder? legacyBuilder,
   AppRouteWidgetBuilder? v2Builder,
   AppMachineDetailWidgetBuilder? machineDetailBuilder,
+  AppMachineDetailWidgetBuilder? machineUpdateMenuBuilder,
+  AppMachineDetailWidgetBuilder? manualProductUpdateBuilder,
+  AppMachineDetailWidgetBuilder? productUpdateConfirmationBuilder,
   AppRouteWidgetBuilder? emailAuthBuilder,
   AppRouteWidgetBuilder? myPageBuilder,
   AppRouteWidgetBuilder? registrationPositionBuilder,
@@ -95,6 +103,94 @@ GoRouter createAppRouter({
 
           return machineDetailBuilder?.call(context, machineId) ??
               V2VendingMachineDetailScreen(machineId: machineId);
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2MachineUpdateMenu.name,
+        path: AppRoute.v2MachineUpdateMenu.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          return machineUpdateMenuBuilder?.call(context, machineId) ??
+              V2MachineUpdateMenuScreen(
+                machineId: machineId,
+                onManualProductUpdatePressed: () {
+                  context.pushNamed(
+                    AppRoute.v2ManualProductUpdate.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2ManualProductUpdate.name,
+        path: AppRoute.v2ManualProductUpdate.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          return manualProductUpdateBuilder?.call(context, machineId) ??
+              V2ManualProductUpdateScreen(
+                machineId: machineId,
+                onReviewPressed: () {
+                  context.pushNamed(
+                    AppRoute.v2ProductUpdateConfirmation.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2ProductUpdateConfirmation.name,
+        path: AppRoute.v2ProductUpdateConfirmation.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          final override = productUpdateConfirmationBuilder;
+          if (override != null) {
+            return override(context, machineId);
+          }
+
+          return Consumer(
+            builder: (context, ref, _) {
+              return V2ProductUpdateConfirmationScreen(
+                machineId: machineId,
+                onCompleted: () {
+                  ref.invalidate(vendingMachineDetailProvider(machineId));
+                  ref
+                      .read(machineProductUpdateControllerProvider.notifier)
+                      .reset();
+
+                  context.goNamed(
+                    AppRoute.v2MachineDetail.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
+            },
+          );
         },
       ),
       GoRoute(

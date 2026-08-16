@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_route.dart';
 import '../../../app/theme/v2_color_tokens.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
@@ -9,6 +11,9 @@ import '../../../core/errors/app_failure.dart';
 import '../../../core/ui/badges/v2_status_badge.dart';
 import '../../../core/ui/states/v2_error_state.dart';
 import '../../../core/ui/states/v2_loading_state.dart';
+import '../../auth/application/auth_required_action_runner.dart';
+import '../../auth/application/providers/auth_action_gate_provider.dart';
+import '../../auth/presentation/v2_login_required_sheet.dart';
 import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
 import '../../product_search/application/genre_search_selection_controller.dart';
@@ -37,7 +42,7 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
         appBar: AppBar(title: const Text('自販機詳細')),
         body: detail.when(
           loading: () => const V2LoadingState(message: '自販機情報を読み込んでいます'),
-          error: (_, __) => V2ErrorState(
+          error: (_, _) => V2ErrorState(
             title: '自販機情報を読み込めませんでした',
             message: '時間をおいて、もう一度お試しください。',
             onRetry: () {
@@ -51,6 +56,9 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
                 selectedProduct: selectedProduct,
                 selectedGenre: selectedGenre,
                 onDirectionsPressed: () => _openDirections(context, ref, data),
+                onUpdatePressed: data.machine.isLegacy
+                    ? null
+                    : () => _openUpdateMenu(context, ref),
               ),
               onFailure: (failure) => _FailureBody(
                 failure: failure,
@@ -65,6 +73,51 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openUpdateMenu(BuildContext context, WidgetRef ref) async {
+    final result = await ref
+        .read(authRequiredActionRunnerProvider)
+        .run(
+          requestAuthentication: () async {
+            final shouldOpenAuth = await V2LoginRequiredSheet.show(
+              context,
+              actionLabel: '自販機情報の更新',
+            );
+
+            if (!context.mounted || !shouldOpenAuth) {
+              return false;
+            }
+
+            final authenticated = await context.pushNamed<bool>(
+              AppRoute.v2EmailAuth.name,
+            );
+
+            return authenticated == true;
+          },
+          action: () async {
+            if (!context.mounted) {
+              return;
+            }
+
+            await context.pushNamed(
+              AppRoute.v2MachineUpdateMenu.name,
+              pathParameters: <String, String>{'machineId': machineId.value},
+            );
+
+            ref.invalidate(vendingMachineDetailProvider(machineId));
+          },
+        );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    if (result == AuthRequiredActionResult.authenticationNotEstablished) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ログイン状態を確認できませんでした。もう一度お試しください。')),
+      );
+    }
   }
 
   Future<void> _openDirections(
@@ -112,12 +165,14 @@ class _DetailBody extends StatelessWidget {
     required this.selectedProduct,
     required this.selectedGenre,
     required this.onDirectionsPressed,
+    required this.onUpdatePressed,
   });
 
   final VendingMachineDetailData data;
   final Product? selectedProduct;
   final ProductGenre? selectedGenre;
   final VoidCallback onDirectionsPressed;
+  final VoidCallback? onUpdatePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +262,18 @@ class _DetailBody extends StatelessWidget {
                   ],
                 ),
         ),
+        if (onUpdatePressed != null) ...<Widget>[
+          const SizedBox(height: V2Spacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('machineInfoUpdateButton'),
+              onPressed: onUpdatePressed,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('情報を更新する'),
+            ),
+          ),
+        ],
       ],
     );
   }
