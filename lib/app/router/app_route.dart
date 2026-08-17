@@ -10,6 +10,10 @@ enum AppRoute {
     name: 'v2PhotoProductUpdate',
     path: '/v2/machines/:machineId/update/photo',
   ),
+  v2PhotoProductUpdateConfirmation(
+    name: 'v2PhotoProductUpdateConfirmation',
+    path: '/v2/machines/:machineId/update/photo/confirm',
+  ),
   v2ManualProductUpdate(
     name: 'v2ManualProductUpdate',
     path: '/v2/machines/:machineId/update/products',

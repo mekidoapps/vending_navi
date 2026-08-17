@@ -19,7 +19,7 @@ void main() {
 
     expect(find.text('写真から商品情報を更新'), findsOneWidget);
     expect(find.text('今の自販機を撮影してください'), findsOneWidget);
-    expect(find.textContaining('AIの結果だけで自動更新はせず'), findsOneWidget);
+    expect(find.textContaining('AIの結果だけでは自動更新しません'), findsOneWidget);
     expect(
       find.byKey(const Key('machinePhotoUpdateCaptureButton')),
       findsOneWidget,
