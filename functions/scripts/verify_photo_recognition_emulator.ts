@@ -13,7 +13,7 @@ const FIRESTORE_EMULATOR = "127.0.0.1:8080";
 const STORAGE_EMULATOR = "127.0.0.1:9199";
 const FUNCTIONS_BASE =
   `http://127.0.0.1:5001/${PROJECT_ID}/us-central1`;
-const PROVIDER_KEY = "vertex_gemini_3_5_flash_lite";
+const PROVIDER_KEY = "emulator_photo_recognition_fixture";
 
 interface AuthSignUpResponse {
   readonly idToken?: string;
