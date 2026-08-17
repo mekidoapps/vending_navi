@@ -24,6 +24,7 @@ import '../../features/machine_update/application/machine_product_update_control
 import '../../features/machine_update/presentation/v2_product_update_confirmation_screen.dart';
 import '../../features/vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../features/machine_update/presentation/v2_machine_update_menu_screen.dart';
+import '../../features/machine_update/presentation/v2_machine_photo_update_screen.dart';
 import '../../features/machine_update/presentation/v2_manual_product_update_screen.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
 import '../../screens/startup_router_screen.dart';
@@ -40,6 +41,7 @@ GoRouter createAppRouter({
   AppRouteWidgetBuilder? v2Builder,
   AppMachineDetailWidgetBuilder? machineDetailBuilder,
   AppMachineDetailWidgetBuilder? machineUpdateMenuBuilder,
+  AppMachineDetailWidgetBuilder? photoProductUpdateBuilder,
   AppMachineDetailWidgetBuilder? manualProductUpdateBuilder,
   AppMachineDetailWidgetBuilder? productUpdateConfirmationBuilder,
   AppRouteWidgetBuilder? emailAuthBuilder,
@@ -127,7 +129,30 @@ GoRouter createAppRouter({
                     },
                   );
                 },
+                onPhotoUpdatePressed: () {
+                  context.pushNamed(
+                    AppRoute.v2PhotoProductUpdate.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
               );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2PhotoProductUpdate.name,
+        path: AppRoute.v2PhotoProductUpdate.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          return photoProductUpdateBuilder?.call(context, machineId) ??
+              V2MachinePhotoUpdateScreen(machineId: machineId);
         },
       ),
       GoRoute(

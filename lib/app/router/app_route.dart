@@ -6,6 +6,10 @@ enum AppRoute {
     name: 'v2MachineUpdateMenu',
     path: '/v2/machines/:machineId/update',
   ),
+  v2PhotoProductUpdate(
+    name: 'v2PhotoProductUpdate',
+    path: '/v2/machines/:machineId/update/photo',
+  ),
   v2ManualProductUpdate(
     name: 'v2ManualProductUpdate',
     path: '/v2/machines/:machineId/update/products',

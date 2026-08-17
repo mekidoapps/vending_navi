@@ -11,10 +11,12 @@ class V2MachineUpdateMenuScreen extends StatelessWidget {
     super.key,
     required this.machineId,
     required this.onManualProductUpdatePressed,
+    this.onPhotoUpdatePressed,
   });
 
   final VendingMachineId machineId;
   final VoidCallback onManualProductUpdatePressed;
+  final VoidCallback? onPhotoUpdatePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +45,14 @@ class V2MachineUpdateMenuScreen extends StatelessWidget {
             ),
             const SizedBox(height: V2Spacing.lg),
             _UpdateActionCard(
+              key: const Key('photoProductUpdateMenuItem'),
+              icon: Icons.photo_camera_outlined,
+              title: '写真から商品情報を更新',
+              description: '今の自販機を撮影して、AIが見つけた商品候補を確認します。',
+              onPressed: onPhotoUpdatePressed,
+            ),
+            const SizedBox(height: V2Spacing.md),
+            _UpdateActionCard(
               key: const Key('manualProductUpdateMenuItem'),
               icon: Icons.local_drink_outlined,
               title: '商品情報を更新',
@@ -68,7 +78,7 @@ class _UpdateActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
