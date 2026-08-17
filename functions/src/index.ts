@@ -6,6 +6,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {createVendingMachineForUser} from "./create_vending_machine";
 import {updateVendingMachineProductsForUser} from "./update_vending_machine_products";
 import {addVendingMachinePhotoForUser} from "./add_vending_machine_photo";
+import {submitMachineCorrectionForUser} from "./submit_machine_correction";
 import {recognizeVendingMachinePhotoForUser} from "./photo_recognition/recognize_vending_machine_photo";
 import type {
   RecognitionProvider,
@@ -294,6 +295,70 @@ export const addVendingMachinePhoto = onCall(
       throw new HttpsError(
         "internal",
         "The vending-machine photo could not be added.",
+      );
+    }
+  },
+);
+
+
+/**
+ * Phase 8 basic-information correction proposal entry point.
+ *
+ * High-impact vending-machine information is not overwritten immediately.
+ * The callable stores a structured correction proposal for later review.
+ */
+export const submitMachineCorrection = onCall(
+  {
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    if (request.auth === undefined) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+
+    try {
+      return await submitMachineCorrectionForUser(
+        adminFirestore(),
+        request.auth.uid,
+        request.data,
+      );
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      const requestId =
+        typeof request.data === "object" &&
+        request.data !== null &&
+        "requestId" in request.data &&
+        typeof request.data.requestId === "string"
+          ? request.data.requestId
+          : null;
+
+      const machineId =
+        typeof request.data === "object" &&
+        request.data !== null &&
+        "machineId" in request.data &&
+        typeof request.data.machineId === "string"
+          ? request.data.machineId
+          : null;
+
+      console.error("submitMachineCorrection failed.", {
+        uid: request.auth.uid,
+        requestId,
+        machineId,
+        errorName:
+          error instanceof Error
+            ? error.name
+            : "UnknownError",
+      });
+
+      throw new HttpsError(
+        "internal",
+        "The vending-machine correction could not be submitted.",
       );
     }
   },
