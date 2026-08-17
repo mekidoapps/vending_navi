@@ -172,7 +172,17 @@ GoRouter createAppRouter({
                 context,
                 machineId,
               ) ??
-              V2MachinePhotoUpdateReviewScreen(machineId: machineId);
+              V2MachinePhotoUpdateReviewScreen(
+                machineId: machineId,
+                onCompleted: () {
+                  context.goNamed(
+                    AppRoute.v2MachineDetail.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
         },
       ),
       GoRoute(
