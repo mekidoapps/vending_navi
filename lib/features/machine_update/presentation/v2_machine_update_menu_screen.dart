@@ -13,12 +13,14 @@ class V2MachineUpdateMenuScreen extends StatelessWidget {
     required this.onManualProductUpdatePressed,
     this.onPhotoUpdatePressed,
     this.onBasicInfoCorrectionPressed,
+    this.onReportPressed,
   });
 
   final VendingMachineId machineId;
   final VoidCallback onManualProductUpdatePressed;
   final VoidCallback? onPhotoUpdatePressed;
   final VoidCallback? onBasicInfoCorrectionPressed;
+  final VoidCallback? onReportPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +70,14 @@ class V2MachineUpdateMenuScreen extends StatelessWidget {
               title: '基本情報の修正を提案',
               description: '名前、メーカー、位置、場所メモ、屋内・屋外の修正を提案します。',
               onPressed: onBasicInfoCorrectionPressed,
+            ),
+            const SizedBox(height: V2Spacing.md),
+            _UpdateActionCard(
+              key: const Key('machineReportMenuItem'),
+              icon: Icons.flag_outlined,
+              title: '問題を報告',
+              description: '撤去、重複、利用できない状態、不適切な内容などを報告します。',
+              onPressed: onReportPressed,
             ),
           ],
         ),

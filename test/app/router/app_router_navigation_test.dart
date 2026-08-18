@@ -88,4 +88,31 @@ void main() {
 
     expect(find.text('correction-confirm machine-001'), findsOneWidget);
   });
+
+  testWidgets('machine report routes can be opened directly', (
+    WidgetTester tester,
+  ) async {
+    final router = createAppRouter(
+      entryMode: AppEntryMode.v2,
+      v2Builder: (_) => const Scaffold(body: Text('v2 screen')),
+      machineReportBuilder: (_, machineId) =>
+          Scaffold(body: Text('report ${machineId.value}')),
+      machineReportConfirmationBuilder: (_, machineId) =>
+          Scaffold(body: Text('report-confirm ${machineId.value}')),
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    router.go('/v2/machines/machine-001/update/report');
+    await tester.pumpAndSettle();
+
+    expect(find.text('report machine-001'), findsOneWidget);
+
+    router.go('/v2/machines/machine-001/update/report/confirm');
+    await tester.pumpAndSettle();
+
+    expect(find.text('report-confirm machine-001'), findsOneWidget);
+  });
 }

@@ -30,6 +30,14 @@ enum AppRoute {
     name: 'v2MachineCorrectionConfirmation',
     path: '/v2/machines/:machineId/update/basic/confirm',
   ),
+  v2MachineReport(
+    name: 'v2MachineReport',
+    path: '/v2/machines/:machineId/update/report',
+  ),
+  v2MachineReportConfirmation(
+    name: 'v2MachineReportConfirmation',
+    path: '/v2/machines/:machineId/update/report/confirm',
+  ),
   v2EmailAuth(name: 'v2EmailAuth', path: '/v2/auth/email'),
   v2MyPage(name: 'v2MyPage', path: '/v2/my'),
   v2RegistrationPosition(

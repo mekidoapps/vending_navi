@@ -59,4 +59,32 @@ void main() {
 
     expect(pressed, 1);
   });
+
+  testWidgets('machine report action is available', (tester) async {
+    var pressed = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: V2MachineUpdateMenuScreen(
+          machineId: VendingMachineId.tryParse('machine-001')!,
+          onManualProductUpdatePressed: () {},
+          onReportPressed: () {
+            pressed += 1;
+          },
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('machineReportMenuItem')),
+      300,
+    );
+
+    expect(find.byKey(const Key('machineReportMenuItem')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('machineReportMenuItem')));
+    await tester.pump();
+
+    expect(pressed, 1);
+  });
 }
