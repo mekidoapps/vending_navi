@@ -28,7 +28,7 @@ vending_machines/{machineId}
   revisions/{revisionId}
 machine_product_index/{indexId}
 machine_reports/{reportId}
-machine_corrections/{correctionId}  # 修正提案を報告と分ける場合
+machine_corrections/{correctionId}
 users/{uid}
   favorite_products/{productId}
 feedback_items/{feedbackId}
@@ -37,7 +37,11 @@ operation_rate_limits/{uid}
 request_deduplication/{dedupeId}
 ```
 
-`machine_corrections`を`machine_reports`へ統合するかはFunctions実装前に最終確認する。
+`machine_corrections`と`machine_reports`は分離する。
+
+- 名前・メーカー・位置・場所メモ・設置場所の修正提案は`machine_corrections`へ保存する。
+- 商品の追加・売り切れ・非表示・推定商品の確認は`updateVendingMachineProducts`で正式データを更新する。
+- 撤去・重複・立入不可・不適切な写真/文章などの状態報告は`machine_reports`へ保存する。
 
 ## 3. `products/{productId}`
 
@@ -159,6 +163,9 @@ other
 
 全ドキュメントの完全コピーではなく、復元・調査に必要な差分を保存する。
 
+`machine_corrections`への修正提案保存および`machine_reports`への報告保存だけではrevisionを作成しない。
+正式な公開データ変更が発生した時点で、その変更内容に対応するrevisionを作成する。
+
 ## 10. `machine_product_index/{indexId}`
 
 検索専用の派生データ。Functionsが元データと同期し、クライアントは書き込めない。
@@ -177,7 +184,7 @@ other
 | machineUpdatedAt | timestamp | ○ |
 | updatedAt | timestamp | ○ |
 
-`indexId`の形式は`{machineId}_{productId}`等を候補とする。Firestoreクエリ設計後に確定する。
+`indexId`はMVPでは`{machineId}_{productId}`形式を使用する。
 
 ## 11. `machine_reports/{reportId}`
 
@@ -187,6 +194,7 @@ other
 | photoId | string/null |  | 対象写真 |
 | category | string | ○ | 報告種別 |
 | message | string/null |  | 補足 |
+| requestId | string | ○ | 冪等性・追跡用 |
 | status | string | ○ | new / reviewing / resolved / rejected |
 | reportedBy | string | ○ | UID |
 | createdAt | timestamp | ○ | 受付日時 |
@@ -198,9 +206,6 @@ other
 
 ```text
 machineRemoved
-wrongLocation
-wrongManufacturer
-wrongProducts
 duplicate
 inaccessible
 inappropriatePhoto
@@ -208,11 +213,15 @@ inappropriateText
 other
 ```
 
+基本情報の誤りは`submitMachineCorrection`、商品情報の誤りは`updateVendingMachineProducts`を使用し、
+`wrongLocation` / `wrongManufacturer` / `wrongProducts`は報告カテゴリとして使用しない。
+
+`submitMachineReport`の受付だけでは`vending_machines`、`machine_product_index`、`revisions`を変更しない。
+
 ### resolution例
 
 ```text
 machineHidden
-locationCorrected
 photoHidden
 merged
 noAction
