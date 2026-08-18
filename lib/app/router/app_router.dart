@@ -20,12 +20,15 @@ import '../../features/product_search/application/product_machine_search_control
 import '../../features/product_search/application/product_search_selection_controller.dart';
 import '../../features/user_profile/presentation/v2_my_page_screen.dart';
 import '../../features/vending_machine/domain/value_objects/vending_machine_id.dart';
+import '../../features/machine_update/application/machine_correction_controller.dart';
 import '../../features/machine_update/application/machine_product_update_controller.dart';
 import '../../features/machine_update/presentation/v2_product_update_confirmation_screen.dart';
 import '../../features/vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../features/machine_update/presentation/v2_machine_update_menu_screen.dart';
 import '../../features/machine_update/presentation/v2_machine_photo_update_screen.dart';
 import '../../features/machine_update/presentation/v2_machine_photo_update_review_screen.dart';
+import '../../features/machine_update/presentation/v2_machine_correction_confirmation_screen.dart';
+import '../../features/machine_update/presentation/v2_machine_correction_screen.dart';
 import '../../features/machine_update/presentation/v2_manual_product_update_screen.dart';
 import '../../features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
 import '../../screens/startup_router_screen.dart';
@@ -46,6 +49,8 @@ GoRouter createAppRouter({
   AppMachineDetailWidgetBuilder? photoProductUpdateConfirmationBuilder,
   AppMachineDetailWidgetBuilder? manualProductUpdateBuilder,
   AppMachineDetailWidgetBuilder? productUpdateConfirmationBuilder,
+  AppMachineDetailWidgetBuilder? machineCorrectionBuilder,
+  AppMachineDetailWidgetBuilder? machineCorrectionConfirmationBuilder,
   AppRouteWidgetBuilder? emailAuthBuilder,
   AppRouteWidgetBuilder? myPageBuilder,
   AppRouteWidgetBuilder? registrationPositionBuilder,
@@ -134,6 +139,14 @@ GoRouter createAppRouter({
                 onPhotoUpdatePressed: () {
                   context.pushNamed(
                     AppRoute.v2PhotoProductUpdate.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+                onBasicInfoCorrectionPressed: () {
+                  context.pushNamed(
+                    AppRoute.v2MachineCorrection.name,
                     pathParameters: <String, String>{
                       'machineId': machineId.value,
                     },
@@ -234,6 +247,68 @@ GoRouter createAppRouter({
                   ref.invalidate(vendingMachineDetailProvider(machineId));
                   ref
                       .read(machineProductUpdateControllerProvider.notifier)
+                      .reset();
+
+                  context.goNamed(
+                    AppRoute.v2MachineDetail.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2MachineCorrection.name,
+        path: AppRoute.v2MachineCorrection.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          return machineCorrectionBuilder?.call(context, machineId) ??
+              V2MachineCorrectionScreen(
+                machineId: machineId,
+                onReviewPressed: () {
+                  context.pushNamed(
+                    AppRoute.v2MachineCorrectionConfirmation.name,
+                    pathParameters: <String, String>{
+                      'machineId': machineId.value,
+                    },
+                  );
+                },
+              );
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2MachineCorrectionConfirmation.name,
+        path: AppRoute.v2MachineCorrectionConfirmation.path,
+        builder: (BuildContext context, GoRouterState state) {
+          final rawMachineId = state.pathParameters['machineId'] ?? '';
+          final machineId = VendingMachineId.tryParse(rawMachineId);
+
+          if (machineId == null) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+
+          final override = machineCorrectionConfirmationBuilder;
+          if (override != null) {
+            return override(context, machineId);
+          }
+
+          return Consumer(
+            builder: (context, ref, _) {
+              return V2MachineCorrectionConfirmationScreen(
+                machineId: machineId,
+                onCompleted: () {
+                  ref
+                      .read(machineCorrectionControllerProvider.notifier)
                       .reset();
 
                   context.goNamed(

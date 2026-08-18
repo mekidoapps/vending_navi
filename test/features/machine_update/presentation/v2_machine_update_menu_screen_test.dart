@@ -30,4 +30,33 @@ void main() {
 
     expect(pressed, 1);
   });
+
+  testWidgets('basic information correction action is available', (
+    tester,
+  ) async {
+    var pressed = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: V2MachineUpdateMenuScreen(
+          machineId: VendingMachineId.tryParse('machine-001')!,
+          onManualProductUpdatePressed: () {},
+          onBasicInfoCorrectionPressed: () {
+            pressed += 1;
+          },
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('basicInfoCorrectionMenuItem')),
+      findsOneWidget,
+    );
+    expect(find.text('基本情報の修正を提案'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('basicInfoCorrectionMenuItem')));
+    await tester.pump();
+
+    expect(pressed, 1);
+  });
 }

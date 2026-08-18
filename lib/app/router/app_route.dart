@@ -22,6 +22,14 @@ enum AppRoute {
     name: 'v2ProductUpdateConfirmation',
     path: '/v2/machines/:machineId/update/products/confirm',
   ),
+  v2MachineCorrection(
+    name: 'v2MachineCorrection',
+    path: '/v2/machines/:machineId/update/basic',
+  ),
+  v2MachineCorrectionConfirmation(
+    name: 'v2MachineCorrectionConfirmation',
+    path: '/v2/machines/:machineId/update/basic/confirm',
+  ),
   v2EmailAuth(name: 'v2EmailAuth', path: '/v2/auth/email'),
   v2MyPage(name: 'v2MyPage', path: '/v2/my'),
   v2RegistrationPosition(

@@ -61,4 +61,31 @@ void main() {
     expect(find.text('画面を表示できませんでした'), findsOneWidget);
     expect(find.text('/not-found'), findsOneWidget);
   });
+
+  testWidgets('basic correction routes can be opened directly', (
+    WidgetTester tester,
+  ) async {
+    final router = createAppRouter(
+      entryMode: AppEntryMode.v2,
+      v2Builder: (_) => const Scaffold(body: Text('v2 screen')),
+      machineCorrectionBuilder: (_, machineId) =>
+          Scaffold(body: Text('correction ${machineId.value}')),
+      machineCorrectionConfirmationBuilder: (_, machineId) =>
+          Scaffold(body: Text('correction-confirm ${machineId.value}')),
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    router.go('/v2/machines/machine-001/update/basic');
+    await tester.pumpAndSettle();
+
+    expect(find.text('correction machine-001'), findsOneWidget);
+
+    router.go('/v2/machines/machine-001/update/basic/confirm');
+    await tester.pumpAndSettle();
+
+    expect(find.text('correction-confirm machine-001'), findsOneWidget);
+  });
 }
