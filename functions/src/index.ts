@@ -7,6 +7,7 @@ import {createVendingMachineForUser} from "./create_vending_machine";
 import {updateVendingMachineProductsForUser} from "./update_vending_machine_products";
 import {addVendingMachinePhotoForUser} from "./add_vending_machine_photo";
 import {submitMachineCorrectionForUser} from "./submit_machine_correction";
+import {submitMachineReportForUser} from "./submit_machine_report";
 import {recognizeVendingMachinePhotoForUser} from "./photo_recognition/recognize_vending_machine_photo";
 import type {
   RecognitionProvider,
@@ -359,6 +360,71 @@ export const submitMachineCorrection = onCall(
       throw new HttpsError(
         "internal",
         "The vending-machine correction could not be submitted.",
+      );
+    }
+  },
+);
+
+
+/**
+ * Phase 8 vending-machine report entry point.
+ *
+ * Reports are moderation inputs only. Receiving a report must not
+ * modify, hide or remove public vending-machine data automatically.
+ */
+export const submitMachineReport = onCall(
+  {
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    if (request.auth === undefined) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+
+    try {
+      return await submitMachineReportForUser(
+        adminFirestore(),
+        request.auth.uid,
+        request.data,
+      );
+    } catch (error: unknown) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      const requestId =
+        typeof request.data === "object" &&
+        request.data !== null &&
+        "requestId" in request.data &&
+        typeof request.data.requestId === "string"
+          ? request.data.requestId
+          : null;
+
+      const machineId =
+        typeof request.data === "object" &&
+        request.data !== null &&
+        "machineId" in request.data &&
+        typeof request.data.machineId === "string"
+          ? request.data.machineId
+          : null;
+
+      console.error("submitMachineReport failed.", {
+        uid: request.auth.uid,
+        requestId,
+        machineId,
+        errorName:
+          error instanceof Error
+            ? error.name
+            : "UnknownError",
+      });
+
+      throw new HttpsError(
+        "internal",
+        "Failed to submit the vending-machine report.",
+        {appCode: "machine-report-failed"},
       );
     }
   },
