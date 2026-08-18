@@ -9,6 +9,9 @@ import '../../../../lib/features/vending_machine/domain/value_objects/vending_ma
 
 void main() {
   testWidgets('category and message create report draft', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -28,6 +31,10 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('machineReportReviewButton')), findsOneWidget);
+
     await tester.tap(
       find.byKey(const Key('machineReportCategory_machineRemoved')),
     );
@@ -35,10 +42,6 @@ void main() {
     await tester.enterText(
       find.byKey(const Key('machineReportMessageField')),
       '撤去されていました',
-    );
-
-    await tester.ensureVisible(
-      find.byKey(const Key('machineReportReviewButton')),
     );
 
     await tester.tap(find.byKey(const Key('machineReportReviewButton')));
@@ -54,6 +57,9 @@ void main() {
   });
 
   testWidgets('review requires a report category', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -65,9 +71,9 @@ void main() {
       ),
     );
 
-    await tester.ensureVisible(
-      find.byKey(const Key('machineReportReviewButton')),
-    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('machineReportReviewButton')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('machineReportReviewButton')));
 
