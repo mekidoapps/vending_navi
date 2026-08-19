@@ -25,6 +25,8 @@ final class FirestoreMachineProductIndexSource
       geohashPrefixes.map(
         (prefix) => collection
             .where('productId', isEqualTo: productId.value)
+            .where('isActive', isEqualTo: true)
+            .where('machineStatus', isEqualTo: 'active')
             .where('geohash', isGreaterThanOrEqualTo: prefix)
             .where('geohash', isLessThanOrEqualTo: '$prefix\uf8ff')
             .get(),

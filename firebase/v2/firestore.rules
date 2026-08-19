@@ -28,9 +28,11 @@ service cloud.firestore {
     }
 
     // Derived public search index.
-    // Only Functions/Admin SDK may create or update entries.
+    // Only publicly searchable entries may be read by clients.
+    // Functions/Admin SDK remain the only writers.
     match /machine_product_index/{indexId} {
-      allow read: if true;
+      allow read: if resource.data.isActive == true
+                  && resource.data.machineStatus == 'active';
       allow write: if false;
     }
 

@@ -9,6 +9,14 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "machineStatus",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "geohash",
           "order": "ASCENDING"
         }
