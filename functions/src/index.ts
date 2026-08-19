@@ -2,6 +2,7 @@ import {getApps, initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {shouldEnforceAppCheck} from "./app_check_policy";
 
 import {createVendingMachineForUser} from "./create_vending_machine";
 import {updateVendingMachineProductsForUser} from "./update_vending_machine_products";
@@ -16,6 +17,8 @@ import {
   createRecognitionProviderForEnvironment,
 } from "./photo_recognition/recognition_provider_environment";
 import {buildHealthPayload} from "./health_payload";
+
+const enforceAppCheckForRuntime = shouldEnforceAppCheck(process.env);
 
 function adminFirestore() {
   if (getApps().length === 0) {
@@ -68,7 +71,7 @@ export const v2EmulatorHealth = onCall(() => {
  */
 export const createVendingMachine = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
   },
   async (request) => {
     if (request.auth === undefined) {
@@ -123,7 +126,7 @@ export const createVendingMachine = onCall(
  */
 export const recognizeVendingMachinePhoto = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
     timeoutSeconds: 60,
   },
   async (request) => {
@@ -179,7 +182,7 @@ export const recognizeVendingMachinePhoto = onCall(
  */
 export const updateVendingMachineProducts = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
   },
   async (request) => {
     if (request.auth === undefined) {
@@ -245,7 +248,7 @@ export const updateVendingMachineProducts = onCall(
  */
 export const addVendingMachinePhoto = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
   },
   async (request) => {
     if (request.auth === undefined) {
@@ -310,7 +313,7 @@ export const addVendingMachinePhoto = onCall(
  */
 export const submitMachineCorrection = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
   },
   async (request) => {
     if (request.auth === undefined) {
@@ -374,7 +377,7 @@ export const submitMachineCorrection = onCall(
  */
 export const submitMachineReport = onCall(
   {
-    enforceAppCheck: false,
+    enforceAppCheck: enforceAppCheckForRuntime,
   },
   async (request) => {
     if (request.auth === undefined) {
