@@ -3,6 +3,7 @@ import {getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {shouldEnforceAppCheck} from "./app_check_policy";
+import {enforceOperationRateLimit} from "./operation_rate_limit";
 
 import {createVendingMachineForUser} from "./create_vending_machine";
 import {updateVendingMachineProductsForUser} from "./update_vending_machine_products";
@@ -81,6 +82,12 @@ export const createVendingMachine = onCall(
       );
     }
 
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "createVendingMachine",
+    );
+
     try {
       return await createVendingMachineForUser(
         adminFirestore(),
@@ -137,6 +144,12 @@ export const recognizeVendingMachinePhoto = onCall(
       );
     }
 
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "recognizeVendingMachinePhoto",
+    );
+
     try {
       return await recognizeVendingMachinePhotoForUser(
         adminFirestore(),
@@ -191,6 +204,12 @@ export const updateVendingMachineProducts = onCall(
         "Authentication is required.",
       );
     }
+
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "updateVendingMachineProducts",
+    );
 
     try {
       return await updateVendingMachineProductsForUser(
@@ -258,6 +277,12 @@ export const addVendingMachinePhoto = onCall(
       );
     }
 
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "addVendingMachinePhoto",
+    );
+
     try {
       return await addVendingMachinePhotoForUser(
         adminFirestore(),
@@ -323,6 +348,12 @@ export const submitMachineCorrection = onCall(
       );
     }
 
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "submitMachineCorrection",
+    );
+
     try {
       return await submitMachineCorrectionForUser(
         adminFirestore(),
@@ -386,6 +417,12 @@ export const submitMachineReport = onCall(
         "Authentication is required.",
       );
     }
+
+    await enforceOperationRateLimit(
+      adminFirestore(),
+      request.auth.uid,
+      "submitMachineReport",
+    );
 
     try {
       return await submitMachineReportForUser(
