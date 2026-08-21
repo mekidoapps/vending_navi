@@ -21,6 +21,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "vending_machines",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "geohash",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

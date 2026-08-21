@@ -13,16 +13,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Public vending-machine root information.
-    // During the v1/v2 coexistence period the same collection contains both
-    // legacy and schemaVersion=2 documents, so reads are allowed at the
-    // collection boundary. All client writes remain closed.
+    // Public vending-machine information.
+    //
+    // Legacy documents receive status=active through a non-destructive
+    // compatibility backfill before these production Rules are deployed.
+    // Non-public v2 states must never be exposed directly to clients.
     match /vending_machines/{machineId} {
-      allow read: if true;
+      allow read: if resource.data.status == 'active';
       allow write: if false;
 
       match /products/{productId} {
-        allow read: if true;
+        allow read: if resource.data.isActive == true
+                    && get(
+                      /databases/$(database)/documents/vending_machines/$(machineId)
+                    ).data.status == 'active';
         allow write: if false;
       }
     }

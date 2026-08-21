@@ -18,9 +18,11 @@ final class FirestoreVendingMachineViewportSource
     }
 
     final collection = _firestore.collection('vending_machines');
+
     final snapshots = await Future.wait(
       prefixes.map(
         (prefix) => collection
+            .where('status', isEqualTo: 'active')
             .where('geohash', isGreaterThanOrEqualTo: prefix)
             .where('geohash', isLessThanOrEqualTo: '$prefix\uf8ff')
             .get(),
@@ -48,7 +50,10 @@ final class FirestoreVendingMachineViewportSource
 
   @override
   Future<List<VendingMachineDocument>> fetchLegacyDocuments() async {
-    final snapshot = await _firestore.collection('vending_machines').get();
+    final snapshot = await _firestore
+        .collection('vending_machines')
+        .where('status', isEqualTo: 'active')
+        .get();
 
     return snapshot.docs
         .map(
@@ -63,6 +68,7 @@ final class FirestoreVendingMachineViewportSource
 
   static int _schemaVersion(Map<String, dynamic> data) {
     final raw = data['schemaVersion'];
+
     return switch (raw) {
       int value => value,
       num value => value.toInt(),

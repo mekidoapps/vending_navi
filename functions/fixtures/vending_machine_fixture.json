@@ -51,6 +51,58 @@
             "createdAt": "2026-08-07T00:00:00.000Z",
             "updatedAt": "2026-08-07T00:00:00.000Z"
           }
+        },
+        {
+          "id": "asahi_calpis",
+          "data": {
+            "productId": "asahi_calpis",
+            "evidenceType": "manual_confirmed",
+            "availability": "available",
+            "isActive": false,
+            "confirmedBy": "emulator_seed",
+            "confirmedAt": "2026-08-07T00:00:00.000Z",
+            "createdAt": "2026-08-07T00:00:00.000Z",
+            "updatedAt": "2026-08-07T00:00:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "machine_v2_hidden",
+      "data": {
+        "schemaVersion": 2,
+        "name": "非公開確認用の自販機",
+        "manufacturerId": "suntory",
+        "manufacturerStatus": "confirmed",
+        "location": {
+          "latitude": 35.681236,
+          "longitude": 139.767125
+        },
+        "geohash": "xn76us",
+        "placeDescription": "駅東口の壁沿い",
+        "installationType": "outdoor",
+        "status": "hidden",
+        "mergedIntoMachineId": null,
+        "dataLevel": "productsConfirmed",
+        "primaryPhotoId": null,
+        "createdBy": "emulator_seed",
+        "createdAt": "2026-08-07T00:00:00.000Z",
+        "updatedAt": "2026-08-07T00:00:00.000Z",
+        "lastProductUpdatedAt": "2026-08-07T00:00:00.000Z"
+      },
+      "products": [
+        {
+          "id": "suntory_boss_black",
+          "data": {
+            "productId": "suntory_boss_black",
+            "evidenceType": "manual_confirmed",
+            "availability": "available",
+            "isActive": true,
+            "confirmedBy": "emulator_seed",
+            "confirmedAt": "2026-08-07T00:00:00.000Z",
+            "createdAt": "2026-08-07T00:00:00.000Z",
+            "updatedAt": "2026-08-07T00:00:00.000Z"
+          }
         }
       ]
     }
@@ -74,6 +126,26 @@
           }
         ],
         "locationName": "駅西口",
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "updatedAt": "2026-08-01T00:00:00.000Z",
+        "lastCheckedAt": "2026-08-01T00:00:00.000Z",
+        "status": "active"
+      }
+    },
+    {
+      "id": "machine_v1_backfill_candidate",
+      "data": {
+        "name": "status移行確認用の旧自販機",
+        "manufacturer": "サントリー",
+        "lat": 35.6807,
+        "lng": 139.7664,
+        "products": [
+          {
+            "name": "ボスブラック",
+            "isSoldOut": false
+          }
+        ],
+        "locationName": "status移行確認地点",
         "createdAt": "2026-07-01T00:00:00.000Z",
         "updatedAt": "2026-08-01T00:00:00.000Z",
         "lastCheckedAt": "2026-08-01T00:00:00.000Z"

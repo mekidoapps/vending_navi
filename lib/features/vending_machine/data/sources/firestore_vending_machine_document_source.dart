@@ -13,6 +13,7 @@ final class FirestoreVendingMachineDocumentSource
   Future<List<VendingMachineDocument>> fetchMachineDocuments() async {
     final snapshot = await _firestore
         .collection(VendingMachineCollections.vendingMachines)
+        .where('status', isEqualTo: 'active')
         .get();
 
     return snapshot.docs
@@ -31,6 +32,7 @@ final class FirestoreVendingMachineDocumentSource
         .collection(VendingMachineCollections.vendingMachines)
         .doc(machineId)
         .get();
+
     final data = snapshot.data();
 
     if (!snapshot.exists || data == null) {
@@ -51,6 +53,7 @@ final class FirestoreVendingMachineDocumentSource
         .collection(VendingMachineCollections.vendingMachines)
         .doc(machineId)
         .collection(VendingMachineCollections.products)
+        .where('isActive', isEqualTo: true)
         .get();
 
     return snapshot.docs
