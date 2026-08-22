@@ -865,3 +865,20 @@ P5-02前に再利用範囲を確定する。
 - 一時画像期限・上限
 - 初期商品・メーカーマスタ
 - 複数テーマ・メーカー色ピン
+
+## Phase 10 - MVP quality validation
+
+- Added cross-feature integration coverage for:
+  - product search to machine detail
+  - authentication resume to manufacturer registration
+  - photo AI registration and fallback
+  - manual product update to detail
+- Added representative responsive smoke coverage.
+- Completed all 15 mandatory MVP scenarios.
+- Completed Pixel 6a real-device validation.
+- Completed real-photo AI registration/update validation.
+- Verified location permission, location-service-off, restart, and old/new data coexistence behavior.
+- Completed full Flutter and Functions regression.
+- Re-ran Firestore Rules and Callable Functions verification with Firebase Emulator Suite.
+- Confirmed final Phase 10 defect gate: P0 = 0, P1 = 0.
+- Phase 10 is ready to close and transition to Phase 11 closed testing.
