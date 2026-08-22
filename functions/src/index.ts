@@ -1,4 +1,4 @@
-import {getApps, initializeApp} from "firebase-admin/app";
+import {getApp, initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
@@ -21,18 +21,20 @@ import {buildHealthPayload} from "./health_payload";
 
 const enforceAppCheckForRuntime = shouldEnforceAppCheck(process.env);
 
-function adminFirestore() {
-  if (getApps().length === 0) {
-    initializeApp();
+function adminApp() {
+  try {
+    return getApp();
+  } catch {
+    return initializeApp();
   }
-  return getFirestore();
+}
+
+function adminFirestore() {
+  return getFirestore(adminApp());
 }
 
 function adminStorageBucket() {
-  if (getApps().length === 0) {
-    initializeApp();
-  }
-  return getStorage().bucket();
+  return getStorage(adminApp()).bucket();
 }
 
 let recognitionProvider: RecognitionProvider | null = null;
