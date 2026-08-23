@@ -27,16 +27,12 @@ class MachineFreshnessBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(
-            state.icon,
-            size: compact ? 13 : 14,
-            color: state.textColor,
-          ),
+          Icon(state.icon, size: compact ? 13 : 14, color: state.textColor),
           const SizedBox(width: 4),
           Text(
             state.label,
             style: TextStyle(
-              fontFamily: 'Noto Sans JP',
+              fontFamily: 'NotoSansJP',
               fontSize: compact ? 10 : 11,
               fontWeight: FontWeight.w700,
               color: state.textColor,

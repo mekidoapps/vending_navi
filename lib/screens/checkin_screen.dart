@@ -7,10 +7,7 @@ import '../services/user_progress_service.dart';
 import '../widgets/title_unlock_overlay.dart';
 
 class CheckinScreen extends StatefulWidget {
-  const CheckinScreen({
-    super.key,
-    required this.machine,
-  });
+  const CheckinScreen({super.key, required this.machine});
 
   final VendingMachine machine;
 
@@ -52,8 +49,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
       return ProgressApplyResult.empty();
     }
 
-    final String displayName =
-    (user.displayName ?? '').trim().isNotEmpty ? user.displayName!.trim() : 'ユーザー';
+    final String displayName = (user.displayName ?? '').trim().isNotEmpty
+        ? user.displayName!.trim()
+        : 'ユーザー';
 
     return UserProgressService.instance.applyCheckinProgress(
       uid: user.uid,
@@ -64,10 +62,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   Future<void> _showUnlockedTitlesIfNeeded(ProgressApplyResult result) async {
     if (!mounted || !result.hasUnlockedTitles) return;
 
-    await TitleUnlockOverlay.show(
-      context,
-      titles: result.earnedTitles,
-    );
+    await TitleUnlockOverlay.show(context, titles: result.earnedTitles);
   }
 
   Future<bool> _askOpenTitleListIfNeeded(ProgressApplyResult result) async {
@@ -83,9 +78,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('称号を確認しますか？'),
-          content: Text(
-            '$subtitle\n\nマイページの称号一覧を開けます。',
-          ),
+          content: Text('$subtitle\n\nマイページの称号一覧を開けます。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -128,7 +121,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
       }).toList();
 
       final bool exists = updatedDrinkSlots.any(
-            (slot) => ((slot['name'] ?? '').toString().trim() == drink),
+        (slot) => ((slot['name'] ?? '').toString().trim() == drink),
       );
 
       if (!exists) {
@@ -153,7 +146,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
 
       if (!mounted) return;
 
-      final bool openTitleList = await _askOpenTitleListIfNeeded(progressResult);
+      final bool openTitleList = await _askOpenTitleListIfNeeded(
+        progressResult,
+      );
 
       if (!mounted) return;
 
@@ -165,11 +160,9 @@ class _CheckinScreenState extends State<CheckinScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('チェックイン保存に失敗しました: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('チェックイン保存に失敗しました: $e')));
     } finally {
       if (!mounted) return;
 
@@ -207,7 +200,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                 Text(
                   widget.machine.name,
                   style: const TextStyle(
-                    fontFamily: 'Noto Sans JP',
+                    fontFamily: 'NotoSansJP',
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                   ),
@@ -217,7 +210,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   Text(
                     widget.machine.address!,
                     style: const TextStyle(
-                      fontFamily: 'Noto Sans JP',
+                      fontFamily: 'NotoSansJP',
                       fontSize: 13,
                       color: Color(0xFF60707A),
                     ),
@@ -246,7 +239,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
           const Text(
             '飲んだドリンク',
             style: TextStyle(
-              fontFamily: 'Noto Sans JP',
+              fontFamily: 'NotoSansJP',
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
@@ -256,7 +249,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
             const Text(
               '登録されているドリンクがありません',
               style: TextStyle(
-                fontFamily: 'Noto Sans JP',
+                fontFamily: 'NotoSansJP',
                 fontSize: 13,
                 color: Color(0xFF60707A),
               ),
@@ -294,10 +287,11 @@ class _CheckinScreenState extends State<CheckinScreen> {
                         child: Text(
                           drink,
                           style: TextStyle(
-                            fontFamily: 'Noto Sans JP',
+                            fontFamily: 'NotoSansJP',
                             fontSize: 14,
-                            fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w600,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
                             color: const Color(0xFF1F2A30),
                           ),
                         ),
@@ -334,7 +328,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
           const Text(
             'メモ（任意）',
             style: TextStyle(
-              fontFamily: 'Noto Sans JP',
+              fontFamily: 'NotoSansJP',
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
@@ -344,7 +338,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
             controller: _memoController,
             maxLines: 3,
             style: const TextStyle(
-              fontFamily: 'Noto Sans JP',
+              fontFamily: 'NotoSansJP',
               fontSize: 14,
               color: Color(0xFF1F2A30),
             ),
@@ -362,9 +356,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
     final products = _products;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('チェックイン'),
-      ),
+      appBar: AppBar(title: const Text('チェックイン')),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -372,18 +364,18 @@ class _CheckinScreenState extends State<CheckinScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed:
-              (_selectedDrink == null || _isSubmitting || products.isEmpty)
+                  (_selectedDrink == null || _isSubmitting || products.isEmpty)
                   ? null
                   : _submit,
               icon: _isSubmitting
                   ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: Colors.white,
-                ),
-              )
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Icon(Icons.check_circle_rounded),
               label: Text(_isSubmitting ? '保存中...' : 'チェックインする'),
             ),

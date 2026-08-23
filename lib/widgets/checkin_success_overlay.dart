@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class CheckinSuccessOverlay {
-  static void show(
-      BuildContext context, {
-        required String drinkName,
-      }) {
+  static void show(BuildContext context, {required String drinkName}) {
     final overlay = Overlay.of(context);
     if (overlay == null) return;
 
@@ -44,10 +41,7 @@ class _OverlayBodyState extends State<_OverlayBody>
       vsync: this,
     );
 
-    _opacity = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
 
     _offset = Tween<Offset>(
       begin: const Offset(0, 0.1),
@@ -108,7 +102,7 @@ class _OverlayBodyState extends State<_OverlayBody>
                       Text(
                         'チェックインしました',
                         style: TextStyle(
-                          fontFamily: 'Noto Sans JP',
+                          fontFamily: 'NotoSansJP',
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

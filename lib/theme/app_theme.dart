@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const Color appBackground = Color(0xFFD6ECFF);
@@ -21,33 +20,40 @@ class AppTheme {
       ),
     );
 
-    final textTheme = GoogleFonts.notoSansJpTextTheme(base.textTheme).copyWith(
-      titleLarge: GoogleFonts.notoSansJp(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: strongText,
-      ),
-      titleMedium: GoogleFonts.notoSansJp(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: strongText,
-      ),
-      bodyMedium: GoogleFonts.notoSansJp(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: strongText,
-      ),
-      bodySmall: GoogleFonts.notoSansJp(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: softText,
-      ),
-      labelLarge: GoogleFonts.notoSansJp(
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-        color: Colors.white,
-      ),
-    );
+    final textTheme = base.textTheme
+        .apply(fontFamily: 'NotoSansJP')
+        .copyWith(
+          titleLarge: TextStyle(
+            fontFamily: 'NotoSansJP',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: strongText,
+          ),
+          titleMedium: TextStyle(
+            fontFamily: 'NotoSansJP',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: strongText,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'NotoSansJP',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: strongText,
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'NotoSansJP',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: softText,
+          ),
+          labelLarge: TextStyle(
+            fontFamily: 'NotoSansJP',
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        );
 
     return base.copyWith(
       textTheme: textTheme,
@@ -58,7 +64,8 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: strongText),
-        titleTextStyle: GoogleFonts.notoSansJp(
+        titleTextStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 18,
           fontWeight: FontWeight.w700,
           color: strongText,
@@ -68,7 +75,8 @@ class AppTheme {
         filled: true,
         fillColor: panelBackground,
         isDense: true,
-        hintStyle: GoogleFonts.notoSansJp(
+        hintStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: softText,
@@ -87,10 +95,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: primaryBlue,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: primaryBlue, width: 1.5),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -98,14 +103,12 @@ class AppTheme {
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.notoSansJp(
+          textStyle: TextStyle(
+            fontFamily: 'NotoSansJP',
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -115,14 +118,12 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: strongText,
           side: const BorderSide(color: softBorder),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.notoSansJp(
+          textStyle: TextStyle(
+            fontFamily: 'NotoSansJP',
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -132,7 +133,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
-          textStyle: GoogleFonts.notoSansJp(
+          textStyle: TextStyle(
+            fontFamily: 'NotoSansJP',
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -144,7 +146,8 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primaryBlue,
-          textStyle: GoogleFonts.notoSansJp(
+          textStyle: TextStyle(
+            fontFamily: 'NotoSansJP',
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -153,7 +156,8 @@ class AppTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryBlue,
         foregroundColor: Colors.white,
-        extendedTextStyle: GoogleFonts.notoSansJp(
+        extendedTextStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 14,
           fontWeight: FontWeight.w700,
         ),
@@ -162,25 +166,26 @@ class AppTheme {
         backgroundColor: panelBackground,
         selectedColor: const Color(0xFFE8F1FF),
         side: const BorderSide(color: softBorder),
-        labelStyle: GoogleFonts.notoSansJp(
+        labelStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: strongText,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: primaryBlue,
         unselectedLabelColor: softText,
         indicatorColor: primaryBlue,
         dividerColor: Colors.transparent,
-        labelStyle: GoogleFonts.notoSansJp(
+        labelStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
-        unselectedLabelStyle: GoogleFonts.notoSansJp(
+        unselectedLabelStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
@@ -191,21 +196,18 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: panelBackground,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: strongText,
-        contentTextStyle: GoogleFonts.notoSansJp(
+        contentTextStyle: TextStyle(
+          fontFamily: 'NotoSansJP',
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../utils/freshness_util.dart';
 
 class FreshnessBadge extends StatelessWidget {
-  const FreshnessBadge({
-    super.key,
-    required this.level,
-  });
+  const FreshnessBadge({super.key, required this.level});
 
   final FreshnessLevel level;
 
@@ -15,10 +12,7 @@ class FreshnessBadge extends StatelessWidget {
     final color = _colorFor(level);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
@@ -26,7 +20,7 @@ class FreshnessBadge extends StatelessWidget {
       child: Text(
         FreshnessUtil.getLabel(level),
         style: TextStyle(
-          fontFamily: 'Noto Sans JP',
+          fontFamily: 'NotoSansJP',
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: color,
