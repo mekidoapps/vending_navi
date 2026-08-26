@@ -44,6 +44,22 @@ void main() {
     expect(result.valueOrNull!.first.product.name, 'BOSS ブラック');
   });
 
+  test('カタカナ表記でもひらがなkeywordの商品を返す', () async {
+    final result = await service.search(ProductSearchQuery('アヤタカ'));
+
+    expect(result.failureOrNull, isNull);
+    expect(result.valueOrNull, isNotEmpty);
+    expect(result.valueOrNull!.first.product.name, '綾鷹');
+  });
+
+  test('全角英字でも半角英字keywordの商品を返す', () async {
+    final result = await service.search(ProductSearchQuery('ＢＯＳＳ ＢＬＡＣＫ'));
+
+    expect(result.failureOrNull, isNull);
+    expect(result.valueOrNull, isNotEmpty);
+    expect(result.valueOrNull!.first.product.name, 'BOSS ブラック');
+  });
+
   test('部分一致でも候補を返す', () async {
     final result = await service.search(ProductSearchQuery('ブラック'));
 
