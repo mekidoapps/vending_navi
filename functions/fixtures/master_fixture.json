@@ -1,7 +1,5 @@
 {
   "schemaVersion": 1,
-  "generatedFrom": "ProductMasterFixture",
-  "generatedAt": "2026-08-07T00:00:00.000Z",
   "manufacturers": [
     {
       "id": "coca_cola",
@@ -637,6 +635,1038 @@
       "searchKeywords": [
         "オロナミンc",
         "oronamin c"
+      ],
+      "genreIds": [
+        "energy_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_coca_cola_zero",
+      "name": "コカ・コーラ ゼロ",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "コカコーラゼロ",
+        "コークゼロ",
+        "coca cola zero",
+        "coca-cola zero",
+        "coke zero"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_coca_cola_zero_caffeine",
+      "name": "コカ・コーラ ゼロカフェイン",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "コカコーラゼロカフェイン",
+        "ゼロカフェイン",
+        "coca cola zero caffeine",
+        "coke zero caffeine"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_coca_cola_plus",
+      "name": "コカ・コーラ プラス",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "コカコーラプラス",
+        "coca cola plus",
+        "coke plus"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_ayataka_mineral_green_tea",
+      "name": "綾鷹 ミネラル緑茶",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "あやたか ミネラル緑茶",
+        "アヤタカ ミネラル緑茶",
+        "ayataka mineral",
+        "ミネラル緑茶"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_ayataka_koi_hojicha",
+      "name": "綾鷹 濃いほうじ茶",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "あやたか 濃いほうじ茶",
+        "アヤタカ 濃いほうじ茶",
+        "綾鷹ほうじ茶",
+        "ほうじ茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_cafe_latte",
+      "name": "ジョージア カフェラテ",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "georgia cafe latte",
+        "ジョージアカフェラテ",
+        "カフェラテ"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_dark_roast_unsweetened_latte",
+      "name": "ジョージア 深煎りラテ無糖",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ジョージア深煎りラテ無糖",
+        "深煎りラテ",
+        "無糖ラテ",
+        "georgia unsweetened latte"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_dark_roast_presso",
+      "name": "ジョージア 深煎りプレッソ",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ジョージア深煎りプレッソ",
+        "深煎りプレッソ",
+        "georgia presso"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_kaoru_bitou",
+      "name": "ジョージア 香る微糖",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ジョージア香る微糖",
+        "香る微糖",
+        "georgia bitou"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_zeitaku_milk_coffee",
+      "name": "ジョージア 贅沢ミルクコーヒー",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ジョージア贅沢ミルクコーヒー",
+        "贅沢ミルクコーヒー",
+        "georgia milk coffee"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_georgia_original",
+      "name": "ジョージア オリジナル",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "ジョージアオリジナル",
+        "georgia original"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_aquarius_the_zero",
+      "name": "アクエリアス THE 0",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "アクエリアス ザ ゼロ",
+        "アクエリアスゼロ",
+        "aquarius the 0",
+        "aquarius zero"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_aquarius_vitamin",
+      "name": "アクエリアス ビタミン",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "アクエリアスビタミン",
+        "aquarius vitamin"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_aquarius_sparkling",
+      "name": "アクエリアス スパークリング",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "アクエリアススパークリング",
+        "aquarius sparkling"
+      ],
+      "genreIds": [
+        "sports_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "coca_cola_aquarius_newater",
+      "name": "アクエリアス NEWATER",
+      "manufacturerId": "coca_cola",
+      "searchKeywords": [
+        "アクエリアス ニューウォーター",
+        "ニューウォーター",
+        "aquarius newater"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_boss_rainbow_mountain_blend",
+      "name": "BOSS レインボーマウンテンブレンド",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ボス レインボーマウンテンブレンド",
+        "ボスレインボー",
+        "rainbow mountain blend"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_boss_cafe_au_lait",
+      "name": "BOSS カフェオレ",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ボス カフェオレ",
+        "ボスカフェオレ",
+        "boss cafe au lait"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_boss_silky_black",
+      "name": "BOSS シルキーブラック",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ボス シルキーブラック",
+        "ボスシルキーブラック",
+        "boss silky black"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_boss_torokeru_cafe_au_lait",
+      "name": "BOSS とろけるカフェオレ",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ボス とろけるカフェオレ",
+        "とろけるカフェオレ",
+        "boss torokeru"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon_koi_aji",
+      "name": "伊右衛門 濃い味",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん 濃い味",
+        "イエモン 濃い味",
+        "伊右衛門濃い味",
+        "濃い緑茶"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon_tokucha",
+      "name": "伊右衛門 特茶",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん 特茶",
+        "イエモン 特茶",
+        "特茶",
+        "tokucha"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon_hojicha",
+      "name": "伊右衛門 焙じ茶",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん ほうじ茶",
+        "イエモン ほうじ茶",
+        "伊右衛門ほうじ茶",
+        "焙じ茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon_genmaicha",
+      "name": "伊右衛門 玄米茶",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん 玄米茶",
+        "イエモン 玄米茶",
+        "伊右衛門玄米茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_iemon_kyoto_blend",
+      "name": "伊右衛門 京都ブレンド",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "いえもん 京都ブレンド",
+        "イエモン 京都ブレンド",
+        "京都ブレンド"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_pepsi_nama_big_zero",
+      "name": "ペプシ〈生〉 BIG ZERO",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "ペプシ 生 ゼロ",
+        "ペプシゼロ",
+        "pepsi nama zero",
+        "pepsi zero"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "suntory_dekavita_c",
+      "name": "デカビタC",
+      "manufacturerId": "suntory",
+      "searchKeywords": [
+        "デカビタ",
+        "dekavita c",
+        "dekavita"
+      ],
+      "genreIds": [
+        "energy_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_koi_cha",
+      "name": "お〜いお茶 濃い茶",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 濃い茶",
+        "おいお茶 濃い茶",
+        "濃い茶",
+        "oi ocha strong"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_koi_cha_premium_strong",
+      "name": "お〜いお茶 濃い茶 PREMIUM STRONG",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 プレミアムストロング",
+        "濃い茶 premium strong",
+        "濃い茶 プレミアムストロング"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_hojicha",
+      "name": "お〜いお茶 ほうじ茶",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 ほうじ茶",
+        "おいお茶 ほうじ茶",
+        "oi ocha hojicha"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_genmaicha",
+      "name": "お〜いお茶 玄米茶",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 玄米茶",
+        "おいお茶 玄米茶",
+        "oi ocha genmaicha"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_lemon_green",
+      "name": "お〜いお茶 LEMON GREEN",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 レモングリーン",
+        "レモングリーン",
+        "oi ocha lemon green"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_oi_ocha_cold_brew_lemon_green",
+      "name": "お〜いお茶 COLD BREW LEMON GREEN",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "おーいお茶 コールドブリュー レモングリーン",
+        "cold brew lemon green",
+        "コールドブリューレモングリーン"
+      ],
+      "genreIds": [
+        "tea",
+        "green_tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_tullys_baristas_black_kilimanjaro",
+      "name": "TULLY'S COFFEE BARISTA'S BLACK キリマンジャロ",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "タリーズ ブラック キリマンジャロ",
+        "タリーズコーヒー キリマンジャロ",
+        "tullys black kilimanjaro"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "ito_en_tullys_unsweetened_latte",
+      "name": "TULLY'S COFFEE BARISTA'S 無糖LATTE",
+      "manufacturerId": "ito_en",
+      "searchKeywords": [
+        "タリーズ 無糖ラテ",
+        "タリーズコーヒー 無糖ラテ",
+        "tullys unsweetened latte"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_straight_tea",
+      "name": "午後の紅茶 ストレートティー",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー ストレート",
+        "午後の紅茶ストレートティー",
+        "gogo no kocha straight tea"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_lemon_tea",
+      "name": "午後の紅茶 レモンティー",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー レモン",
+        "午後の紅茶レモンティー",
+        "gogo no kocha lemon tea"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_oishii_muto",
+      "name": "午後の紅茶 おいしい無糖",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー 無糖",
+        "午後の紅茶無糖",
+        "おいしい無糖",
+        "gogo no kocha unsweetened"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_oishii_muto_lemon",
+      "name": "午後の紅茶 おいしい無糖 香るレモン",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー 無糖 レモン",
+        "おいしい無糖 レモン",
+        "無糖 香るレモン"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "kirin_gogo_no_kocha_oishii_muto_milk",
+      "name": "午後の紅茶 おいしい無糖 ミルクティー",
+      "manufacturerId": "kirin",
+      "searchKeywords": [
+        "午後ティー 無糖 ミルク",
+        "おいしい無糖 ミルクティー",
+        "無糖ミルクティー"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_mitsuya_cider_zero",
+      "name": "三ツ矢サイダーZERO",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "三ツ矢サイダーゼロ",
+        "みつやサイダーゼロ",
+        "mitsuya cider zero"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_morning_shot",
+      "name": "ワンダ モーニングショット",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダモーニングショット",
+        "モーニングショット",
+        "wonda morning shot"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_black_the_aroma",
+      "name": "ワンダ ブラック ザ アロマ",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダブラックザアロマ",
+        "ブラックザアロマ",
+        "wonda black the aroma"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_kin_no_bitou",
+      "name": "ワンダ 金の微糖",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダ金の微糖",
+        "金の微糖",
+        "wonda kin no bitou"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_tokusei_cafe_au_lait",
+      "name": "ワンダ 特製カフェオレ",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダ特製カフェオレ",
+        "特製カフェオレ",
+        "wonda cafe au lait"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_koku_no_bitou",
+      "name": "ワンダ コクの微糖",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダコクの微糖",
+        "コクの微糖",
+        "wonda koku no bitou"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wonda_koku_no_black",
+      "name": "ワンダ コクのブラック",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ワンダコクのブラック",
+        "コクのブラック",
+        "wonda koku no black"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_jurokucha_mugicha",
+      "name": "アサヒ 十六茶麦茶",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "十六茶麦茶",
+        "じゅうろくちゃむぎちゃ",
+        "16茶麦茶"
+      ],
+      "genreIds": [
+        "tea"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_wilkinson_tansan",
+      "name": "ウィルキンソン タンサン",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ウィルキンソン炭酸",
+        "ウィルキンソン",
+        "wilkinson tansan",
+        "wilkinson"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "asahi_dodekamin",
+      "name": "アサヒ ドデカミン",
+      "manufacturerId": "asahi",
+      "searchKeywords": [
+        "ドデカミン",
+        "dodekamin"
+      ],
+      "genreIds": [
+        "energy_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_blend_zeppin_black",
+      "name": "ダイドーブレンド 絶品ブラック",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ダイドー絶品ブラック",
+        "絶品ブラック",
+        "dydo zeppin black"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_blend_zeppin_bitou",
+      "name": "ダイドーブレンド 絶品微糖",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ダイドー絶品微糖",
+        "絶品微糖",
+        "dydo zeppin bitou"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_blend_zeppin_cafe_au_lait",
+      "name": "ダイドーブレンド 絶品カフェオレ",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ダイドー絶品カフェオレ",
+        "絶品カフェオレ",
+        "dydo zeppin cafe au lait"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_blend_demitasse_aroma_bitou",
+      "name": "ダイドーブレンド デミタスアロマ微糖",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "デミタスアロマ微糖",
+        "ダイドーデミタス",
+        "demitasse aroma"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_cafe_labo_black",
+      "name": "ダイドーカフェラボ ブラック",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "カフェラボブラック",
+        "ダイドーカフェラボ",
+        "dydo cafe labo black"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_cafe_labo_bitou",
+      "name": "ダイドーカフェラボ 微糖",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "カフェラボ微糖",
+        "dydo cafe labo bitou"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_cafe_labo_latte",
+      "name": "ダイドーカフェラボ ラテ",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "カフェラボラテ",
+        "dydo cafe labo latte"
+      ],
+      "genreIds": [
+        "coffee"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_miu_sports_charge",
+      "name": "ミウ スポーツチャージ",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "miu スポーツチャージ",
+        "ミウスポーツチャージ",
+        "miu sports charge"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_the_cola",
+      "name": "ダイドー THE コーラ",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ダイドーザコーラ",
+        "ダイドーコーラ",
+        "dydo the cola",
+        "the cola"
+      ],
+      "genreIds": [
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_mistio_melon_squash",
+      "name": "ミスティオ メロンスカッシュ",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "ミスティオメロンスカッシュ",
+        "メロンスカッシュ",
+        "mistio melon squash"
+      ],
+      "genreIds": [
+        "carbonated",
+        "juice"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "dydo_japan_delicious_natural_water",
+      "name": "ダイドー 日本のおいしい天然水",
+      "manufacturerId": "dydo",
+      "searchKeywords": [
+        "日本のおいしい天然水",
+        "ダイドー天然水",
+        "dydo natural water"
+      ],
+      "genreIds": [
+        "water"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_pocari_sweat_ion_water",
+      "name": "ポカリスエット イオンウォーター",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "ポカリ イオンウォーター",
+        "ポカリイオン",
+        "pocari sweat ion water",
+        "ion water"
+      ],
+      "genreIds": [
+        "sports_drink"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_match_vitamin_mikan",
+      "name": "MATCH ビタミンみかん",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "マッチ ビタミンみかん",
+        "マッチみかん",
+        "match vitamin mikan"
+      ],
+      "genreIds": [
+        "sports_drink",
+        "carbonated"
+      ],
+      "isActive": true,
+      "createdAt": "2026-08-07T00:00:00.000Z",
+      "updatedAt": "2026-08-07T00:00:00.000Z"
+    },
+    {
+      "id": "otsuka_oronamin_c_royalpolis",
+      "name": "オロナミンC ROYALPOLIS",
+      "manufacturerId": "otsuka",
+      "searchKeywords": [
+        "オロナミンc ロイヤルポリス",
+        "オロナミンシー ロイヤルポリス",
+        "ロイヤルポリス",
+        "oronamin c royalpolis"
       ],
       "genreIds": [
         "energy_drink",
