@@ -784,42 +784,89 @@ abstract final class ProductMasterFixture {
           name: 'コカ・コーラ',
           shortName: 'コカ・コーラ',
           keywords: <String>['コカコーラ', 'coca cola', 'coca-cola'],
+          presetProductIds: <String>[
+            'coca_cola_coca_cola',
+            'coca_cola_ayataka',
+            'coca_cola_irohas',
+            'coca_cola_georgia_black',
+            'coca_cola_fanta_grape',
+            'coca_cola_aquarius',
+          ],
         ),
         _manufacturer(
           id: 'suntory',
           name: 'サントリー',
           shortName: 'サントリー',
           keywords: <String>['suntory'],
+          presetProductIds: <String>[
+            'suntory_boss_black',
+            'suntory_iemon',
+            'suntory_cc_lemon',
+            'suntory_tennensui',
+            'suntory_green_dakara',
+          ],
         ),
         _manufacturer(
           id: 'ito_en',
           name: '伊藤園',
           shortName: '伊藤園',
           keywords: <String>['ito en', 'itoen'],
+          presetProductIds: <String>[
+            'ito_en_oi_ocha_green_tea',
+            'ito_en_kenko_mineral_mugicha',
+            'ito_en_tullys_coffee_black',
+            'ito_en_japanese_water',
+            'ito_en_jyujitsu_yasai',
+          ],
         ),
         _manufacturer(
           id: 'kirin',
           name: 'キリン',
           shortName: 'キリン',
           keywords: <String>['キリンビバレッジ', 'kirin'],
+          presetProductIds: <String>[
+            'kirin_gogo_no_kocha_milk_tea',
+            'kirin_namacha',
+            'kirin_fire_black',
+            'kirin_kirin_lemon',
+            'kirin_alkali_ion_water',
+          ],
         ),
         _manufacturer(
           id: 'asahi',
           name: 'アサヒ',
           shortName: 'アサヒ',
           keywords: <String>['アサヒ飲料', 'asahi'],
+          presetProductIds: <String>[
+            'asahi_wonda_black',
+            'asahi_jurokucha',
+            'asahi_mitsuya_cider',
+            'asahi_calpis',
+            'asahi_calpis_water',
+            'asahi_oishii_mizu',
+          ],
         ),
         _manufacturer(
           id: 'dydo',
           name: 'ダイドー',
           shortName: 'ダイドー',
           keywords: <String>['ダイドードリンコ', 'dydo'],
+          presetProductIds: <String>[
+            'dydo_dydo_blend',
+            'dydo_miu',
+            'dydo_ha_no_cha',
+          ],
         ),
         _manufacturer(
           id: 'otsuka',
           name: '大塚製薬',
           shortName: '大塚',
           keywords: <String>['大塚', 'otsuka'],
+          presetProductIds: <String>[
+            'otsuka_pocari_sweat',
+            'otsuka_match',
+            'otsuka_oronamin_c',
+          ],
         ),
       ]);
 
@@ -846,19 +893,42 @@ abstract final class ProductMasterFixture {
     required String name,
     required String shortName,
     required List<String> keywords,
+    required List<String> presetProductIds,
   }) {
     final manufacturerId = ManufacturerId.parse(id);
-    final presetProductIds = products
-        .where((product) => product.manufacturerId == manufacturerId)
-        .map((product) => product.id)
-        .toList(growable: false);
+    final resolvedPresetIds = <ProductId>[];
+    final seen = <ProductId>{};
+
+    for (final rawProductId in presetProductIds) {
+      final productId = ProductId.parse(rawProductId);
+
+      final matchingProducts = products
+          .where((product) => product.id == productId)
+          .toList(growable: false);
+
+      if (matchingProducts.length != 1) {
+        throw StateError(
+          'Preset product must exist exactly once: $rawProductId',
+        );
+      }
+
+      if (matchingProducts.single.manufacturerId != manufacturerId) {
+        throw StateError('Preset product manufacturer mismatch: $rawProductId');
+      }
+
+      if (!seen.add(productId)) {
+        throw StateError('Duplicate preset product: $rawProductId');
+      }
+
+      resolvedPresetIds.add(productId);
+    }
 
     return Manufacturer(
       id: manufacturerId,
       name: name,
       displayShortName: shortName,
       searchKeywords: List<String>.unmodifiable(keywords),
-      presetProductIds: List<ProductId>.unmodifiable(presetProductIds),
+      presetProductIds: List<ProductId>.unmodifiable(resolvedPresetIds),
       createdAt: fixtureTimestamp,
       updatedAt: fixtureTimestamp,
     );

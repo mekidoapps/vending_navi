@@ -67,6 +67,62 @@ void main() {
       }
     });
 
+    test('manufacturer presetは拡充前の33代表商品に限定する', () {
+      const expectedCounts = <String, int>{
+        'coca_cola': 6,
+        'suntory': 5,
+        'ito_en': 5,
+        'kirin': 5,
+        'asahi': 6,
+        'dydo': 3,
+        'otsuka': 3,
+      };
+
+      var totalPresetCount = 0;
+
+      for (final manufacturer in manufacturers) {
+        final presetIds = manufacturer.presetProductIds
+            .map((productId) => productId.value)
+            .toList(growable: false);
+
+        expect(
+          presetIds.length,
+          expectedCounts[manufacturer.id.value],
+          reason: '${manufacturer.id.value}: unexpected preset count',
+        );
+
+        expect(
+          presetIds.toSet().length,
+          presetIds.length,
+          reason: '${manufacturer.id.value}: duplicate preset product',
+        );
+
+        totalPresetCount += presetIds.length;
+
+        for (final presetId in manufacturer.presetProductIds) {
+          final matches = products
+              .where((product) => product.id == presetId)
+              .toList(growable: false);
+
+          expect(
+            matches.length,
+            1,
+            reason:
+                '${manufacturer.id.value}: missing preset ${presetId.value}',
+          );
+
+          expect(
+            matches.single.manufacturerId,
+            manufacturer.id,
+            reason:
+                '${manufacturer.id.value}: preset belongs to another manufacturer',
+          );
+        }
+      }
+
+      expect(totalPresetCount, 33);
+    });
+
     test('全商品が初回公開時点でactive', () {
       for (final product in products) {
         expect(
