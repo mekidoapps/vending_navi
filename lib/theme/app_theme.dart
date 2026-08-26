@@ -12,6 +12,7 @@ class AppTheme {
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: true,
+      fontFamily: 'NotoSansJP',
       scaffoldBackgroundColor: appBackground,
       canvasColor: appBackground,
       colorScheme: ColorScheme.fromSeed(
