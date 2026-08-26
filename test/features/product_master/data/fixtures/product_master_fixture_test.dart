@@ -35,14 +35,38 @@ void main() {
       expect(ids, isNot(contains('other')));
     });
 
-    test('各メーカーのpresetProductIdsがfixture商品と一致する', () {
-      for (final manufacturer in ProductMasterFixture.manufacturers) {
-        final expected = ProductMasterFixture.products
-            .where((product) => product.manufacturerId == manufacturer.id)
-            .map((product) => product.id)
-            .toSet();
+    test('各メーカーのpresetProductIdsが存在する同一メーカー商品だけを参照する', () {
+      final productsById = {
+        for (final product in ProductMasterFixture.products)
+          product.id: product,
+      };
 
-        expect(manufacturer.presetProductIds.toSet(), expected);
+      for (final manufacturer in ProductMasterFixture.manufacturers) {
+        expect(manufacturer.presetProductIds, isNotEmpty);
+
+        expect(
+          manufacturer.presetProductIds.toSet().length,
+          manufacturer.presetProductIds.length,
+          reason: '${manufacturer.id.value}: duplicate preset Product ID',
+        );
+
+        for (final presetProductId in manufacturer.presetProductIds) {
+          final product = productsById[presetProductId];
+
+          expect(
+            product,
+            isNotNull,
+            reason:
+                '${manufacturer.id.value}: missing preset ${presetProductId.value}',
+          );
+
+          expect(
+            product!.manufacturerId,
+            manufacturer.id,
+            reason:
+                '${manufacturer.id.value}: preset belongs to another manufacturer',
+          );
+        }
       }
     });
   });

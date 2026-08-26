@@ -71,18 +71,27 @@ void main() {
 
     final controller = container.read(productSearchControllerProvider.notifier);
 
+    final ayataka = ProductMasterFixture.products.singleWhere(
+      (product) => product.id.value == 'coca_cola_ayataka',
+    );
+    final bossBlack = ProductMasterFixture.products.singleWhere(
+      (product) => product.id.value == 'suntory_boss_black',
+    );
+
     final first = controller.search('綾鷹');
     final second = controller.search('BOSS');
 
-    repository.completeCall(1, ProductMasterFixture.products);
+    repository.completeCall(1, <Product>[bossBlack]);
     await second;
 
-    repository.completeCall(0, ProductMasterFixture.products);
+    repository.completeCall(0, <Product>[ayataka]);
     await first;
 
     final state = container.read(productSearchControllerProvider);
+
     expect(state.query.trimmedText, 'BOSS');
-    expect(state.candidates.first.product.name, 'BOSS ブラック');
+    expect(state.candidates, hasLength(1));
+    expect(state.candidates.single.product.id.value, 'suntory_boss_black');
   });
 }
 

@@ -64,7 +64,7 @@ async function main(): Promise<void> {
     ].join(" "),
   );
 
-  const writes = <PlannedWrite>[];
+  const writes: PlannedWrite[] = [];
 
   const manufacturerResult = await planCollection(
     firestore,
