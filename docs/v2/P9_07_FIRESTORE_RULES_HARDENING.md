@@ -49,6 +49,11 @@ It does not mean that the master document itself is secret.
 
 ## Legacy vending machines
 
+> **Superseded by the 2026-08-31 production audit.** Do not execute the status
+> backfill described below. The tracked v1 source does not establish that a
+> missing status means `active`, and the command now fails closed. Follow
+> `PHASE_B_LEGACY_MIGRATION.md` instead.
+
 Legacy vending-machine documents may not contain status.
 
 Before hardened production Firestore Rules are deployed, a separate
@@ -75,7 +80,7 @@ Dry-run is the default.
 Production apply requires explicit production opt-in and project
 confirmation.
 
-## Production deployment order
+## Historical production deployment order (superseded)
 
 1. Build and test the migration script.
 2. Run production dry-run.

@@ -1,3 +1,15 @@
+## 2026-08-31 - Production release audit remediation Phase B (in progress)
+
+### Legacy migration safety
+
+- Retired the unsafe missing-status-to-active production backfill.
+- Added a deterministic, offline-only legacy migration planner.
+- Made `available`, missing, and unknown machine statuses require manual review.
+- Added exact Product/Manufacturer resolution with unresolved raw preservation.
+- Added geohash, schema, and index planning without a production write path.
+- Documented the backup, approval, apply, idempotency, and rollback gates.
+- Added six planner tests; full Functions regression now passes 143/143.
+
 ## 2026-08-31 - Production release audit remediation Phase A
 
 ### Release identity

@@ -1,0 +1,45 @@
+{
+  "documents": [
+    {
+      "id": "legacy_active_fixture",
+      "data": {
+        "status": "active",
+        "manufacturer": "サントリー",
+        "lat": 35.681236,
+        "lng": 139.767125,
+        "products": [
+          {
+            "name": "ボス ブラック",
+            "isSoldOut": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "legacy_available_fixture",
+      "data": {
+        "status": "available",
+        "manufacturer": "サントリー",
+        "latitude": 35.6805,
+        "longitude": 139.7662,
+        "drinkSlots": [
+          {
+            "name": "マスタ外商品",
+            "isSoldOut": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "legacy_missing_status_fixture",
+      "data": {
+        "manufacturer": "不明",
+        "lat": 91,
+        "lng": 139.7662,
+        "drinks": [
+          "サントリー天然水"
+        ]
+      }
+    }
+  ]
+}

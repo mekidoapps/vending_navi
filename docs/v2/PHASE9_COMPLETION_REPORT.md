@@ -116,6 +116,10 @@ can still resolve names.
 
 ### Legacy compatibility
 
+> **Superseded by the 2026-08-31 production audit.** The following Phase 9
+> assumption must not be used for production. See
+> `PHASE_B_LEGACY_MIGRATION.md`; the old backfill command now fails closed.
+
 Legacy vending-machine documents can be missing status.
 
 Before hardened Firestore Rules are deployed to production, legacy documents
