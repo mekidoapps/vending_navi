@@ -24,8 +24,13 @@
 
 ### Verification
 
-- Functions build and all 137 tests passed before Phase A changes.
-- Flutter verification remains pending in a Flutter-capable environment.
+- Functions build and all 137 tests passed.
+- Flutter analyze completed with error 0; 241 existing non-fatal findings were
+  reported.
+- Flutter full regression passed 467/467.
+- Storage Rules Emulator passed 16 executable tests with 1 documented Emulator
+  limitation skipped and 0 failures.
+- Phase A release identity / Firebase configuration remediation is complete.
 - No Firebase, Firestore, Storage, Functions, or Play Console deployment was
   performed.
 
