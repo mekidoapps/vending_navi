@@ -69,3 +69,13 @@ local firewall must permit the Emulator ports.
 - Do not deploy from a dirty working tree.
 - Never use a bare production `firebase deploy` command; use the guarded script
   with an explicit resource scope.
+
+## Known Storage Emulator difference
+
+`firebase/v2/storage.rules` grants temporary uploads with `allow create` and
+does not grant `update` or `delete`. [Firebase's documented granular operation](https://firebase.google.com/docs/storage/security/core-syntax#granular_operations)
+model makes this a create-only production rule. The Storage Emulator currently
+treats a second `uploadBytes` request to the same object as another create, so
+the overwrite assertion cannot be used as executable proof. The test suite
+keeps a static contract for the absence of owner `update`/`delete` grants and
+executes every other Storage boundary.

@@ -29,3 +29,13 @@ firebase emulators:start \
 
 Production deployment must use `tool/deploy_firebase_production.sh` with an
 explicit resource scope. See `docs/v2/FIREBASE_RELEASE_OPERATIONS.md`.
+
+## Storage Emulator limitation
+
+The canonical Storage Rules use `allow create` without `allow update` or
+`allow delete`. [Firebase documents these as separate operations](https://firebase.google.com/docs/storage/security/core-syntax#granular_operations), so production
+clients cannot overwrite an existing temporary object. The current Storage
+Emulator accepts a second `uploadBytes` call as another create operation; that
+single overwrite assertion is therefore skipped in executable Emulator tests
+and retained as a static Rules contract. Other ownership, type, size, path,
+read, and delete boundaries remain executable tests.

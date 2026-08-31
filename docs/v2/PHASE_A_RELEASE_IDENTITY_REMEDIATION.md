@@ -56,3 +56,8 @@ selection. It does not change production data or deploy Firebase resources.
 
 Phase B must not apply production migration until the remaining Phase A exit
 criteria are satisfied.
+
+The Storage Emulator gate may contain one documented skip for overwrite
+immutability because the Emulator classifies a second upload as create. The
+canonical Rules must still contain `allow create` and no owner `allow update`
+or `allow delete` grant.

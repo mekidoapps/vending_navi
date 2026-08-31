@@ -15,6 +15,9 @@
 - Removed obsolete split configs, root legacy Firestore Rules, and the separate
   Emulator Storage Rules source.
 - Made production and Emulator verification use the same Storage Rules.
+- Documented the Storage Emulator overwrite-classification difference and kept
+  create-only immutability as a static Rules contract instead of weakening the
+  production rule.
 - Added read-only config verification and a guarded, explicit-scope production
   deployment script.
 - Updated active Emulator, Functions, and release-operation documentation.
