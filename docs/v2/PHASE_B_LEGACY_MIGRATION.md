@@ -21,6 +21,11 @@ production audit evidence.
   meaning in the tracked v1 source.
 - Product availability also uses the word `available`, so carrying that value
   into v2 machine visibility would be an unsupported inference.
+- The tracked v1 Firestore Rules allowed every vending-machine document to be
+  read, and the v1 app loaded the collection without a status filter.
+- Consequently all 41 non-v2 documents were effectively public in v1. Using
+  that effective visibility as the v2 status source is recommended, but is not
+  implemented until the owner records an explicit decision.
 
 ## Status mapping table
 
@@ -153,5 +158,18 @@ diff. No legacy field or document is deleted during Phase B.
   order idempotency.
 - Fixture dry-run: passed (`total=3`, `ready=1`, `manualReview=2`,
   `invalidCoordinates=1`, `unresolvedProducts=1`, `plannedIndexes=1`).
-- Production 42-document dry-run: pending secure export.
+- Production sanitized read-only snapshot: 42/42 documents classified.
+- Production status counts: `active=1`, `available=34`, `missing=7`.
+- Valid coordinate pairs: 42/42; existing geohash: 1/42; schemaVersion 2: 1/42.
+- Baseline product resolution: 34 legacy entries, 22 resolved, 12 unresolved.
+- Four exact alias candidates were tested privately; they reduce unresolved
+  entries to 8, but are not committed or applied without owner approval.
+- Sanitized snapshot SHA-256:
+  `6543912ef131256154c8698b75722b5da79dcb662dfd01e15ab188d4aa291be0`.
+- Baseline dry-run report SHA-256:
+  `2fa466cb726d3265d198ac01221d7d4d38b80989a6b79d67445a2e967bd2a3fb`.
+- Master fixture SHA-256:
+  `334601845df4078be983c93fd8b43aa1ec74226101e208018a3ab13a0dca939d`.
+- The sanitized snapshot and detailed report contain production-derived
+  location/product data and are intentionally not committed to GitHub.
 - Production writes: none.

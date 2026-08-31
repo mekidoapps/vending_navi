@@ -9,6 +9,10 @@
 - Added geohash, schema, and index planning without a production write path.
 - Documented the backup, approval, apply, idempotency, and rollback gates.
 - Added six planner tests; full Functions regression now passes 143/143.
+- Completed a sanitized read-only dry-run for all 42 production machines.
+- Confirmed 42 valid coordinate pairs, 41 status decisions pending, and 12
+  unresolved legacy product labels before any approved aliases.
+- Kept production-derived snapshot and detailed report data out of GitHub.
 
 ## 2026-08-31 - Production release audit remediation Phase A
 
