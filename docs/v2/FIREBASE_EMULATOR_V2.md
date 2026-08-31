@@ -1,31 +1,22 @@
 # Firebase Emulator Suite for VendingNavi v2
 
-## Purpose
+## Canonical configuration
 
-Develop and test the v2 backend without changing the existing v1 Firebase
-configuration or production rules.
-
-## Isolated files
+Local emulators and production deployment share one resource map:
 
 ```text
-firebase.v2.json
+.firebaserc
+firebase.json
 firebase/v2/firestore.rules
 firebase/v2/firestore.indexes.json
 firebase/v2/storage.rules
 functions/
 ```
 
-The existing `firebase.json` and root `firestore.rules` remain unchanged.
-
-## Phase 1 security state
-
-- Firestore client reads: denied
-- Firestore client writes: denied
-- Storage reads: denied
-- Storage writes: denied
-- Functions: emulator-only health callable, no business writes
-
-Permissions are opened only when a v2 feature and its emulator tests are added.
+This prevents local verification from exercising Rules different from the
+Rules selected for production. `firebase.json` retains the Emulator port
+configuration, but the same Firestore, Storage, indexes, and Functions sources
+are used in both environments.
 
 ## Flutter defines
 
@@ -50,7 +41,10 @@ FIREBASE_STORAGE_EMULATOR_PORT=9199
 From the repository root:
 
 ```bash
-firebase emulators:start --config firebase.v2.json \
+tool/verify_firebase_release_config.sh
+firebase emulators:start \
+  --config firebase.json \
+  --project vendingnavi \
   --only auth,firestore,functions,storage
 ```
 
@@ -63,16 +57,15 @@ flutter run \
   --dart-define=FIREBASE_EMULATOR_HOST=10.0.2.2
 ```
 
-Physical Android device:
-
-Use the development PC's LAN IPv4 address instead of `10.0.2.2`. The device and
-PC must be on the same network, and Windows Firewall must permit the emulator
-ports.
+For a physical Android device, use the development PC's LAN IPv4 address
+instead of `10.0.2.2`. The device and PC must be on the same network, and the
+local firewall must permit the Emulator ports.
 
 ## Safety rules
 
-- Always pass `--config firebase.v2.json` when starting the v2 emulators.
-- Do not replace the root `firebase.json` during Phase 1.
-- Do not run `firebase deploy` for P1-07.
-- Do not add a permissive temporary rule such as `allow read, write: if true`.
-- Add rules and indexes only with the feature that needs them.
+- Keep `.firebaserc` fixed to `vendingnavi`.
+- Do not create a second deployable Firebase config.
+- Do not add permissive temporary Rules.
+- Do not deploy from a dirty working tree.
+- Never use a bare production `firebase deploy` command; use the guarded script
+  with an explicit resource scope.

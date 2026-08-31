@@ -15,7 +15,8 @@ void main() {
     expect(rules, contains("match /migration_state/{migrationId}"));
   });
 
-  test('production root rulesはP5-07 artifactで直接変更しない', () {
-    expect(File('firestore.rules').existsSync(), isTrue);
+  test('canonical configだけがv2 rulesを選択する', () {
+    expect(File('firebase.json').existsSync(), isTrue);
+    expect(File('firestore.rules').existsSync(), isFalse);
   });
 }

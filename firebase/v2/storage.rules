@@ -15,18 +15,17 @@ service firebase.storage {
       );
     }
 
-    // Phase 7 temporary upload area.
-    // Production intent: first write only. Existing objects are immutable to
-    // clients; cleanup remains server-side through Admin SDK.
+    // Temporary upload area shared by production and the Emulator Suite.
+    // `create` permits the first upload only, so clients cannot overwrite or
+    // delete existing objects. Cleanup remains server-side through Admin SDK.
     match /machine_uploads/{uid}/{uploadId}/original.jpg {
       allow read: if isOwner(uid);
 
-      allow write: if resource == null
-                   && isOwner(uid)
-                   && isUuidV4(uploadId)
-                   && request.resource.size > 0
-                   && request.resource.size <= 5 * 1024 * 1024
-                   && request.resource.contentType == 'image/jpeg';
+      allow create: if isOwner(uid)
+                    && isUuidV4(uploadId)
+                    && request.resource.size > 0
+                    && request.resource.size <= 5 * 1024 * 1024
+                    && request.resource.contentType == 'image/jpeg';
     }
 
     // Formal vending-machine photos and every other path remain closed until

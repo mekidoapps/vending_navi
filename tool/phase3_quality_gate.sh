@@ -52,10 +52,6 @@ echo "[5/6] Firestore Emulator integration"
 bash tool/phase3_p302_emulator_gate.sh "$PROJECT_ID"
 
 echo "[6/6] Production config guard"
-if ! git diff --quiet -- firebase.json firestore.rules; then
-  echo "Production Firebase config/rules have uncommitted changes."
-  git diff -- firebase.json firestore.rules
-  exit 1
-fi
+tool/verify_firebase_release_config.sh
 
 echo "Phase 3 quality gate passed."

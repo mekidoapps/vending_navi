@@ -1,16 +1,20 @@
 # VendingNavi v2 Functions
 
-Phase 1 contains only an emulator-only health callable. It has no Firestore or
-Storage side effects and refuses execution outside the Functions emulator.
-Business functions such as `createVendingMachine` are added later together with
-validation, idempotency, rate limits, App Check policy, and tests.
+The v2 codebase contains the six production Callable Functions plus an
+emulator-only health Callable. Production Callables share authentication,
+App Check, rate-limit, validation, idempotency, and privacy-safe logging
+boundaries.
 
 ## Local commands
 
 ```bash
-npm install
+npm ci
 npm run build
 npm test
 ```
 
-Do not run `firebase deploy` as part of Phase 1.
+Start the Functions emulator from the repository root with the canonical
+Firebase config, or run `npm run serve` here.
+
+Do not deploy directly from this directory. Production deployments must follow
+`docs/v2/FIREBASE_RELEASE_OPERATIONS.md`.

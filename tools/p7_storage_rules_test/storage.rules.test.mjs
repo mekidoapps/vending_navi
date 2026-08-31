@@ -56,7 +56,7 @@ async function anonymousStorage() {
 
 before(async () => {
   const rules = await readFile(
-    new URL("../../firebase/v2/storage.emulator.rules", import.meta.url),
+    new URL("../../firebase/v2/storage.rules", import.meta.url),
     "utf8",
   );
 
@@ -78,7 +78,7 @@ after(async () => {
   await testEnv.cleanup();
 });
 
-test("production rules retain first-write immutable resource guard", async () => {
+test("canonical rules permit create without update or delete", async () => {
   const productionRules = await readFile(
     new URL("../../firebase/v2/storage.rules", import.meta.url),
     "utf8",
@@ -86,7 +86,7 @@ test("production rules retain first-write immutable resource guard", async () =>
 
   assert.match(
     productionRules,
-    /allow write:\s*if resource == null/,
+    /allow create:\s*if isOwner\(uid\)/,
   );
 });
 
@@ -220,10 +220,25 @@ test("other authenticated user cannot read owner's temporary JPEG", async () => 
   await assertFails(getBytes(ref(other, tempPath())));
 });
 
-test.skip(
-  "production overwrite immutability: Storage Emulator cannot model resource == null reliably",
-  () => {},
-);
+test("owner cannot overwrite an existing temporary JPEG", async () => {
+  const storage = await ownerStorage();
+  const objectRef = ref(storage, tempPath());
+
+  await assertSucceeds(
+    uploadBytes(
+      objectRef,
+      jpegBytes(),
+      {contentType: "image/jpeg"},
+    ),
+  );
+  await assertFails(
+    uploadBytes(
+      objectRef,
+      jpegBytes(),
+      {contentType: "image/jpeg"},
+    ),
+  );
+});
 
 test("owner cannot delete temporary JPEG; server owns cleanup", async () => {
   const storage = await ownerStorage();

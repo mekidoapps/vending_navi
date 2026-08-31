@@ -50,7 +50,7 @@ grep -RniE \
   --include='*.js' \
   --include='*.ts' \
   "collection\(['\"]users['\"]\)|users/\{uid\}|defaultDistanceMeters|displayName|favoriteDrinkNames|notification|registeredMachineCount|registeredDrinkCount|createdAt|updatedAt" \
-  lib test functions firebase firestore.rules 2>/dev/null \
+  lib test functions firebase 2>/dev/null \
   | tee -a "$OUT" || true
 
 section "v1 MyPage state and Firestore operations"
@@ -96,7 +96,7 @@ section "Firestore rules: auth/users/favorite references"
 grep -RniE \
   --exclude-dir=node_modules \
   "match /users|request\.auth|favorite_products|favoriteDrinkNames|allow (read|write|create|update|delete)" \
-  firestore.rules firebase/v2 2>/dev/null \
+  firebase/v2 2>/dev/null \
   | tee -a "$OUT" || true
 
 section "User/MyPage/Auth tests"
@@ -106,7 +106,7 @@ find test -type f -name '*.dart' \
   | tee -a "$OUT" || true
 
 section "Production files tracked state"
-run_safe git diff -- firestore.rules firebase.json firebase/v2 functions pubspec.yaml
+run_safe git diff -- .firebaserc firebase.json firebase/v2 functions pubspec.yaml
 
 section "Audit complete"
 echo "Output: $OUT" | tee -a "$OUT"

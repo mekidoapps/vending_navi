@@ -29,7 +29,7 @@ echo "project=$PROJECT_ID"
 
 firebase emulators:exec \
   --project "$PROJECT_ID" \
-  --config firebase.v2.json \
+  --config firebase.json \
   --only firestore \
   "cd functions && npm run build && node lib/scripts/seed_master_fixture.js && node lib/scripts/seed_vending_machine_fixture.js && node lib/scripts/seed_machine_product_index_fixture.js && node lib/scripts/verify_vending_machine_rules.js && node lib/scripts/verify_machine_product_index_rules.js"
 

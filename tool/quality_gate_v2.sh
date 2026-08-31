@@ -18,7 +18,8 @@ required_files=(
   "lib/core/logging/app_logger.dart"
   "lib/core/firebase/firebase_emulator_connector.dart"
   "lib/features/foundation/presentation/v2_foundation_screen.dart"
-  "firebase.v2.json"
+  ".firebaserc"
+  "firebase.json"
   "firebase/v2/firestore.rules"
   "firebase/v2/storage.rules"
   "functions/package.json"
@@ -80,11 +81,7 @@ else
   printf '\n[skip] functions/package-lock.json is missing; Functions gate was not run.\n'
 fi
 
-step "Production Firebase configuration safety"
-if ! git diff --quiet -- firebase.json firestore.rules; then
-  printf 'firebase.json or root firestore.rules has an uncommitted change. Review before continuing.\n' >&2
-  git diff -- firebase.json firestore.rules
-  exit 1
-fi
+step "Canonical Firebase configuration safety"
+tool/verify_firebase_release_config.sh
 
 printf '\nPhase 1 quality gate passed.\n'

@@ -1,19 +1,31 @@
-# Firebase v2 local configuration
+# Firebase v2 resources
 
-This directory is intentionally isolated from the existing production-oriented
-`firebase.json` and `firestore.rules`.
+`firebase.json` is the single canonical configuration for both production
+deployment and the local Emulator Suite. It points to the files in this
+directory:
 
-Phase 1 policy:
+- `firestore.rules`
+- `firestore.indexes.json`
+- `storage.rules`
 
-- Firestore rules deny every client read and write.
-- Storage rules deny every client read and write.
-- Permissions are added only with the feature and its emulator tests.
-- Public-data writes remain Callable Functions only.
-- Do not deploy these files during Phase 1.
+The Firebase project is fixed to `vendingnavi` in `.firebaserc`. Obsolete
+`firebase.v2*.json`, root `firestore.rules`, and emulator-only Storage rules
+must not be restored.
 
-Start from the repository root:
+Verify the configuration before any Firebase operation:
 
 ```bash
-firebase emulators:start --config firebase.v2.json \
+tool/verify_firebase_release_config.sh
+```
+
+Start local emulators from the repository root:
+
+```bash
+firebase emulators:start \
+  --config firebase.json \
+  --project vendingnavi \
   --only auth,firestore,functions,storage
 ```
+
+Production deployment must use `tool/deploy_firebase_production.sh` with an
+explicit resource scope. See `docs/v2/FIREBASE_RELEASE_OPERATIONS.md`.

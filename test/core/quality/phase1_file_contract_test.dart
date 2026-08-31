@@ -13,7 +13,8 @@ void main() {
       'lib/core/logging/app_logger.dart',
       'lib/core/firebase/firebase_emulator_connector.dart',
       'lib/features/foundation/presentation/v2_foundation_screen.dart',
-      'firebase.v2.json',
+      '.firebaserc',
+      'firebase.json',
       'firebase/v2/firestore.rules',
       'firebase/v2/storage.rules',
       'functions/package.json',
@@ -21,6 +22,19 @@ void main() {
 
     for (final path in requiredPaths) {
       expect(File(path).existsSync(), isTrue, reason: '$path is required');
+    }
+  });
+
+  test('旧Firebase deploy設定はリポジトリに存在しない', () {
+    const obsoletePaths = <String>[
+      'firebase.v2.json',
+      'firebase.v2.production.json',
+      'firestore.rules',
+      'firebase/v2/storage.emulator.rules',
+    ];
+
+    for (final path in obsoletePaths) {
+      expect(File(path).existsSync(), isFalse, reason: '$path is obsolete');
     }
   });
 

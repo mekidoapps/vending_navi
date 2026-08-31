@@ -71,7 +71,7 @@ grep -RniE \
   --include='*.ts' \
   --include='*.js' \
   "collection\(['\"]users['\"]\)|/users/|users/\{uid\}|document\(['\"]users" \
-  lib functions firebase firestore.rules 2>/dev/null \
+  lib functions firebase 2>/dev/null \
   | tee -a "$OUT" || true
 
 section "Favorite/frequent product references"
@@ -82,7 +82,7 @@ grep -RniE \
   --include='*.ts' \
   --include='*.js' \
   'favorite_products|favoriteProducts|favorites|favorite_drinks|frequentProducts|よく飲む' \
-  lib test functions firebase firestore.rules 2>/dev/null \
+  lib test functions firebase 2>/dev/null \
   | tee -a "$OUT" || true
 
 section "SharedPreferences auth-like references"
@@ -95,7 +95,7 @@ grep -RniE \
 section "Firestore rules auth/user references"
 grep -RniE \
   'request\.auth|users|favorite' \
-  firestore.rules firebase/v2 2>/dev/null \
+  firebase/v2 2>/dev/null \
   | tee -a "$OUT" || true
 
 section "Platform configuration existence (contents are NOT printed)"

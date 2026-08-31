@@ -1,3 +1,31 @@
+## 2026-08-31 - Production release audit remediation Phase A
+
+### Release identity
+
+- GitHub `develop-v2` was restored as the source of truth at versionCode 17.
+- The previously local-only Phase 6 through Phase 11 history is now traceable
+  from Git.
+- versionCode 17 remains NO-GO and must not be promoted to Production.
+- A release-manifest template and a versionCode 17 audit baseline were added.
+
+### Firebase configuration
+
+- Consolidated Firebase selection into canonical `firebase.json`.
+- Fixed the default Firebase project to `vendingnavi` in `.firebaserc`.
+- Removed obsolete split configs, root legacy Firestore Rules, and the separate
+  Emulator Storage Rules source.
+- Made production and Emulator verification use the same Storage Rules.
+- Added read-only config verification and a guarded, explicit-scope production
+  deployment script.
+- Updated active Emulator, Functions, and release-operation documentation.
+
+### Verification
+
+- Functions build and all 137 tests passed before Phase A changes.
+- Flutter verification remains pending in a Flutter-capable environment.
+- No Firebase, Firestore, Storage, Functions, or Play Console deployment was
+  performed.
+
 ## 2026-08-16 - Phase 7 写真AI登録
 
 ### 追加

@@ -13,7 +13,7 @@
     "seed:master": "npm run build && node lib/scripts/seed_master_fixture.js",
     "verify:master": "npm run build && node lib/scripts/verify_master_rules.js",
     "verify:create-machine": "npm run build && node lib/scripts/verify_create_vending_machine_emulator.js",
-    "serve": "npm run build && firebase emulators:start --config ../firebase.v2.json --only functions",
+    "serve": "npm run build && firebase emulators:start --config ../firebase.json --project vendingnavi --only functions",
     "verify:recognize-photo": "npm run build && node lib/scripts/verify_photo_recognition_emulator.js",
     "verify:update-products": "npm run build && node lib/scripts/verify_update_vending_machine_products_emulator.js",
     "verify:add-photo": "npm run build && node lib/scripts/verify_add_vending_machine_photo_emulator.js",

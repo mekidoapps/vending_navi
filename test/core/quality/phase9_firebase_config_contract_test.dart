@@ -9,25 +9,8 @@ void main() {
         as Map<String, dynamic>;
   }
 
-  test('v2 emulator config uses emulator-only Storage rules', () {
-    final config = loadConfig('firebase.v2.json');
-
-    final firestore = config['firestore'] as Map<String, dynamic>;
-    final storage = config['storage'] as Map<String, dynamic>;
-
-    expect(
-      firestore['rules'],
-      'firebase/v2/firestore.rules',
-    );
-    expect(
-      storage['rules'],
-      'firebase/v2/storage.emulator.rules',
-    );
-    expect(config.containsKey('emulators'), isTrue);
-  });
-
-  test('v2 production config uses production Storage rules', () {
-    final config = loadConfig('firebase.v2.production.json');
+  test('canonical Firebase config owns production and emulator resources', () {
+    final config = loadConfig('firebase.json');
 
     final firestore = config['firestore'] as Map<String, dynamic>;
     final storage = config['storage'] as Map<String, dynamic>;
@@ -49,8 +32,17 @@ void main() {
     expect(functionConfig['source'], 'functions');
     expect(functionConfig['codebase'], 'v2');
 
-    // A production deployment config must never contain local Emulator
-    // settings.
-    expect(config.containsKey('emulators'), isFalse);
+    expect(config.containsKey('emulators'), isTrue);
+  });
+
+  test('Firebase default project is fixed and obsolete configs are absent', () {
+    final projectConfig = loadConfig('.firebaserc');
+    final projects = projectConfig['projects'] as Map<String, dynamic>;
+
+    expect(projects['default'], 'vendingnavi');
+    expect(File('firebase.v2.json').existsSync(), isFalse);
+    expect(File('firebase.v2.production.json').existsSync(), isFalse);
+    expect(File('firestore.rules').existsSync(), isFalse);
+    expect(File('firebase/v2/storage.emulator.rules').existsSync(), isFalse);
   });
 }

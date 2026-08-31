@@ -2,7 +2,14 @@
 
 ## Status
 
-Phase 11 pre-closed-test release readiness.
+**Superseded by the 2026-08-31 production release audit: NO-GO.**
+
+This file records the readiness state before that independent audit. It must not
+be used as current production approval. versionCode 17 must not be promoted to
+Production. Follow `PHASE_A_RELEASE_IDENTITY_REMEDIATION.md` and the P0/P1
+remediation phases, then create a new versionCode and obtain an independent GO.
+
+Historical status: Phase 11 pre-closed-test release readiness.
 
 Phase 10 quality validation is complete.
 This checklist separates code-side readiness from production Console / deployment work.
