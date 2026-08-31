@@ -23,9 +23,22 @@ production audit evidence.
   into v2 machine visibility would be an unsupported inference.
 - The tracked v1 Firestore Rules allowed every vending-machine document to be
   read, and the v1 app loaded the collection without a status filter.
-- Consequently all 41 non-v2 documents were effectively public in v1. Using
-  that effective visibility as the v2 status source is recommended, but is not
-  implemented until the owner records an explicit decision.
+- Consequently all 41 non-v2 documents were effectively public in v1.
+
+## Owner decisions recorded on 2026-08-31
+
+- Preserve the effective v1 visibility of the 41 non-v2 documents by assigning
+  `active` to the exact 41 machine IDs in the private status-decisions file.
+- Do not make `available` or a missing status a global mapping rule. A future
+  document without an exact machine-ID decision remains a hard stop.
+- Adopt only these four normalized exact product aliases:
+  - `タリーズ バリスタブラック` -> `ito_en_tullys_coffee_black`
+  - `ポカリスエット 缶` -> `otsuka_pocari_sweat`
+  - `ミネラル麦茶` -> `ito_en_kenko_mineral_mugicha`
+  - `boss レインボーマウンテン` ->
+    `suntory_boss_rainbow_mountain_blend`
+- Preserve the remaining eight unresolved product labels as raw migration
+  evidence; do not guess or create Product IDs for them.
 
 ## Status mapping table
 
@@ -39,15 +52,14 @@ target is a hard stop for migration, not a hidden default.
 | `hidden` | `hidden` | Canonical value; do not index |
 | `merged` | `merged` | Canonical value; do not index |
 | `removed` | `removed` | Canonical value; do not index |
-| `available` | none | Manual review required |
+| `available` | `active` only for 34 approved machine IDs | Owner-approved v1 visibility preservation |
 | `unavailable` | none | Manual review required |
 | `deleted` | none | Not a v2 machine status; manual review required |
-| Missing/blank | none | Manual review required |
+| Missing/blank | `active` only for 7 approved machine IDs | Owner-approved v1 visibility preservation |
 | Any other value | none | Manual review required |
 
-Mapping `available` or a missing value to `active` requires separate evidence
-or an explicit owner decision recorded before the apply implementation is
-created.
+Any `available` or missing value without an exact machine-ID decision remains
+manual review. Canonical v2 statuses cannot be overridden by a decision file.
 
 ## Read-only dry-run tool
 
@@ -79,6 +91,8 @@ Run from `functions/`:
 npm run plan:legacy-migration -- \
   --input=/secure/path/legacy-machines.json \
   --master=fixtures/master_fixture.json \
+  --aliases=fixtures/legacy_machine_migration_aliases.json \
+  --status-decisions=/secure/path/approved-status-decisions.json \
   --output=/secure/path/legacy-migration-plan.json
 ```
 
@@ -91,6 +105,19 @@ used by the master resolver:
   "products": {"旧商品名": "canonical_product_id"}
 }
 ```
+
+Status decisions are keyed by exact machine ID and remain outside GitHub:
+
+```json
+{
+  "machineStatuses": {
+    "exact-exported-machine-id": "active"
+  }
+}
+```
+
+The planner rejects stale machine IDs, non-canonical target values, and any
+attempt to override a canonical v2 status.
 
 The report is sorted by machine ID and contains legacy/target status,
 coordinates, geohash, manufacturer resolution, every legacy product,
@@ -152,24 +179,34 @@ diff. No legacy field or document is deleted during Phase B.
 ## Current verification
 
 - Functions build: passed.
-- Functions regression: 143 passed, 0 failed.
-- Migration planner tests: 6 passed, including status non-inference, invalid
-  coordinates, exact resolution, ambiguity, aliases, duplicate IDs, and input
-  order idempotency.
+- Functions regression: 146 passed, 0 failed.
+- Migration planner tests: 9 passed, including status non-inference,
+  owner-approved per-machine decisions, stale-decision rejection, canonical
+  status protection, invalid coordinates, exact resolution, ambiguity,
+  approved aliases, duplicate IDs, and input-order idempotency.
 - Fixture dry-run: passed (`total=3`, `ready=1`, `manualReview=2`,
   `invalidCoordinates=1`, `unresolvedProducts=1`, `plannedIndexes=1`).
 - Production sanitized read-only snapshot: 42/42 documents classified.
 - Production status counts: `active=1`, `available=34`, `missing=7`.
 - Valid coordinate pairs: 42/42; existing geohash: 1/42; schemaVersion 2: 1/42.
 - Baseline product resolution: 34 legacy entries, 22 resolved, 12 unresolved.
-- Four exact alias candidates were tested privately; they reduce unresolved
-  entries to 8, but are not committed or applied without owner approval.
+- Owner-approved dry-run: `total=42`, `ready=42`, `manualReview=0`,
+  `invalidCoordinates=0`, `unresolvedProducts=8`, `plannedIndexes=25`.
+- Status decision outcomes: 1 canonical and 41 owner-approved.
+- The four approved exact aliases reduce unresolved entries from 12 to 8.
 - Sanitized snapshot SHA-256:
   `6543912ef131256154c8698b75722b5da79dcb662dfd01e15ab188d4aa291be0`.
 - Baseline dry-run report SHA-256:
   `2fa466cb726d3265d198ac01221d7d4d38b80989a6b79d67445a2e967bd2a3fb`.
 - Master fixture SHA-256:
   `334601845df4078be983c93fd8b43aa1ec74226101e208018a3ab13a0dca939d`.
+- Approved alias fixture SHA-256:
+  `a8692e16146670d382a5ec514af9cb066e82ae18110d65c55146b26f2177dcdd`.
+- Private status-decisions SHA-256:
+  `036ee7264c24df3af4dac47cbdf07d46844ab7cf4cccf9f78c24ace1e0771e44`.
+- Approved dry-run report SHA-256:
+  `9ea705ee23b50c25059d2b536e1df5b7c6a5328a310297c777c86f3f6cd873e8`.
 - The sanitized snapshot and detailed report contain production-derived
   location/product data and are intentionally not committed to GitHub.
+- The backup gate remains open; an apply implementation is still absent.
 - Production writes: none.

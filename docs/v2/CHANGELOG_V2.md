@@ -13,6 +13,15 @@
 - Confirmed 42 valid coordinate pairs, 41 status decisions pending, and 12
   unresolved legacy product labels before any approved aliases.
 - Kept production-derived snapshot and detailed report data out of GitHub.
+- Recorded the owner's explicit decision to preserve v1 visibility for the
+  exact 41 legacy machine IDs without creating a global status inference rule.
+- Added a guarded per-machine status-decision input and canonical-status
+  override protection to the offline planner.
+- Added the four approved exact product aliases; eight labels remain unresolved
+  and preserved without guessing.
+- Owner-approved dry-run now reports 42 ready, 0 manual-review,
+  0 invalid-coordinate, 8 unresolved-product, and 25 planned-index entries.
+- Functions regression now passes 146/146.
 
 ## 2026-08-31 - Production release audit remediation Phase A
 

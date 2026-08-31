@@ -5,6 +5,7 @@ import {
   type LegacyMachineExportRecord,
   type MigrationAliases,
   type MigrationMasterCatalog,
+  type MigrationStatusDecisions,
   planLegacyMachineMigration,
 } from "../src/migration/legacy_machine_migration_planner";
 
@@ -12,22 +13,26 @@ interface Options {
   readonly inputPath: string;
   readonly masterPath: string;
   readonly aliasesPath: string | null;
+  readonly statusDecisionsPath: string | null;
   readonly outputPath: string | null;
 }
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  const [input, master, aliases] = await Promise.all([
+  const [input, master, aliases, statusDecisions] = await Promise.all([
     readJson(options.inputPath),
     readJson(options.masterPath),
     options.aliasesPath === null ? Promise.resolve({}) :
       readJson(options.aliasesPath),
+    options.statusDecisionsPath === null ? Promise.resolve({}) :
+      readJson(options.statusDecisionsPath),
   ]);
   const records = parseRecords(input);
   const report = planLegacyMachineMigration(
     records,
     parseCatalog(master),
     parseAliases(aliases),
+    parseStatusDecisions(statusDecisions),
   );
   const serialized = `${JSON.stringify(report, null, 2)}\n`;
 
@@ -69,6 +74,8 @@ function parseOptions(args: readonly string[]): Options {
     inputPath: resolve(input),
     masterPath: resolve(master),
     aliasesPath: value("aliases") === null ? null : resolve(value("aliases")!),
+    statusDecisionsPath: value("status-decisions") === null ? null :
+      resolve(value("status-decisions")!),
     outputPath: value("output") === null ? null : resolve(value("output")!),
   };
 }
@@ -119,6 +126,14 @@ function parseAliases(value: unknown): MigrationAliases {
     throw new Error("Invalid alias fixture.");
   }
   return root as MigrationAliases;
+}
+
+function parseStatusDecisions(value: unknown): MigrationStatusDecisions {
+  const root = asRecord(value);
+  if (root === null) {
+    throw new Error("Invalid status-decisions fixture.");
+  }
+  return root as MigrationStatusDecisions;
 }
 
 function readString(value: unknown): string | null {

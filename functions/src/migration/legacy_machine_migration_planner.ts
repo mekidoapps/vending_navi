@@ -2,7 +2,7 @@ import {encodeGeohash} from "../create_vending_machine_core";
 import {normalizeMasterLabel} from "../photo_recognition/master_label_resolver";
 
 export const LEGACY_MACHINE_MIGRATION_REVISION =
-  "phase-b-legacy-machine-plan-v1";
+  "phase-b-legacy-machine-plan-v2";
 
 export type CanonicalMachineStatus =
   | "active"
@@ -42,6 +42,16 @@ export interface MigrationAliases {
   readonly products?: Readonly<Record<string, string>>;
 }
 
+export interface MigrationStatusDecisions {
+  /**
+   * Explicit, owner-approved target status keyed by exact production machine ID.
+   *
+   * A per-machine key prevents a legacy label from becoming an implicit rule for
+   * future documents. Canonical v2 statuses cannot be changed by this map.
+   */
+  readonly machineStatuses?: Readonly<Record<string, CanonicalMachineStatus>>;
+}
+
 export type ResolutionKind =
   | "product_id"
   | "unique_label"
@@ -61,7 +71,7 @@ export interface LegacyMachineMigrationPlan {
   readonly machineId: string;
   readonly legacyStatus: string | null;
   readonly targetStatus: CanonicalMachineStatus | null;
-  readonly statusDecision: "canonical" | "manual_review";
+  readonly statusDecision: "canonical" | "owner_approved" | "manual_review";
   readonly latitude: number | null;
   readonly longitude: number | null;
   readonly geohash: string | null;
@@ -112,16 +122,19 @@ interface Resolution {
 /**
  * Produce a deterministic, read-only migration report.
  *
- * This function deliberately does not infer public visibility. Only already
- * canonical status values are carried forward; legacy `available`, missing,
- * and all unknown values require an explicit review decision.
+ * This function deliberately does not infer public visibility from a legacy
+ * label. It carries forward canonical statuses and accepts only exact,
+ * per-machine owner decisions for non-canonical values.
  */
 export function planLegacyMachineMigration(
   records: readonly LegacyMachineExportRecord[],
   catalog: MigrationMasterCatalog,
   aliases: MigrationAliases = {},
+  statusDecisions: MigrationStatusDecisions = {},
 ): LegacyMigrationReport {
   validateCatalog(catalog);
+  validateAliases(catalog, aliases);
+  validateStatusDecisions(statusDecisions);
 
   const ids = new Set<string>();
   const machines = [...records]
@@ -134,9 +147,23 @@ export function planLegacyMachineMigration(
         throw new Error(`Duplicate machine ID in export: ${machineId}`);
       }
       ids.add(machineId);
-      return planOneMachine(machineId, record.data, catalog, aliases);
+      return planOneMachine(
+        machineId,
+        record.data,
+        catalog,
+        aliases,
+        statusDecisions,
+      );
     })
     .sort((left, right) => left.machineId.localeCompare(right.machineId));
+
+  for (const machineId of Object.keys(statusDecisions.machineStatuses ?? {})) {
+    if (!ids.has(machineId)) {
+      throw new Error(
+        `Status decision does not match an exported machine ID: ${machineId}`,
+      );
+    }
+  }
 
   const summary: LegacyMigrationSummary = {
     revision: LEGACY_MACHINE_MIGRATION_REVISION,
@@ -172,9 +199,10 @@ function planOneMachine(
   data: Readonly<Record<string, unknown>>,
   catalog: MigrationMasterCatalog,
   aliases: MigrationAliases,
+  statusDecisions: MigrationStatusDecisions,
 ): LegacyMachineMigrationPlan {
   const legacyStatus = readString(data.status);
-  const status = resolveStatus(legacyStatus);
+  const status = resolveStatus(machineId, legacyStatus, statusDecisions);
   const coordinates = readCoordinates(data);
   const geohash = coordinates === null ? null : encodeGeohash(
     coordinates.latitude,
@@ -247,7 +275,11 @@ function planOneMachine(
   };
 }
 
-function resolveStatus(value: string | null): {
+function resolveStatus(
+  machineId: string,
+  value: string | null,
+  decisions: MigrationStatusDecisions,
+): {
   readonly target: CanonicalMachineStatus | null;
   readonly decision: LegacyMachineMigrationPlan["statusDecision"];
 } {
@@ -258,7 +290,17 @@ function resolveStatus(value: string | null): {
     value === "merged" ||
     value === "removed"
   ) {
+    const approved = readApprovedStatus(machineId, decisions);
+    if (approved !== undefined && approved !== value) {
+      throw new Error(
+        `Status decision cannot override canonical status for ${machineId}.`,
+      );
+    }
     return {target: value, decision: "canonical"};
+  }
+  const approved = readApprovedStatus(machineId, decisions);
+  if (approved !== undefined) {
+    return {target: approved, decision: "owner_approved"};
   }
   return {target: null, decision: "manual_review"};
 }
@@ -426,6 +468,81 @@ function validateCatalog(catalog: MigrationMasterCatalog): void {
   if (productIds.size !== catalog.products.length) {
     throw new Error("Product master contains duplicate IDs.");
   }
+}
+
+function validateAliases(
+  catalog: MigrationMasterCatalog,
+  aliases: MigrationAliases,
+): void {
+  const activeManufacturerIds = new Set(
+    catalog.manufacturers
+      .filter((item) => item.isActive)
+      .map((item) => item.id),
+  );
+  const activeProductIds = new Set(
+    catalog.products.filter((item) => item.isActive).map((item) => item.id),
+  );
+  validateAliasMap(
+    aliases.manufacturers,
+    activeManufacturerIds,
+    "manufacturer",
+  );
+  validateAliasMap(aliases.products, activeProductIds, "product");
+}
+
+function validateAliasMap(
+  aliases: Readonly<Record<string, string>> | undefined,
+  activeIds: ReadonlySet<string>,
+  kind: "manufacturer" | "product",
+): void {
+  for (const [label, targetId] of Object.entries(aliases ?? {})) {
+    if (label.length === 0 || normalizeMasterLabel(label) !== label) {
+      throw new Error(
+        `Migration ${kind} alias key must already be normalized: ${label}`,
+      );
+    }
+    if (!activeIds.has(targetId)) {
+      throw new Error(
+        `Migration ${kind} alias targets an inactive or unknown ID: ${targetId}`,
+      );
+    }
+  }
+}
+
+function validateStatusDecisions(decisions: MigrationStatusDecisions): void {
+  const canonical = new Set<CanonicalMachineStatus>([
+    "active",
+    "underReview",
+    "hidden",
+    "merged",
+    "removed",
+  ]);
+  for (const [machineId, target] of Object.entries(
+    decisions.machineStatuses ?? {},
+  )) {
+    if (machineId.trim().length === 0 || machineId.trim() !== machineId) {
+      throw new Error("Status decision contains an invalid machine ID.");
+    }
+    if (!canonical.has(target)) {
+      throw new Error(
+        `Status decision contains an invalid target for ${machineId}.`,
+      );
+    }
+  }
+}
+
+function readApprovedStatus(
+  machineId: string,
+  decisions: MigrationStatusDecisions,
+): CanonicalMachineStatus | undefined {
+  const statuses = decisions.machineStatuses;
+  if (
+    statuses === undefined ||
+    !Object.prototype.hasOwnProperty.call(statuses, machineId)
+  ) {
+    return undefined;
+  }
+  return statuses[machineId];
 }
 
 function readSchemaVersion(value: unknown): number | null {
