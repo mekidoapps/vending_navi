@@ -22,6 +22,9 @@
 - Owner-approved dry-run now reports 42 ready, 0 manual-review,
   0 invalid-coordinate, 8 unresolved-product, and 25 planned-index entries.
 - Functions regression now passes 146/146.
+- Completed the managed pre-migration Firestore export.
+- Kept all detailed export evidence outside GitHub in private storage.
+- Production migration remains blocked until an isolated restore check passes.
 
 ## 2026-08-31 - Production release audit remediation Phase A
 

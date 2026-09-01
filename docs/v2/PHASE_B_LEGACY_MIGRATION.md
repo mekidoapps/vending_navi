@@ -155,6 +155,13 @@ Firebase project ID, source Git SHA, and SHA-256 where applicable:
 PITR or scheduled backups should be enabled separately, but enabling them does
 not replace the point-in-time export required for this migration.
 
+### Managed export gate (completed)
+
+- A managed pre-migration Firestore export completed successfully.
+- Detailed export evidence is retained outside GitHub in private storage.
+- Production migration remains blocked until an isolated non-production restore
+  is verified.
+
 ## Apply and rollback gates
 
 An apply implementation is intentionally absent at this stage. It may be added
