@@ -1,5 +1,19 @@
 # Phase C Completion Status
 
+> **Superseded / Reopened on 2026-09-01**
+>
+> A later production-wide public-field re-audit found seven legacy
+> vending-machine root documents still exposing identity-related fields:
+> `createdByName`, `updatedBy`, and `updatedByName`.
+>
+> The Phase C migration described below completed successfully for
+> `createdBy` and `confirmedBy`, but the final PASS / P1-10 RESOLVED
+> decision is temporarily superseded until Phase C.1 is applied and
+> independently re-verified.
+>
+> Current decision: **Phase C REOPENED / P1-10 PARTIALLY RESOLVED**
+
+
 Date: 2026-09-01
 
 ## Result
