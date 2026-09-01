@@ -4,7 +4,7 @@ Date: 2026-09-01
 
 ## Status
 
-READY FOR PRODUCTION APPLY
+PASS
 
 Phase C.1 was opened after a production-wide public-field re-audit found
 legacy identity-related fields that were outside the original Phase C
@@ -99,8 +99,75 @@ Phase C.1 can return Phase C to PASS only after all of the following pass:
 - production public-field re-audit finds zero affected documents;
 - second migration dry-run reports zero writes and zero conflicts.
 
-Until then:
+## Production apply result
 
-- Phase C: REOPENED
-- P1-10: PARTIALLY RESOLVED
-- overall release: NO-GO
+Production migration completed successfully.
+
+- production apply exit: 0
+- affected machine roots: 7
+- private metadata writes: 7
+- public document writes: 7
+- public field deletes: 21
+- total planned writes: 14
+- conflicts: 0
+
+## Independent production postcheck
+
+Verified production state after migration:
+
+- product masters: 96
+- manufacturers: 7
+- vending-machine roots: 42
+- active vending machines: 42
+- vending-machine product documents: 32
+- active vending-machine products: 31
+- machine-product index documents: 32
+- active machine-product indexes: 31
+- private vending-machine roots: 42
+
+Public identity audit:
+
+- product masters with identity fields: 0
+- manufacturers with identity fields: 0
+- vending-machine roots with identity fields: 0
+- vending-machine products with identity fields: 0
+- machine-product indexes with identity fields: 0
+- total affected publicly readable documents: 0
+
+Private legacy metadata verification:
+
+- expected metadata documents: 7
+- actual metadata documents: 7
+- missing: 0
+- value mismatches against backup: 0
+
+Postcheck result:
+
+`matchesExpected: true`
+
+## Idempotency
+
+A production dry-run after migration returned:
+
+- state: `post-migration`
+- affected machine roots: 0
+- `createdByName`: 0
+- `updatedBy`: 0
+- `updatedByName`: 0
+- existing private legacy metadata: 7
+- private writes: 0
+- public writes: 0
+- public field deletes: 0
+- planned writes: 0
+- conflicts: 0
+
+## Final decision
+
+Phase C.1: PASS
+
+Phase C: PASS
+
+P1-10: RESOLVED
+
+The overall release remains NO-GO until the remaining P0/P1 audit findings
+are resolved and independently re-audited.

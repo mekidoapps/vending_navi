@@ -1,17 +1,17 @@
 # Phase C Completion Status
 
-> **Superseded / Reopened on 2026-09-01**
+> **Final status after Phase C.1 follow-up — 2026-09-01**
 >
-> A later production-wide public-field re-audit found seven legacy
-> vending-machine root documents still exposing identity-related fields:
-> `createdByName`, `updatedBy`, and `updatedByName`.
+> A later production-wide re-audit found seven legacy vending-machine roots
+> containing `createdByName`, `updatedBy`, and `updatedByName`.
+> Phase C.1 migrated those values into server-only private metadata and
+> removed all three fields from the publicly readable documents.
 >
-> The Phase C migration described below completed successfully for
-> `createdBy` and `confirmedBy`, but the final PASS / P1-10 RESOLVED
-> decision is temporarily superseded until Phase C.1 is applied and
-> independently re-verified.
+> The final production public-identity re-audit found zero affected public
+> documents, private backup comparison found zero mismatches, and the
+> migration idempotency check returned zero remaining writes.
 >
-> Current decision: **Phase C REOPENED / P1-10 PARTIALLY RESOLVED**
+> Current decision: **Phase C PASS / P1-10 RESOLVED**
 
 
 Date: 2026-09-01
