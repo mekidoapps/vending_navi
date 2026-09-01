@@ -7,7 +7,6 @@ final class VendingMachineProductDto {
     required this.evidenceType,
     required this.availability,
     required this.isActive,
-    required this.confirmedBy,
     required this.confirmedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -23,7 +22,6 @@ final class VendingMachineProductDto {
       evidenceType: _requiredString(data, 'evidenceType'),
       availability: _requiredString(data, 'availability'),
       isActive: _requiredBool(data, 'isActive'),
-      confirmedBy: _optionalString(data['confirmedBy']),
       confirmedAt: _optionalDateTime(data['confirmedAt']),
       createdAt: _requiredDateTime(data, 'createdAt'),
       updatedAt: _requiredDateTime(data, 'updatedAt'),
@@ -35,7 +33,6 @@ final class VendingMachineProductDto {
   final String evidenceType;
   final String availability;
   final bool isActive;
-  final String? confirmedBy;
   final DateTime? confirmedAt;
   final DateTime createdAt;
   final DateTime updatedAt;

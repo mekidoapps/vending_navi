@@ -19,6 +19,9 @@ abstract class VendingMachineProduct with _$VendingMachineProduct {
     ProductEvidenceType? evidenceType,
     required ProductAvailability availability,
     @Default(true) bool isActive,
+
+    /// Internal/legacy compatibility only.
+    /// Public Firestore product documents must not expose user IDs.
     String? confirmedBy,
     DateTime? confirmedAt,
     DateTime? createdAt,

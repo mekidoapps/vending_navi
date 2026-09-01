@@ -136,6 +136,12 @@ service cloud.firestore {
       }
     }
 
+    // Server-only machine ownership and audit metadata.
+    // Admin SDK / Callable Functions bypass Rules; clients never access this.
+    match /vending_machine_private/{document=**} {
+      allow read, write: if false;
+    }
+
     // photos, revisions and all other paths remain deny-by-default until
     // their own implementation phases.
     match /{document=**} {

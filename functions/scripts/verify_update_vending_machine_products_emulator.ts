@@ -241,7 +241,23 @@ async function main(): Promise<void> {
     );
     assert(manualProduct.data()?.availability === "available");
     assert(manualProduct.data()?.isActive === true);
-    assert(manualProduct.data()?.confirmedBy === auth.uid);
+    assert(
+      !Object.prototype.hasOwnProperty.call(
+        manualProduct.data() ?? {},
+        "confirmedBy",
+      ),
+      "Public manual product must not expose confirmedBy.",
+    );
+
+    const manualPrivateProduct = await firestore
+      .collection("vending_machine_private")
+      .doc(created.machineId)
+      .collection("products")
+      .doc(fixture.manualProductId)
+      .get();
+
+    assert(manualPrivateProduct.exists);
+    assert(manualPrivateProduct.data()?.confirmedBy === auth.uid);
 
     let manualIndex = await firestore
       .collection("machine_product_index")
@@ -422,7 +438,23 @@ async function main(): Promise<void> {
         "manual_confirmed",
     );
     assert(inferredAfter.data()?.availability === "available");
-    assert(inferredAfter.data()?.confirmedBy === auth.uid);
+    assert(
+      !Object.prototype.hasOwnProperty.call(
+        inferredAfter.data() ?? {},
+        "confirmedBy",
+      ),
+      "Public confirmed inferred product must not expose confirmedBy.",
+    );
+
+    const inferredPrivateProduct = await firestore
+      .collection("vending_machine_private")
+      .doc(created.machineId)
+      .collection("products")
+      .doc(fixture.inferredProductId)
+      .get();
+
+    assert(inferredPrivateProduct.exists);
+    assert(inferredPrivateProduct.data()?.confirmedBy === auth.uid);
 
     assert(
       inferredIndex.data()?.evidenceType ===
@@ -590,7 +622,23 @@ async function main(): Promise<void> {
         "photo_confirmed",
     );
     assert(photoProduct.data()?.availability === "available");
-    assert(photoProduct.data()?.confirmedBy === auth.uid);
+    assert(
+      !Object.prototype.hasOwnProperty.call(
+        photoProduct.data() ?? {},
+        "confirmedBy",
+      ),
+      "Public photo-confirmed product must not expose confirmedBy.",
+    );
+
+    const photoPrivateProduct = await firestore
+      .collection("vending_machine_private")
+      .doc(photoCreate.machineId)
+      .collection("products")
+      .doc(PHOTO_RECOGNIZED_PRODUCT_ID)
+      .get();
+
+    assert(photoPrivateProduct.exists);
+    assert(photoPrivateProduct.data()?.confirmedBy === auth.uid);
 
     const photoIndex = await firestore
       .collection("machine_product_index")

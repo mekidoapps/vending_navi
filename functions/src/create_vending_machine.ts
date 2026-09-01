@@ -124,6 +124,9 @@ export async function createVendingMachineForUser(
   }
 
   const userRef = firestore.collection("users").doc(normalizedUid);
+  const privateMachineRef = firestore
+    .collection("vending_machine_private")
+    .doc(machineRef.id);
   const revisionRef = machineRef.collection("revisions").doc();
 
   const result = await firestore.runTransaction<CreateVendingMachineResult>(
@@ -284,10 +287,16 @@ export async function createVendingMachineForUser(
         mergedIntoMachineId: null,
         dataLevel,
         primaryPhotoId: photoId,
-        createdBy: normalizedUid,
         createdAt: now,
         updatedAt: now,
         lastProductUpdatedAt: productPlans.length > 0 ? now : null,
+      });
+
+      transaction.create(privateMachineRef, {
+        machineId: machineRef.id,
+        createdBy: normalizedUid,
+        createdAt: now,
+        updatedAt: now,
       });
 
       if (
@@ -324,11 +333,24 @@ export async function createVendingMachineForUser(
           evidenceType: plan.evidenceType,
           availability: plan.availability,
           isActive: true,
-          confirmedBy: plan.isConfirmed ? normalizedUid : null,
           confirmedAt: plan.isConfirmed ? now : null,
           createdAt: now,
           updatedAt: now,
         });
+
+        if (plan.isConfirmed) {
+          const privateProductRef = privateMachineRef
+            .collection("products")
+            .doc(plan.productId);
+
+          transaction.set(privateProductRef, {
+            productId: plan.productId,
+            confirmedBy: normalizedUid,
+            confirmedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          }, {merge: true});
+        }
 
         const indexId = `${machineRef.id}_${plan.productId}`;
         const indexRef = firestore

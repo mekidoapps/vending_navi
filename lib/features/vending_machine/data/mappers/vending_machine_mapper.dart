@@ -98,7 +98,7 @@ abstract final class VendingMachineMapper {
           mergedIntoMachineId: mergedIntoMachineId,
           dataLevel: dataLevel,
           primaryPhotoId: _normalizedOptional(dto.primaryPhotoId),
-          createdBy: dto.createdBy.trim(),
+          createdBy: null,
           createdAt: dto.createdAt.toUtc(),
           updatedAt: dto.updatedAt.toUtc(),
           lastProductUpdatedAt: dto.lastProductUpdatedAt?.toUtc(),

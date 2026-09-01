@@ -20,6 +20,7 @@ void main() {
       expect(machine?.manufacturerStatus, ManufacturerStatus.confirmed);
       expect(machine?.location.latitude, 35.681236);
       expect(machine?.dataLevel, VendingMachineDataLevel.productsConfirmed);
+      expect(machine?.createdBy, isNull);
       expect(machine?.products, isEmpty);
     });
 

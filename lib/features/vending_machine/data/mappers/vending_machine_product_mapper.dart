@@ -50,7 +50,7 @@ abstract final class VendingMachineProductMapper {
         evidenceType: evidenceType,
         availability: availability,
         isActive: dto.isActive,
-        confirmedBy: _normalizedOptional(dto.confirmedBy),
+        confirmedBy: null,
         confirmedAt: dto.confirmedAt?.toUtc(),
         createdAt: dto.createdAt.toUtc(),
         updatedAt: dto.updatedAt.toUtc(),
@@ -62,13 +62,5 @@ abstract final class VendingMachineProductMapper {
     return AppResult<VendingMachineProduct>.failure(
       ValidationFailure(field: field),
     );
-  }
-
-  static String? _normalizedOptional(String? value) {
-    final normalized = value?.trim();
-    if (normalized == null || normalized.isEmpty) {
-      return null;
-    }
-    return normalized;
   }
 }

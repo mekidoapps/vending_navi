@@ -87,7 +87,24 @@ async function main(): Promise<void> {
     assert(machine.manufacturerStatus === "confirmed");
     assert(machine.status === "active");
     assert(typeof machine.geohash === "string" && machine.geohash.length === 6);
-    assert(machine.createdBy === auth.localId);
+    assert(
+      !Object.prototype.hasOwnProperty.call(machine, "createdBy"),
+      "Public machine must not expose createdBy.",
+    );
+
+    const privateMachineSnapshot = await firestore
+      .collection("vending_machine_private")
+      .doc(first.machineId)
+      .get();
+
+    assert(
+      privateMachineSnapshot.exists,
+      "Private machine metadata must exist.",
+    );
+    assert(
+      privateMachineSnapshot.data()?.createdBy === auth.localId,
+      "Private machine metadata must preserve creator UID.",
+    );
 
     const productsSnapshot = await machineSnapshot.ref
       .collection("products")

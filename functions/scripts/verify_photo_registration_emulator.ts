@@ -452,8 +452,25 @@ async function main(): Promise<void> {
     );
     assert(machine.dataLevel === "productsConfirmed");
     assert(machine.primaryPhotoId === photoId);
-    assert(machine.createdBy === auth.uid);
+    assert(
+      !Object.prototype.hasOwnProperty.call(machine, "createdBy"),
+      "Public machine must not expose createdBy.",
+    );
     assert(machine.status === "active");
+
+    const privateMachineSnapshot = await firestore
+      .collection("vending_machine_private")
+      .doc(machineId)
+      .get();
+
+    assert(
+      privateMachineSnapshot.exists,
+      "Private machine metadata must exist.",
+    );
+    assert(
+      privateMachineSnapshot.data()?.createdBy === auth.uid,
+      "Private machine metadata must preserve creator UID.",
+    );
 
     const photoSnapshot = await machineSnapshot.ref
       .collection("photos")
@@ -512,7 +529,26 @@ async function main(): Promise<void> {
 
       assert(product.availability === "available");
       assert(product.isActive === true);
-      assert(product.confirmedBy === auth.uid);
+      assert(
+        !Object.prototype.hasOwnProperty.call(product, "confirmedBy"),
+        "Public product must not expose confirmedBy.",
+      );
+
+      const privateProductSnapshot = await firestore
+        .collection("vending_machine_private")
+        .doc(machineId)
+        .collection("products")
+        .doc(productSnapshot.id)
+        .get();
+
+      assert(
+        privateProductSnapshot.exists,
+        `Private confirmation metadata must exist for ${productSnapshot.id}.`,
+      );
+      assert(
+        privateProductSnapshot.data()?.confirmedBy === auth.uid,
+        `Private confirmation UID must match for ${productSnapshot.id}.`,
+      );
 
       const index = await firestore
         .collection("machine_product_index")

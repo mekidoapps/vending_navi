@@ -32,7 +32,8 @@ abstract class VendingMachine with _$VendingMachine {
     VendingMachineDataLevel? dataLevel,
     String? primaryPhotoId,
 
-    /// Required for schemaVersion=2. Nullable only for legacy read data.
+    /// Internal/legacy compatibility only.
+    /// Public Firestore vending-machine documents must not expose user IDs.
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,

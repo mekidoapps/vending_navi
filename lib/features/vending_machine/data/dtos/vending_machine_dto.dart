@@ -15,7 +15,6 @@ final class VendingMachineDto {
     required this.mergedIntoMachineId,
     required this.dataLevel,
     required this.primaryPhotoId,
-    required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
     required this.lastProductUpdatedAt,
@@ -39,7 +38,6 @@ final class VendingMachineDto {
       mergedIntoMachineId: _optionalString(data['mergedIntoMachineId']),
       dataLevel: _requiredString(data, 'dataLevel'),
       primaryPhotoId: _optionalString(data['primaryPhotoId']),
-      createdBy: _requiredString(data, 'createdBy'),
       createdAt: _requiredDateTime(data, 'createdAt'),
       updatedAt: _requiredDateTime(data, 'updatedAt'),
       lastProductUpdatedAt: _optionalDateTime(data['lastProductUpdatedAt']),
@@ -59,7 +57,6 @@ final class VendingMachineDto {
   final String? mergedIntoMachineId;
   final String dataLevel;
   final String? primaryPhotoId;
-  final String createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastProductUpdatedAt;

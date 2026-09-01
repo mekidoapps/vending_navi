@@ -25,6 +25,7 @@ void main() {
 
       expect(result.failureOrNull, isNull);
       expect(result.valueOrNull?.isConfirmed, isTrue);
+      expect(result.valueOrNull?.confirmedBy, isNull);
       expect(result.valueOrNull?.availability, ProductAvailability.available);
     });
 

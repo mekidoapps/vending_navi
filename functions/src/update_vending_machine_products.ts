@@ -167,6 +167,10 @@ export async function updateVendingMachineProductsForUser(
     .collection("vending_machines")
     .doc(input.machineId);
 
+  const privateMachineRef = firestore
+    .collection("vending_machine_private")
+    .doc(input.machineId);
+
   const userRef = firestore
     .collection("users")
     .doc(normalizedUid);
@@ -487,10 +491,6 @@ export async function updateVendingMachineProductsForUser(
               evidenceType: plan.after.evidenceType,
               availability: plan.after.availability,
               isActive: plan.after.isActive,
-              confirmedBy:
-                isConfirmedEvidence(plan.after.evidenceType) ?
-                  normalizedUid :
-                  null,
               confirmedAt:
                 isConfirmedEvidence(plan.after.evidenceType) ?
                   now :
@@ -507,7 +507,6 @@ export async function updateVendingMachineProductsForUser(
             };
 
             if (becameConfirmed) {
-              productPatch.confirmedBy = normalizedUid;
               productPatch.confirmedAt = now;
             }
 
@@ -515,6 +514,19 @@ export async function updateVendingMachineProductsForUser(
               item.productRef,
               productPatch,
             );
+          }
+
+          if (becameConfirmed) {
+            const privateProductRef = privateMachineRef
+              .collection("products")
+              .doc(item.productId);
+
+            transaction.set(privateProductRef, {
+              productId: item.productId,
+              confirmedBy: normalizedUid,
+              confirmedAt: now,
+              updatedAt: now,
+            }, {merge: true});
           }
 
           const indexData: Record<string, unknown> = {
