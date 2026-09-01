@@ -1,3 +1,15 @@
+## 2026-09-01 - Phase B production apply gate
+
+### Transactional legacy migration
+
+- Added a production-locked, dry-run-first legacy migration command.
+- Added exact approved-report and fixture hash verification.
+- Added atomic status, machine-product, and search-index creation with complete
+  pre/post-state validation and zero-diff rerun support.
+- Kept legacy root fields and schema versions unchanged.
+- Added regression coverage for approved pre-state, post-state, drift, partial
+  writes, index-count mismatch, and sold-out evidence.
+
 ## 2026-08-31 - Production release audit remediation Phase B (in progress)
 
 ### Legacy migration safety

@@ -158,26 +158,60 @@ not replace the point-in-time export required for this migration.
 ### Managed export gate (completed)
 
 - A managed pre-migration Firestore export completed successfully.
+- The export was restored and structurally verified in an isolated database.
 - Detailed export evidence is retained outside GitHub in private storage.
-- Production migration remains blocked until an isolated non-production restore
-  is verified.
+
+## Production apply tool
+
+`functions/scripts/apply_legacy_machine_migration.ts` is the only approved
+Phase B writer. It requires the exact private approved report and its SHA-256,
+is locked to the production project and `(default)` database, and performs a
+read-only dry-run unless the explicit apply confirmation is present.
+
+The apply is one Firestore transaction. It:
+
+- changes only the root `status` field for the 41 approved legacy documents;
+- preserves every existing legacy root field, including raw unresolved product
+  labels and timestamps;
+- creates 25 canonical vending-machine product documents;
+- creates the corresponding 25 search-index documents;
+- refuses changed root IDs, coordinates, product evidence, master data, status,
+  baseline index counts, partial prior writes, and conflicting target paths;
+- accepts only the complete approved pre-apply state or a complete zero-diff
+  post-apply state.
+
+`targetSchemaVersion: 2` in the approved planner report remains an eligibility
+signal for canonical derived data. Phase B does not overwrite the legacy root
+`schemaVersion`; full root conversion requires a separate reviewed migration.
+
+Run from `functions/` after checking out the exact clean source commit:
+
+```bash
+npm run apply:legacy-migration -- \
+  --project=vendingnavi \
+  '--database=(default)' \
+  --approved-report=/private/path/approved-report.json \
+  --expected-report-sha256=<approved-sha256>
+```
+
+The production apply adds both `--apply` and the fixed confirmation phrase.
+Do not place the private report in the repository.
 
 ## Apply and rollback gates
 
-An apply implementation is intentionally absent at this stage. It may be added
-only after the 42-document report has no unapproved status decisions and the
-backup has been verified.
+The apply implementation remains dry-run-only by default and fails closed
+unless every approved precondition is still true at transaction time.
 
 Before apply:
 
-- [ ] Report total is exactly 42.
-- [ ] Every `available`, missing, and unknown status has a recorded decision.
-- [ ] Every invalid coordinate has a recorded correction or exclusion.
-- [ ] Every unresolved product remains preserved as raw evidence.
-- [ ] Planned public root and index counts are approved.
-- [ ] Backup restore procedure and rollback owner are recorded.
+- [x] Report total is exactly 42.
+- [x] Every `available`, missing, and unknown status has a recorded decision.
+- [x] Every invalid coordinate has a recorded correction or exclusion.
+- [x] Every unresolved product remains preserved as raw evidence.
+- [x] Planned public root and index counts are approved.
+- [x] Backup restore procedure and rollback owner are recorded privately.
 - [ ] Exact source commit and migration revision are recorded.
-- [ ] Explicit production apply approval is recorded.
+- [x] Explicit production apply approval is recorded privately.
 
 After apply, rollback is triggered by a count mismatch, missing public machine,
 unexpected index, lost raw product/photo/timestamp, or a non-zero second-run
@@ -215,5 +249,8 @@ diff. No legacy field or document is deleted during Phase B.
   `9ea705ee23b50c25059d2b536e1df5b7c6a5328a310297c777c86f3f6cd873e8`.
 - The sanitized snapshot and detailed report contain production-derived
   location/product data and are intentionally not committed to GitHub.
-- The backup gate remains open; an apply implementation is still absent.
+- The managed export and isolated-restore gate is complete; detailed evidence
+  remains private.
+- The fail-closed transactional apply implementation is covered by regression
+  tests and awaits the final production dry-run.
 - Production writes: none.
