@@ -67,6 +67,7 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
                   state: state,
                   onEditDisplayName: _editDisplayName,
                   onSignOut: _confirmSignOut,
+                  onDeleteAccount: _startAccountDeletion,
                   enableFavoriteProducts: widget.enableFavoriteProducts,
                 )
               else
@@ -202,6 +203,222 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
       ref.read(favoriteProductsControllerProvider.notifier).clearForGuest();
     }
   }
+
+  Future<void> _startAccountDeletion() async {
+    final currentState = ref.read(v2MyPageControllerProvider);
+
+    if (!currentState.isAuthenticated ||
+        currentState.isReauthenticating ||
+        currentState.isDeletingAccount) {
+      return;
+    }
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('アカウントを削除しますか？'),
+          content: const Text(
+            'プロフィール、よく飲む商品など、アカウントに紐づくデータを削除します。'
+            '一時アップロード写真も削除されます。\n\n'
+            '自販機・商品などサービスの公開情報は残る場合がありますが、'
+            'あなたを識別する情報は切り離されます。\n\n'
+            'この操作は取り消せません。',
+          ),
+          actions: <Widget>[
+            TextButton(
+              key: const Key('myPageDeleteStartCancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              key: const Key('myPageDeleteStartConfirm'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('本人確認へ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (proceed != true || !mounted) {
+      return;
+    }
+
+    final reauthenticated = await _reauthenticateForAccountDeletion();
+
+    if (!reauthenticated || !mounted) {
+      return;
+    }
+
+    final finalConfirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('本当に削除しますか？'),
+          content: const Text(
+            '本人確認が完了しました。\n\n'
+            'アカウントと対象データを完全に削除します。'
+            '削除後は元に戻せません。',
+          ),
+          actions: <Widget>[
+            TextButton(
+              key: const Key('myPageDeleteFinalCancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              key: const Key('myPageDeleteFinalConfirm'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('完全に削除'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (finalConfirmed != true || !mounted) {
+      return;
+    }
+
+    final success = await ref
+        .read(v2MyPageControllerProvider.notifier)
+        .deleteAccount();
+
+    if (!mounted || !success) {
+      return;
+    }
+
+    if (widget.enableFavoriteProducts) {
+      ref.read(favoriteProductsControllerProvider.notifier).clearForGuest();
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('アカウントを削除しました')));
+  }
+
+  Future<bool> _reauthenticateForAccountDeletion() async {
+    final state = ref.read(v2MyPageControllerProvider);
+    final providers = state.user?.providerIds ?? const <String>[];
+
+    final hasPassword = providers.contains('password');
+    final hasGoogle = providers.contains('google.com');
+
+    String? method;
+
+    if (hasPassword && hasGoogle) {
+      method = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('本人確認の方法'),
+            content: const Text('アカウント削除の前に、本人確認を行います。'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('キャンセル'),
+              ),
+              OutlinedButton(
+                key: const Key('myPageDeleteUsePassword'),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop('password');
+                },
+                child: const Text('パスワード'),
+              ),
+              FilledButton(
+                key: const Key('myPageDeleteUseGoogle'),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop('google');
+                },
+                child: const Text('Google'),
+              ),
+            ],
+          );
+        },
+      );
+    } else if (hasPassword) {
+      method = 'password';
+    } else if (hasGoogle) {
+      method = 'google';
+    }
+
+    if (!mounted || method == null) {
+      if (mounted && !hasPassword && !hasGoogle) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('このログイン方法では本人確認を行えません。')));
+      }
+      return false;
+    }
+
+    if (method == 'google') {
+      return ref
+          .read(v2MyPageControllerProvider.notifier)
+          .reauthenticateWithGoogleForDeletion();
+    }
+
+    var password = '';
+
+    final input = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('本人確認'),
+          content: TextFormField(
+            key: const Key('myPageDeletePasswordField'),
+            autofocus: true,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(labelText: '現在のパスワード'),
+            onChanged: (value) {
+              password = value;
+            },
+            onFieldSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value);
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              key: const Key('myPageDeletePasswordContinue'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(password);
+              },
+              child: const Text('本人確認'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (input == null || !mounted) {
+      return false;
+    }
+
+    return ref
+        .read(v2MyPageControllerProvider.notifier)
+        .reauthenticateWithPasswordForDeletion(input);
+  }
 }
 
 class _GuestMyPage extends StatelessWidget {
@@ -255,12 +472,14 @@ class _AuthenticatedMyPage extends StatelessWidget {
     required this.state,
     required this.onEditDisplayName,
     required this.onSignOut,
+    required this.onDeleteAccount,
     required this.enableFavoriteProducts,
   });
 
   final V2MyPageState state;
   final VoidCallback onEditDisplayName;
   final VoidCallback onSignOut;
+  final VoidCallback onDeleteAccount;
   final bool enableFavoriteProducts;
 
   @override
@@ -299,6 +518,32 @@ class _AuthenticatedMyPage extends StatelessWidget {
                 )
               : const Icon(Icons.logout_rounded),
           label: Text(state.isSigningOut ? 'ログアウト中…' : 'ログアウト'),
+        ),
+        const SizedBox(height: V2Spacing.sm),
+        OutlinedButton.icon(
+          key: const Key('myPageDeleteAccountButton'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed:
+              state.isSigningOut ||
+                  state.isReauthenticating ||
+                  state.isDeletingAccount
+              ? null
+              : onDeleteAccount,
+          icon: state.isReauthenticating || state.isDeletingAccount
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.delete_forever_outlined),
+          label: Text(
+            state.isDeletingAccount
+                ? '削除中…'
+                : state.isReauthenticating
+                ? '本人確認中…'
+                : 'アカウントを削除',
+          ),
         ),
       ],
     );
