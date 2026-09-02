@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_failure.dart';
 import '../../auth/application/providers/auth_providers.dart';
+import '../../auth/application/providers/google_auth_providers.dart';
 import '../../auth/domain/entities/auth_session.dart';
 import 'providers/user_profile_providers.dart';
 import 'v2_my_page_state.dart';
@@ -153,6 +154,201 @@ final class V2MyPageController extends Notifier<V2MyPageState> {
     return true;
   }
 
+  Future<bool> reauthenticateWithPasswordForDeletion(String password) async {
+    final authRepository = ref.read(authRepositoryProvider);
+    final session = authRepository.currentSession;
+
+    if (!session.isAuthenticated) {
+      state = V2MyPageState(
+        session: session,
+        profile: null,
+        failure: const AuthenticationFailure(),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    if (!session.userOrNull!.hasProvider('password')) {
+      state = V2MyPageState(
+        session: session,
+        profile: state.profile,
+        failure: const ValidationFailure(
+          field: 'accountDeletion',
+          userMessage: 'このアカウントではパスワードによる本人確認を利用できません。',
+        ),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    if (password.isEmpty) {
+      state = V2MyPageState(
+        session: session,
+        profile: state.profile,
+        failure: const ValidationFailure(
+          field: 'password',
+          userMessage: 'パスワードを入力してください。',
+        ),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    state = V2MyPageState(
+      session: session,
+      profile: state.profile,
+      failure: null,
+      isLoading: false,
+      isSavingDisplayName: false,
+      isSigningOut: false,
+      isReauthenticating: true,
+    );
+
+    final result = await authRepository.reauthenticateWithPassword(
+      password: password,
+    );
+
+    final failure = result.failureOrNull;
+
+    state = V2MyPageState(
+      session: authRepository.currentSession,
+      profile: state.profile,
+      failure: failure,
+      isLoading: false,
+      isSavingDisplayName: false,
+      isSigningOut: false,
+      isReauthenticating: false,
+    );
+
+    return failure == null && result.valueOrNull == true;
+  }
+
+  Future<bool> reauthenticateWithGoogleForDeletion() async {
+    final authRepository = ref.read(authRepositoryProvider);
+    final session = authRepository.currentSession;
+
+    if (!session.isAuthenticated) {
+      state = V2MyPageState(
+        session: session,
+        profile: null,
+        failure: const AuthenticationFailure(),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    if (!session.userOrNull!.hasProvider('google.com')) {
+      state = V2MyPageState(
+        session: session,
+        profile: state.profile,
+        failure: const ValidationFailure(
+          field: 'accountDeletion',
+          userMessage: 'このアカウントではGoogleによる本人確認を利用できません。',
+        ),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    state = V2MyPageState(
+      session: session,
+      profile: state.profile,
+      failure: null,
+      isLoading: false,
+      isSavingDisplayName: false,
+      isSigningOut: false,
+      isReauthenticating: true,
+    );
+
+    final result = await ref
+        .read(googleAuthRepositoryProvider)
+        .reauthenticate();
+
+    final failure = result.failureOrNull;
+    final completed = failure == null && result.valueOrNull == true;
+
+    state = V2MyPageState(
+      session: authRepository.currentSession,
+      profile: state.profile,
+      failure: failure,
+      isLoading: false,
+      isSavingDisplayName: false,
+      isSigningOut: false,
+      isReauthenticating: false,
+    );
+
+    return completed;
+  }
+
+  Future<bool> deleteAccount() async {
+    final authRepository = ref.read(authRepositoryProvider);
+    final session = authRepository.currentSession;
+
+    if (!session.isAuthenticated) {
+      state = V2MyPageState(
+        session: session,
+        profile: null,
+        failure: const AuthenticationFailure(),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+      );
+      return false;
+    }
+
+    state = V2MyPageState(
+      session: session,
+      profile: state.profile,
+      failure: null,
+      isLoading: false,
+      isSavingDisplayName: false,
+      isSigningOut: false,
+      isDeletingAccount: true,
+    );
+
+    final result = await ref
+        .read(accountDeletionRepositoryProvider)
+        .deleteAccount();
+
+    final failure = result.failureOrNull;
+
+    if (failure != null || result.valueOrNull != true) {
+      state = V2MyPageState(
+        session: authRepository.currentSession,
+        profile: state.profile,
+        failure:
+            failure ??
+            const ValidationFailure(
+              field: 'accountDeletion',
+              userMessage: 'アカウント削除を完了できませんでした。',
+            ),
+        isLoading: false,
+        isSavingDisplayName: false,
+        isSigningOut: false,
+        isDeletingAccount: false,
+      );
+      return false;
+    }
+
+    // Server-side Auth deletion is already complete.
+    // Clear the local Firebase Auth session as well.
+    await authRepository.signOut();
+
+    state = V2MyPageState.initial(const GuestAuthSession());
+
+    return true;
+  }
+
   Future<bool> signOut() async {
     final authRepository = ref.read(authRepositoryProvider);
     final session = authRepository.currentSession;
@@ -194,6 +390,8 @@ final class V2MyPageController extends Notifier<V2MyPageState> {
       isLoading: state.isLoading,
       isSavingDisplayName: state.isSavingDisplayName,
       isSigningOut: state.isSigningOut,
+      isReauthenticating: state.isReauthenticating,
+      isDeletingAccount: state.isDeletingAccount,
     );
   }
 }

@@ -11,6 +11,8 @@ final class V2MyPageState {
     required this.isLoading,
     required this.isSavingDisplayName,
     required this.isSigningOut,
+    this.isReauthenticating = false,
+    this.isDeletingAccount = false,
   });
 
   factory V2MyPageState.initial(AuthSession session) {
@@ -30,6 +32,8 @@ final class V2MyPageState {
   final bool isLoading;
   final bool isSavingDisplayName;
   final bool isSigningOut;
+  final bool isReauthenticating;
+  final bool isDeletingAccount;
 
   bool get isAuthenticated => session.isAuthenticated;
 

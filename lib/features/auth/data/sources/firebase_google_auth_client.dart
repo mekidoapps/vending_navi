@@ -32,6 +32,7 @@ final class FirebaseGoogleAuthClient implements GoogleFirebaseAuthClient {
     }
 
     await user.reauthenticateWithCredential(_credential(tokens));
+    await user.getIdToken(true);
   }
 
   OAuthCredential _credential(GoogleSignInTokens tokens) {

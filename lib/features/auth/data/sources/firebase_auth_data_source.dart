@@ -67,6 +67,7 @@ final class FirebaseAuthDataSource implements AuthDataSource {
     );
 
     await user.reauthenticateWithCredential(credential);
+    await user.getIdToken(true);
   }
 
   @override
