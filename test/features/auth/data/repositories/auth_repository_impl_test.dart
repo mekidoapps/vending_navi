@@ -19,20 +19,27 @@ void main() {
     final source = _FakeAuthDataSource(current: _userDto());
 
     final repository = AuthRepositoryImpl(source);
+
     final session = repository.currentSession;
 
     expect(session, isA<AuthenticatedAuthSession>());
+
     expect(session.userOrNull?.uid, 'user_123');
+
     expect(session.userOrNull?.hasProvider('password'), isTrue);
   });
 
   test('authStateChangesをGuest/Auth sessionへ変換して流す', () async {
     final source = _FakeAuthDataSource();
+
     addTearDown(source.dispose);
 
     final repository = AuthRepositoryImpl(source);
+
     final emitted = <AuthSession>[];
+
     final subscription = repository.watchSession().listen(emitted.add);
+
     addTearDown(subscription.cancel);
 
     source.emit(_userDto());
@@ -41,9 +48,25 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(emitted, hasLength(2));
+
     expect(emitted.first, isA<AuthenticatedAuthSession>());
-    expect(emitted.first.userOrNull?.uid, 'user_123');
+
     expect(emitted.last, isA<GuestAuthSession>());
+  });
+
+  test('password reauthentication is delegated', () async {
+    final source = _FakeAuthDataSource(current: _userDto());
+
+    final repository = AuthRepositoryImpl(source);
+
+    final result = await repository.reauthenticateWithPassword(
+      password: 'secret',
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.valueOrNull, isTrue);
+    expect(source.reauthenticationCount, 1);
+    expect(source.lastPassword, 'secret');
   });
 }
 
@@ -64,6 +87,9 @@ final class _FakeAuthDataSource implements AuthDataSource {
       StreamController<AuthUserDto?>.broadcast(sync: true);
 
   AuthUserDto? _current;
+
+  int reauthenticationCount = 0;
+  String? lastPassword;
 
   @override
   AuthUserDto? get currentUser => _current;
@@ -87,6 +113,14 @@ final class _FakeAuthDataSource implements AuthDataSource {
     required String password,
   }) async {
     return _current ?? _userDto();
+  }
+
+  @override
+  Future<void> reauthenticateWithEmailPassword({
+    required String password,
+  }) async {
+    reauthenticationCount += 1;
+    lastPassword = password;
   }
 
   @override

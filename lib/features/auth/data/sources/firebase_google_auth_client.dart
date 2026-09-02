@@ -11,12 +11,7 @@ final class FirebaseGoogleAuthClient implements GoogleFirebaseAuthClient {
 
   @override
   Future<AuthUserDto> signInWithTokens(GoogleSignInTokens tokens) async {
-    final credential = GoogleAuthProvider.credential(
-      idToken: tokens.idToken,
-      accessToken: tokens.accessToken,
-    );
-
-    final result = await _auth.signInWithCredential(credential);
+    final result = await _auth.signInWithCredential(_credential(tokens));
 
     final user = result.user;
     if (user == null) {
@@ -26,5 +21,23 @@ final class FirebaseGoogleAuthClient implements GoogleFirebaseAuthClient {
     }
 
     return AuthUserDto.fromFirebase(user);
+  }
+
+  @override
+  Future<void> reauthenticateWithTokens(GoogleSignInTokens tokens) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+
+    await user.reauthenticateWithCredential(_credential(tokens));
+  }
+
+  OAuthCredential _credential(GoogleSignInTokens tokens) {
+    return GoogleAuthProvider.credential(
+      idToken: tokens.idToken,
+      accessToken: tokens.accessToken,
+    );
   }
 }

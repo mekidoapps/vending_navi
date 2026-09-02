@@ -55,4 +55,33 @@ final class GoogleAuthRepositoryImpl implements GoogleAuthRepository {
       return const AppResult<GoogleSignInOutcome>.failure(UnknownFailure());
     }
   }
+
+  @override
+  Future<AppResult<bool>> reauthenticate() async {
+    try {
+      final tokens = await _googleSignInClient.signIn();
+
+      if (tokens == null) {
+        return const AppResult<bool>.success(false);
+      }
+
+      await _firebaseAuthClient.reauthenticateWithTokens(tokens);
+
+      return const AppResult<bool>.success(true);
+    } on FirebaseAuthException catch (error) {
+      return AppResult<bool>.failure(
+        FirebaseAuthFailureMapper.fromException(error),
+      );
+    } on PlatformException catch (error) {
+      if (GoogleSignInFailureMapper.isCancellationCode(error.code)) {
+        return const AppResult<bool>.success(false);
+      }
+
+      return AppResult<bool>.failure(
+        GoogleSignInFailureMapper.fromPlatformException(error),
+      );
+    } catch (_) {
+      return const AppResult<bool>.failure(UnknownFailure());
+    }
+  }
 }

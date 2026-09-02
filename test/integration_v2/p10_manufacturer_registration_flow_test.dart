@@ -474,6 +474,13 @@ final class _FakeAuthRepository
   }
 
   @override
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  }) async {
+    return const AppResult<bool>.success(true);
+  }
+
+  @override
   Future<AppResult<AuthSession>> signOut() async {
     session = const GuestAuthSession();
 

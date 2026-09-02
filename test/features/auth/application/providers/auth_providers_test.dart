@@ -89,6 +89,11 @@ final class _FakeAuthDataSource implements AuthDataSource {
   }
 
   @override
+  Future<void> reauthenticateWithEmailPassword({
+    required String password,
+  }) async {}
+
+  @override
   Future<void> signOut() async {
     _current = null;
   }

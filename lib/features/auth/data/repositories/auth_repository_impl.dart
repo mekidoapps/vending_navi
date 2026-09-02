@@ -64,6 +64,23 @@ final class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  }) async {
+    try {
+      await _source.reauthenticateWithEmailPassword(password: password);
+
+      return const AppResult<bool>.success(true);
+    } on FirebaseAuthException catch (error) {
+      return AppResult<bool>.failure(
+        FirebaseAuthFailureMapper.fromException(error),
+      );
+    } catch (_) {
+      return const AppResult<bool>.failure(UnknownFailure());
+    }
+  }
+
+  @override
   Future<AppResult<AuthSession>> signOut() async {
     try {
       await _source.signOut();

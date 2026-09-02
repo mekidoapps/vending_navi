@@ -3,4 +3,6 @@ import 'google_sign_in_client.dart';
 
 abstract interface class GoogleFirebaseAuthClient {
   Future<AuthUserDto> signInWithTokens(GoogleSignInTokens tokens);
+
+  Future<void> reauthenticateWithTokens(GoogleSignInTokens tokens);
 }

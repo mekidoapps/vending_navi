@@ -48,6 +48,28 @@ final class FirebaseAuthDataSource implements AuthDataSource {
   }
 
   @override
+  Future<void> reauthenticateWithEmailPassword({
+    required String password,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+
+    final email = user.email?.trim();
+    if (email == null || email.isEmpty) {
+      throw FirebaseAuthException(code: 'invalid-credential');
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  @override
   Future<void> signOut() {
     return _auth.signOut();
   }
@@ -62,6 +84,7 @@ final class FirebaseAuthDataSource implements AuthDataSource {
     if (user == null) {
       throw StateError('Firebase Auth completed without a user.');
     }
+
     return AuthUserDto.fromFirebase(user);
   }
 }

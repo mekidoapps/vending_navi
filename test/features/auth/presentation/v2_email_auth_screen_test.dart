@@ -148,6 +148,13 @@ final class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  }) async {
+    return const AppResult<bool>.success(true);
+  }
+
+  @override
   Future<AppResult<AuthSession>> signOut() async {
     return const AppResult<AuthSession>.success(GuestAuthSession());
   }

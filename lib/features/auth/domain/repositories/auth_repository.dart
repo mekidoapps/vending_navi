@@ -16,6 +16,10 @@ abstract interface class AuthRepository {
     required String password,
   });
 
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  });
+
   Future<AppResult<AuthSession>> signOut();
 
   Future<AppResult<bool>> sendPasswordResetEmail({required String email});

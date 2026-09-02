@@ -106,6 +106,11 @@ final class _FakeGoogleAuthRepository implements GoogleAuthRepository {
   final AppResult<GoogleSignInOutcome> result;
 
   @override
+  Future<AppResult<bool>> reauthenticate() async {
+    return const AppResult<bool>.success(true);
+  }
+
+  @override
   Future<AppResult<GoogleSignInOutcome>> signIn() async {
     return result;
   }

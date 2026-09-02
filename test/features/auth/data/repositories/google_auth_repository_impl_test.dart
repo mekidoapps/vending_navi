@@ -34,13 +34,51 @@ void main() {
     );
 
     final result = await repository.signIn();
+
     final outcome = result.valueOrNull;
 
-    expect(firebase.callCount, 1);
+    expect(firebase.signInCallCount, 1);
+
     expect(outcome, isA<GoogleSignInCompleted>());
 
     final completed = outcome! as GoogleSignInCompleted;
+
     expect(completed.session.userOrNull?.uid, 'google_user');
+  });
+
+  test(
+    'Google reauthentication delegates tokens to current Firebase user',
+    () async {
+      final firebase = _FakeGoogleFirebaseAuthClient();
+
+      final repository = GoogleAuthRepositoryImpl(
+        googleSignInClient: _FakeGoogleSignInClient(
+          tokens: const GoogleSignInTokens(
+            idToken: 'id-token',
+            accessToken: 'access-token',
+          ),
+        ),
+        firebaseAuthClient: firebase,
+      );
+
+      final result = await repository.reauthenticate();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.valueOrNull, isTrue);
+      expect(firebase.reauthCallCount, 1);
+    },
+  );
+
+  test('Google reauthentication chooser cancel returns false', () async {
+    final repository = GoogleAuthRepositoryImpl(
+      googleSignInClient: _FakeGoogleSignInClient(),
+      firebaseAuthClient: _FakeGoogleFirebaseAuthClient(),
+    );
+
+    final result = await repository.reauthenticate();
+
+    expect(result.isSuccess, isTrue);
+    expect(result.valueOrNull, isFalse);
   });
 
   test('Platform cancel exceptionもCancelled outcomeになる', () async {
@@ -85,9 +123,11 @@ final class _FakeGoogleSignInClient implements GoogleSignInClient {
   @override
   Future<GoogleSignInTokens?> signIn() async {
     final value = error;
+
     if (value != null) {
       throw value;
     }
+
     return tokens;
   }
 }
@@ -96,13 +136,16 @@ final class _FakeGoogleFirebaseAuthClient implements GoogleFirebaseAuthClient {
   _FakeGoogleFirebaseAuthClient({this.error});
 
   final Object? error;
-  int callCount = 0;
+
+  int signInCallCount = 0;
+  int reauthCallCount = 0;
 
   @override
   Future<AuthUserDto> signInWithTokens(GoogleSignInTokens tokens) async {
-    callCount += 1;
+    signInCallCount += 1;
 
     final value = error;
+
     if (value != null) {
       throw value;
     }
@@ -114,5 +157,16 @@ final class _FakeGoogleFirebaseAuthClient implements GoogleFirebaseAuthClient {
       providerIds: const <String>['google.com'],
       emailVerified: true,
     );
+  }
+
+  @override
+  Future<void> reauthenticateWithTokens(GoogleSignInTokens tokens) async {
+    reauthCallCount += 1;
+
+    final value = error;
+
+    if (value != null) {
+      throw value;
+    }
   }
 }

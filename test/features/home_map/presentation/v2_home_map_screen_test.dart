@@ -240,6 +240,13 @@ final class _AuthenticatedAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  }) async {
+    return const AppResult<bool>.success(true);
+  }
+
+  @override
   Future<AppResult<AuthSession>> signOut() {
     return Future<AppResult<AuthSession>>.value(
       const AppResult<AuthSession>.success(GuestAuthSession()),
