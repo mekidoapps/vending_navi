@@ -1,4 +1,5 @@
 import {getApp, initializeApp} from "firebase-admin/app";
+import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
@@ -10,6 +11,12 @@ import {updateVendingMachineProductsForUser} from "./update_vending_machine_prod
 import {addVendingMachinePhotoForUser} from "./add_vending_machine_photo";
 import {submitMachineCorrectionForUser} from "./submit_machine_correction";
 import {submitMachineReportForUser} from "./submit_machine_report";
+import {deleteAccountForUser} from "./delete_account";
+import {
+  DeleteAccountValidationError,
+  assertRecentAuthentication,
+  parseDeleteAccountInput,
+} from "./delete_account_core";
 import {recognizeVendingMachinePhotoForUser} from "./photo_recognition/recognize_vending_machine_photo";
 import type {
   RecognitionProvider,
@@ -31,6 +38,10 @@ function adminApp() {
 
 function adminFirestore() {
   return getFirestore(adminApp());
+}
+
+function adminAuth() {
+  return getAuth(adminApp());
 }
 
 function adminStorageBucket() {
@@ -467,6 +478,84 @@ export const submitMachineReport = onCall(
         "internal",
         "Failed to submit the vending-machine report.",
         {appCode: "machine-report-failed"},
+      );
+    }
+  },
+);
+
+
+/**
+ * Permanently deletes the authenticated account and its
+ * private user data.
+ *
+ * Public vending-machine contributions remain available,
+ * but all internal actor attribution is removed.
+ *
+ * Firebase Authentication is deleted only after Firestore
+ * and temporary Storage cleanup succeeds, allowing a retry
+ * if an earlier cleanup step fails.
+ */
+export const deleteAccount = onCall(
+  {
+    enforceAppCheck: enforceAppCheckForRuntime,
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    if (request.auth === undefined) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+
+    try {
+      parseDeleteAccountInput(
+        request.data,
+      );
+
+      assertRecentAuthentication(
+        request.auth.token.auth_time,
+        Math.floor(Date.now() / 1000),
+      );
+    } catch (error: unknown) {
+      if (
+        error instanceof
+          DeleteAccountValidationError
+      ) {
+        throw new HttpsError(
+          error.reason ===
+              "recent-auth-required"
+            ? "failed-precondition"
+            : "invalid-argument",
+          error.message,
+          {
+            appCode:
+              error.reason ===
+                  "recent-auth-required"
+                ? "recent-auth-required"
+                : "invalid-account-deletion",
+          },
+        );
+      }
+
+      throw error;
+    }
+
+    try {
+      return await deleteAccountForUser(
+        adminFirestore(),
+        adminAuth(),
+        adminStorageBucket(),
+        request.auth.uid,
+      );
+    } catch {
+      throw new HttpsError(
+        "internal",
+        "The account could not be deleted.",
+        {
+          appCode:
+            "account-deletion-failed",
+        },
       );
     }
   },

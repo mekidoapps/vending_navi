@@ -82,7 +82,7 @@ test("Callable failure logs do not contain sensitive or raw payload fields", () 
   assert.equal(
     blocks.length,
     6,
-    "Expected one structured failure log per public Callable.",
+    "Expected six approved structured failure logs for content mutation Callables.",
   );
 
   const forbiddenPatterns: Array<readonly [RegExp, string]> = [
@@ -116,3 +116,36 @@ test("Callable failure logs do not contain sensitive or raw payload fields", () 
     }
   }
 });
+
+
+test(
+  "deleteAccount does not add identity-bearing failure logs",
+  () => {
+    const source =
+      readFileSync(
+        "src/index.ts",
+        "utf8",
+      );
+
+    const marker =
+      "export const deleteAccount = onCall(";
+
+    const index =
+      source.indexOf(marker);
+
+    assert.notEqual(
+      index,
+      -1,
+      "deleteAccount Callable must exist.",
+    );
+
+    const block =
+      source.slice(index);
+
+    assert.doesNotMatch(
+      block,
+      /console\.(log|info|warn|error|debug)\s*\(/,
+      "Account deletion must not log user identity or deletion payload.",
+    );
+  },
+);
