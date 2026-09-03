@@ -20,6 +20,12 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
+    "rewrites": [
+      {
+        "source": "/delete-account",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "source": "**",
