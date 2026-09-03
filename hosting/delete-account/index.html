@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="VendingNavi（自販機ナビ）のアカウント削除ページ"
+    />
+    <title>アカウント削除 | VendingNavi</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", "Segoe UI", sans-serif;
+        color: #172033;
+        background: #f4f7fb;
+      }
+
+      body { margin: 0; }
+      main { max-width: 640px; margin: 0 auto; padding: 40px 20px 56px; }
+      .brand { color: #1a6cf8; font-weight: 800; letter-spacing: .02em; }
+      .card { margin-top: 20px; padding: 24px; background: #fff; border-radius: 18px; box-shadow: 0 8px 28px rgb(23 32 51 / 9%); }
+      h1 { margin: 8px 0 12px; font-size: clamp(1.7rem, 5vw, 2.25rem); }
+      h2 { margin-top: 28px; font-size: 1.1rem; }
+      p, li { line-height: 1.7; }
+      ul { padding-left: 1.25rem; }
+      label { display: block; margin-top: 14px; font-weight: 700; }
+      input { box-sizing: border-box; width: 100%; margin-top: 6px; padding: 12px; border: 1px solid #c6cfdf; border-radius: 10px; font: inherit; }
+      button { width: 100%; margin-top: 14px; padding: 13px 16px; border: 0; border-radius: 10px; background: #1a6cf8; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      button.secondary { background: #fff; color: #1a6cf8; border: 1px solid #1a6cf8; }
+      button.danger { background: #c53030; }
+      button:disabled { cursor: not-allowed; opacity: .55; }
+      .hidden { display: none; }
+      .notice { margin-top: 16px; padding: 12px; border-radius: 10px; background: #eaf2ff; line-height: 1.6; }
+      .error { background: #fff0f0; color: #9b1c1c; }
+      .success { background: #ebfff2; color: #176b3a; }
+      .small { color: #536076; font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">VendingNavi / 自販機ナビ</div>
+      <section class="card">
+        <h1>アカウントを削除する</h1>
+        <p>
+          このページでは、VendingNaviのアカウントとアカウントに関連するデータの削除を申請できます。
+          削除するアカウントでログインしてください。
+        </p>
+
+        <h2>削除されるもの</h2>
+        <ul>
+          <li>プロフィールとアカウントに紐づく設定</li>
+          <li>よく飲む商品、フィードバック、一時アップロード写真などの非公開データ</li>
+          <li>Firebase Authenticationのアカウント</li>
+        </ul>
+        <p class="small">
+          公開済みの自販機情報は残る場合がありますが、作成者・確認者などの識別情報は切り離されます。
+        </p>
+
+        <div id="setup-error" class="notice error hidden" role="alert"></div>
+
+        <section id="signed-out">
+          <h2>本人確認</h2>
+          <form id="email-sign-in-form">
+            <label for="email">メールアドレス</label>
+            <input id="email" type="email" autocomplete="email" required />
+            <label for="password">パスワード</label>
+            <input id="password" type="password" autocomplete="current-password" required />
+            <button type="submit">メールアドレスでログイン</button>
+          </form>
+          <button id="google-sign-in" class="secondary" type="button">Googleでログイン</button>
+        </section>
+
+        <section id="signed-in" class="hidden">
+          <h2>最終確認</h2>
+          <p id="signed-in-as"></p>
+          <p>
+            この操作は取り消せません。削除すると、同じアカウントではVendingNaviに再びログインできなくなります。
+          </p>
+          <button id="delete-account" class="danger" type="button">完全に削除する</button>
+          <button id="sign-out" class="secondary" type="button">別のアカウントでログイン</button>
+        </section>
+
+        <div id="status" class="notice hidden" role="status"></div>
+      </section>
+    </main>
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -19,6 +19,7 @@ allowed_targets=(
   "functions:v2"
   "firestore:rules"
   "firestore:indexes"
+  "hosting"
   "storage"
 )
 

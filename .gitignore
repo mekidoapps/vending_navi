@@ -58,6 +58,7 @@ ios/Runner/GoogleService-Info.plist
 
 # Web API keys
 web/index.html
+hosting/delete-account/config.js
 
 # Env
 .env
