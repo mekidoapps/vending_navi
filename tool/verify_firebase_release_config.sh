@@ -76,6 +76,7 @@ expected_exports=(
   "addVendingMachinePhoto"
   "submitMachineCorrection"
   "submitMachineReport"
+  "deleteAccount"
 )
 
 for function_name in "${expected_exports[@]}"; do
