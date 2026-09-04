@@ -62,7 +62,7 @@
       "android": {
         "default": {
           "projectId": "vendingnavi",
-          "appId": "1:589528386744:android:2d95d614e155a8de52784d",
+          "appId": "1:589528386744:android:8f4fbc21615da5cc52784d",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -70,7 +70,7 @@
         "lib/firebase_options.dart": {
           "projectId": "vendingnavi",
           "configurations": {
-            "android": "1:589528386744:android:2d95d614e155a8de52784d",
+            "android": "1:589528386744:android:8f4fbc21615da5cc52784d",
             "ios": "1:589528386744:ios:e6afb2ac27e7a1e552784d"
           }
         }

@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "589528386744",
+    "project_id": "vendingnavi",
+    "storage_bucket": "vendingnavi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:589528386744:android:8f4fbc21615da5cc52784d",
+        "android_client_info": {
+          "package_name": "com.mekidoapps.vendingnavi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "589528386744-0o3lem7u0kupg8kd6osvlkt8im3eap07.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mekidoapps.vendingnavi",
+            "certificate_hash": "3f88e6c1faded2ea415f7c4d2632aa042f98f9a8"
+          }
+        },
+        {
+          "client_id": "589528386744-tmkfa72dk9uckfht2gq8v22vg9bomn6r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mekidoapps.vendingnavi",
+            "certificate_hash": "ff27f7a60298d97c51be3ad693e778895291ce3e"
+          }
+        },
+        {
+          "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLvvvDm7s9-LvZk9SsKV6s78M530fpaYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "589528386744-9p64n6p6knt9l2d4u38r2kak0mjtsbrf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
