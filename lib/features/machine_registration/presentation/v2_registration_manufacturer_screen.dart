@@ -7,6 +7,7 @@ import '../../product_master/domain/entities/manufacturer.dart';
 import '../application/machine_registration_controller.dart';
 import '../application/manufacturer_selection_controller.dart';
 import '../application/manufacturer_selection_state.dart';
+import 'v2_registration_home_action.dart';
 
 typedef RegistrationManufacturerCallback =
     void Function(Manufacturer manufacturer);
@@ -47,7 +48,10 @@ class _V2RegistrationManufacturerScreenState
     final state = ref.watch(manufacturerSelectionControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('メーカーを選択')),
+      appBar: AppBar(
+        title: const Text('メーカーを選択'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: _Body(
           state: state,

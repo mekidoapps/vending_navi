@@ -14,6 +14,7 @@ import '../../features/machine_registration/presentation/v2_registration_method_
 import '../../features/machine_registration/presentation/v2_registration_photo_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_photo_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
+import '../../features/machine_registration/presentation/v2_registration_auth_gate.dart';
 import '../../features/product_search/application/genre_machine_search_controller.dart';
 import '../../features/product_search/application/genre_search_selection_controller.dart';
 import '../../features/product_search/application/product_machine_search_controller.dart';
@@ -541,43 +542,50 @@ GoRouter createAppRouter({
             builder: (context, ref, _) {
               return V2RegistrationConfirmationScreen(
                 onSubmit: () async {
-                  final registration = ref.read(
-                    machineRegistrationControllerProvider.notifier,
+                  await V2RegistrationAuthGate.run(
+                    context,
+                    ref,
+                    actionLabel: '自販機の登録',
+                    action: () async {
+                      final registration = ref.read(
+                        machineRegistrationControllerProvider.notifier,
+                      );
+                      final submitted = await registration.submit();
+                      if (!submitted || !context.mounted) {
+                        return;
+                      }
+
+                      final machineId = ref
+                          .read(machineRegistrationControllerProvider)
+                          .createdMachineId;
+                      if (machineId == null) {
+                        return;
+                      }
+
+                      await _refreshRegistrationAffectedSearches(ref);
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      final router = GoRouter.of(context);
+
+                      // The detail provider reads Firestore directly, so the
+                      // created machine can be opened immediately after Callable
+                      // completion. Reset only after machineId is captured.
+                      registration.reset();
+
+                      // Remove the registration stack before opening detail.
+                      router.goNamed(AppRoute.v2Foundation.name);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        router.pushNamed(
+                          AppRoute.v2MachineDetail.name,
+                          pathParameters: <String, String>{
+                            'machineId': machineId.value,
+                          },
+                        );
+                      });
+                    },
                   );
-                  final submitted = await registration.submit();
-                  if (!submitted || !context.mounted) {
-                    return;
-                  }
-
-                  final machineId = ref
-                      .read(machineRegistrationControllerProvider)
-                      .createdMachineId;
-                  if (machineId == null) {
-                    return;
-                  }
-
-                  await _refreshRegistrationAffectedSearches(ref);
-                  if (!context.mounted) {
-                    return;
-                  }
-
-                  final router = GoRouter.of(context);
-
-                  // The detail provider reads Firestore directly, so the
-                  // created machine can be opened immediately after Callable
-                  // completion. Reset only after machineId is captured.
-                  registration.reset();
-
-                  // Remove the registration stack before opening detail.
-                  router.goNamed(AppRoute.v2Foundation.name);
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    router.pushNamed(
-                      AppRoute.v2MachineDetail.name,
-                      pathParameters: <String, String>{
-                        'machineId': machineId.value,
-                      },
-                    );
-                  });
                 },
               );
             },

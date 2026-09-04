@@ -26,6 +26,19 @@ final class MachineRegistrationDraft {
   final String? placeDescription;
   final InstallationType installationType;
 
+  /// A request ID exists from the initial state, but does not mean that the
+  /// user has started entering a registration.
+  bool get hasUserInput {
+    return location != null ||
+        registrationMethod != null ||
+        name?.trim().isNotEmpty == true ||
+        manufacturerId != null ||
+        confirmedProductIds.isNotEmpty ||
+        temporaryPhotoUploadId?.trim().isNotEmpty == true ||
+        placeDescription?.trim().isNotEmpty == true ||
+        installationType != InstallationType.unknown;
+  }
+
   bool get isReadyForPhase6Submission {
     if (requestId.trim().isEmpty || location == null) {
       return false;

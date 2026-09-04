@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/errors/app_failure.dart';
@@ -48,6 +50,30 @@ void main() {
     expect(state.isAuthenticated, isTrue);
     expect(state.resolvedDisplayName, '保存済み表示名');
     expect(profileRepository.getCount, 1);
+  });
+
+  test('auth streamの復元結果へMyPage表示も追従する', () async {
+    final sessions = StreamController<AuthSession>.broadcast();
+    addTearDown(sessions.close);
+    final authRepository = _FakeAuthRepository(
+      session: const GuestAuthSession(),
+      sessionStream: sessions.stream,
+    );
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(authRepository)],
+    );
+    addTearDown(container.dispose);
+
+    final subscription = container.listen(
+      v2MyPageControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    sessions.add(_authenticatedSession());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(v2MyPageControllerProvider).isAuthenticated, isTrue);
   });
 
   test('30文字超過の表示名はRepositoryへ送らない', () async {
@@ -252,9 +278,10 @@ AuthSession _authenticatedSession({
 }
 
 final class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository({required this.session});
+  _FakeAuthRepository({required this.session, this.sessionStream});
 
   AuthSession session;
+  final Stream<AuthSession>? sessionStream;
   int passwordReauthCount = 0;
   int signOutCount = 0;
   String? lastPassword;
@@ -263,7 +290,8 @@ final class _FakeAuthRepository implements AuthRepository {
   AuthSession get currentSession => session;
 
   @override
-  Stream<AuthSession> watchSession() => Stream<AuthSession>.value(session);
+  Stream<AuthSession> watchSession() =>
+      sessionStream ?? Stream<AuthSession>.value(session);
 
   @override
   Future<AppResult<AuthSession>> signInWithEmail({

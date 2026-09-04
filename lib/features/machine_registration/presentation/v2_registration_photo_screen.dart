@@ -6,6 +6,8 @@ import '../../../app/theme/v2_spacing.dart';
 import '../application/machine_registration_controller.dart';
 import '../application/registration_photo_controller.dart';
 import '../application/registration_photo_state.dart';
+import 'v2_registration_auth_gate.dart';
+import 'v2_registration_home_action.dart';
 
 class V2RegistrationPhotoScreen extends ConsumerWidget {
   const V2RegistrationPhotoScreen({super.key, this.onPhotoPrepared});
@@ -17,7 +19,10 @@ class V2RegistrationPhotoScreen extends ConsumerWidget {
     final photoState = ref.watch(registrationPhotoControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('写真から登録')),
+      appBar: AppBar(
+        title: const Text('写真から登録'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(V2Spacing.lg),
@@ -59,16 +64,27 @@ class V2RegistrationPhotoScreen extends ConsumerWidget {
               onPressed: photoState.isBusy
                   ? null
                   : () async {
-                      final uploadId = await ref
-                          .read(registrationPhotoControllerProvider.notifier)
-                          .captureNormalizeAndUpload();
-                      if (uploadId == null || !context.mounted) {
+                      String? uploadId;
+                      await V2RegistrationAuthGate.run(
+                        context,
+                        ref,
+                        actionLabel: '写真からの自販機登録',
+                        action: () async {
+                          uploadId = await ref
+                              .read(
+                                registrationPhotoControllerProvider.notifier,
+                              )
+                              .captureNormalizeAndUpload();
+                        },
+                      );
+                      final preparedUploadId = uploadId;
+                      if (preparedUploadId == null || !context.mounted) {
                         return;
                       }
 
                       ref
                           .read(machineRegistrationControllerProvider.notifier)
-                          .setTemporaryPhotoUploadId(uploadId);
+                          .setTemporaryPhotoUploadId(preparedUploadId);
 
                       onPhotoPrepared?.call();
                     },

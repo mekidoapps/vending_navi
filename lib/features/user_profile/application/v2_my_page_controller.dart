@@ -18,8 +18,33 @@ final class V2MyPageController extends Notifier<V2MyPageState> {
 
   @override
   V2MyPageState build() {
+    ref.listen<AsyncValue<AuthSession>>(authSessionChangesProvider, (_, next) {
+      next.when(data: _synchronizeSession, loading: () {}, error: (_, _) {});
+    });
+
     return V2MyPageState.initial(
       ref.read(authRepositoryProvider).currentSession,
+    );
+  }
+
+  void _synchronizeSession(AuthSession session) {
+    final currentUserId = state.user?.uid;
+    final nextUserId = session.userOrNull?.uid;
+
+    if (!session.isAuthenticated || currentUserId != nextUserId) {
+      state = V2MyPageState.initial(session);
+      return;
+    }
+
+    state = V2MyPageState(
+      session: session,
+      profile: state.profile,
+      failure: state.failure,
+      isLoading: state.isLoading,
+      isSavingDisplayName: state.isSavingDisplayName,
+      isSigningOut: state.isSigningOut,
+      isReauthenticating: state.isReauthenticating,
+      isDeletingAccount: state.isDeletingAccount,
     );
   }
 

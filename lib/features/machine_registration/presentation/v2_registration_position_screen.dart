@@ -9,6 +9,7 @@ import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
 import '../../vending_machine/domain/value_objects/geo_coordinate.dart';
 import '../application/machine_registration_controller.dart';
+import 'v2_registration_home_action.dart';
 
 typedef V2RegistrationPositionMapBuilder =
     Widget Function(
@@ -116,7 +117,10 @@ class _V2RegistrationPositionScreenState
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('自販機の位置')),
+      appBar: AppBar(
+        title: const Text('自販機の位置'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: Column(
           children: <Widget>[

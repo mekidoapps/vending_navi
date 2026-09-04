@@ -7,6 +7,7 @@ import '../../product_master/domain/entities/manufacturer.dart';
 import '../application/machine_registration_controller.dart';
 import '../application/manufacturer_selection_controller.dart';
 import '../domain/entities/machine_registration_method.dart';
+import 'v2_registration_home_action.dart';
 
 class V2RegistrationConfirmationScreen extends ConsumerWidget {
   const V2RegistrationConfirmationScreen({super.key, this.onSubmit});
@@ -36,7 +37,10 @@ class V2RegistrationConfirmationScreen extends ConsumerWidget {
     final failure = registrationState.failure;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('登録内容の確認')),
+      appBar: AppBar(
+        title: const Text('登録内容の確認'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(V2Spacing.lg),

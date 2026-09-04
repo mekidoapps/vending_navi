@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../application/machine_registration_controller.dart';
+import 'v2_registration_home_action.dart';
 
 class V2RegistrationMethodScreen extends ConsumerWidget {
   const V2RegistrationMethodScreen({
@@ -22,7 +23,10 @@ class V2RegistrationMethodScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('登録方法')),
+      appBar: AppBar(
+        title: const Text('登録方法'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(V2Spacing.lg),

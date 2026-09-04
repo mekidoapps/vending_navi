@@ -7,6 +7,7 @@ import '../../vending_machine/domain/entities/vending_machine.dart';
 import '../application/registration_duplicate_candidates_controller.dart';
 import '../application/registration_duplicate_candidates_state.dart';
 import '../domain/models/registration_duplicate_candidate.dart';
+import 'v2_registration_home_action.dart';
 
 typedef RegistrationCandidateCallback = void Function(VendingMachine machine);
 
@@ -58,7 +59,10 @@ class _V2RegistrationDuplicateCandidatesScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('近くの自販機を確認')),
+      appBar: AppBar(
+        title: const Text('近くの自販機を確認'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: _Body(
           state: state,

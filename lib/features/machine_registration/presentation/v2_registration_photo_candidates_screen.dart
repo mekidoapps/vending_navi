@@ -8,6 +8,7 @@ import '../../product_master/domain/entities/product.dart';
 import '../application/machine_registration_controller.dart';
 import '../application/registration_photo_recognition_controller.dart';
 import '../application/registration_photo_recognition_state.dart';
+import 'v2_registration_home_action.dart';
 
 class V2RegistrationPhotoCandidatesScreen extends ConsumerStatefulWidget {
   const V2RegistrationPhotoCandidatesScreen({
@@ -69,7 +70,10 @@ class _V2RegistrationPhotoCandidatesScreenState
         .temporaryPhotoUploadId;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI候補を確認')),
+      appBar: AppBar(
+        title: const Text('AI候補を確認'),
+        actions: V2RegistrationHomeAction.appBarActions(context, ref),
+      ),
       body: SafeArea(
         child: switch (state.stage) {
           RegistrationPhotoRecognitionStage.idle => _IdleBody(

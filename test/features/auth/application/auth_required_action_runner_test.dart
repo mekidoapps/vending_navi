@@ -28,6 +28,29 @@ void main() {
     expect(actionCount, 1);
   });
 
+  test('session復元イベントが届くまでGuestと判定しない', () async {
+    final repository = _FakeAuthRepository(session: const GuestAuthSession());
+    repository.sessionStream = Stream<AuthSession>.value(_authenticatedSession());
+    final runner = AuthRequiredActionRunner(repository);
+
+    var authenticationRequested = false;
+    var actionCount = 0;
+
+    final result = await runner.run(
+      requestAuthentication: () async {
+        authenticationRequested = true;
+        return false;
+      },
+      action: () async {
+        actionCount += 1;
+      },
+    );
+
+    expect(result, AuthRequiredActionResult.completed);
+    expect(authenticationRequested, isFalse);
+    expect(actionCount, 1);
+  });
+
   test('未ログインで認証をcancelしたら元Actionを実行しない', () async {
     final repository = _FakeAuthRepository(session: const GuestAuthSession());
     final runner = AuthRequiredActionRunner(repository);
@@ -99,12 +122,14 @@ final class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({required this.session});
 
   AuthSession session;
+  Stream<AuthSession>? sessionStream;
 
   @override
   AuthSession get currentSession => session;
 
   @override
-  Stream<AuthSession> watchSession() => Stream<AuthSession>.value(session);
+  Stream<AuthSession> watchSession() =>
+      sessionStream ?? Stream<AuthSession>.value(session);
 
   @override
   Future<AppResult<AuthSession>> signInWithEmail({

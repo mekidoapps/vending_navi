@@ -1,4 +1,5 @@
 import '../domain/repositories/auth_repository.dart';
+import '../domain/entities/auth_session.dart';
 
 typedef AuthenticationRequester = Future<bool> Function();
 typedef AuthenticatedAction = Future<void> Function();
@@ -18,7 +19,8 @@ final class AuthRequiredActionRunner {
     required AuthenticationRequester requestAuthentication,
     required AuthenticatedAction action,
   }) async {
-    if (_repository.currentSession.isAuthenticated) {
+    final initialSession = await _resolveSession();
+    if (initialSession.isAuthenticated) {
       await action();
       return AuthRequiredActionResult.completed;
     }
@@ -28,11 +30,17 @@ final class AuthRequiredActionRunner {
       return AuthRequiredActionResult.authenticationCancelled;
     }
 
-    if (!_repository.currentSession.isAuthenticated) {
+    final authenticatedSession = await _resolveSession();
+    if (!authenticatedSession.isAuthenticated) {
       return AuthRequiredActionResult.authenticationNotEstablished;
     }
 
     await action();
     return AuthRequiredActionResult.completed;
   }
+
+  /// Firebase Auth restores persisted credentials asynchronously at startup.
+  /// Wait for its first state event instead of treating a transient null
+  /// [currentUser] as a guest session.
+  Future<AuthSession> _resolveSession() => _repository.watchSession().first;
 }
