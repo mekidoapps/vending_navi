@@ -18,4 +18,42 @@ void main() {
       expect(AppEntryMode.fromValue('unknown'), AppEntryMode.legacy);
     });
   });
+
+  group('AppEntryMode.resolve release guard', () {
+    test('release + APP_ENTRY=v2 is allowed', () {
+      expect(
+        AppEntryMode.resolve(appEntry: 'v2', isReleaseBuild: true),
+        AppEntryMode.v2,
+      );
+    });
+
+    test('release + missing APP_ENTRY is rejected', () {
+      expect(
+        () => AppEntryMode.resolve(appEntry: null, isReleaseBuild: true),
+        throwsStateError,
+      );
+    });
+
+    test('release + legacy APP_ENTRY is rejected', () {
+      expect(
+        () => AppEntryMode.resolve(appEntry: 'legacy', isReleaseBuild: true),
+        throwsStateError,
+      );
+    });
+
+    test('debug/profile resolution preserves legacy development entry', () {
+      expect(
+        AppEntryMode.resolve(appEntry: null, isReleaseBuild: false),
+        AppEntryMode.legacy,
+      );
+      expect(
+        AppEntryMode.resolve(appEntry: 'legacy', isReleaseBuild: false),
+        AppEntryMode.legacy,
+      );
+      expect(
+        AppEntryMode.resolve(appEntry: 'v2', isReleaseBuild: false),
+        AppEntryMode.v2,
+      );
+    });
+  });
 }

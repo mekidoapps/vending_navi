@@ -1,10 +1,25 @@
+import 'package:flutter/foundation.dart';
+
 enum AppEntryMode {
   legacy,
   v2;
 
   static AppEntryMode fromEnvironment() {
     const value = String.fromEnvironment('APP_ENTRY', defaultValue: 'legacy');
-    return fromValue(value);
+    return resolve(appEntry: value, isReleaseBuild: kReleaseMode);
+  }
+
+  /// Resolves the entry point and rejects a Play release that would otherwise
+  /// silently start the legacy application.
+  static AppEntryMode resolve({
+    required String? appEntry,
+    required bool isReleaseBuild,
+  }) {
+    final entryMode = fromValue(appEntry);
+    if (isReleaseBuild && entryMode != AppEntryMode.v2) {
+      throw StateError('Release builds require APP_ENTRY=v2.');
+    }
+    return entryMode;
   }
 
   static AppEntryMode fromValue(String? value) {
