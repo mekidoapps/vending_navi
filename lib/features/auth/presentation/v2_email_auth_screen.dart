@@ -11,6 +11,7 @@ import '../../../core/ui/buttons/v2_secondary_button.dart';
 import '../application/email_auth_controller.dart';
 import '../application/google_auth_controller.dart';
 import '../application/google_auth_state.dart';
+import 'auth_diagnostics.dart';
 
 final class V2EmailAuthScreen extends ConsumerStatefulWidget {
   const V2EmailAuthScreen({super.key, this.onAuthenticated});
@@ -22,6 +23,8 @@ final class V2EmailAuthScreen extends ConsumerStatefulWidget {
 }
 
 final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
+  static const AuthDiagnostics _authDiagnostics = AuthDiagnostics();
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmationController = TextEditingController();
@@ -251,6 +254,9 @@ final class _V2EmailAuthScreenState extends ConsumerState<V2EmailAuthScreen> {
                   _FailureCard(
                     title: authState.failure!.userTitle,
                     message: authState.failure!.userMessage,
+                    diagnosticCode: _authDiagnostics.codeForDisplay(
+                      authState.failure!,
+                    ),
                   ),
                 ],
                 const SizedBox(height: V2Spacing.lg),
@@ -340,11 +346,13 @@ final class _FailureCard extends StatelessWidget {
     this.cardKey = const Key('emailAuthFailure'),
     required this.title,
     required this.message,
+    this.diagnosticCode,
   });
 
   final Key cardKey;
   final String title;
   final String message;
+  final String? diagnosticCode;
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +379,16 @@ final class _FailureCard extends StatelessWidget {
             ),
             const SizedBox(height: V2Spacing.xs),
             Text(message),
+            if (diagnosticCode != null) ...<Widget>[
+              const SizedBox(height: V2Spacing.xs),
+              Text(
+                '診断コード: $diagnosticCode',
+                key: const Key('emailAuthDiagnosticCode'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
+              ),
+            ],
           ],
         ),
       ),
