@@ -4,6 +4,8 @@ import 'v2_color_tokens.dart';
 import 'v2_radius.dart';
 
 abstract final class V2Theme {
+  static const String japaneseFontFamily = 'NotoSansJP';
+
   static ThemeData light({V2ColorTokens colors = V2ColorTokens.skyBlue}) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: colors.primary,
@@ -16,6 +18,8 @@ abstract final class V2Theme {
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: japaneseFontFamily,
+      fontFamilyFallback: const <String>[japaneseFontFamily],
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colors.surface,
       splashFactory: InkSparkle.splashFactory,
@@ -23,35 +27,41 @@ abstract final class V2Theme {
       extensions: <ThemeExtension<dynamic>>[colors],
     );
 
-    final textTheme = base.textTheme.copyWith(
-      headlineSmall: base.textTheme.headlineSmall?.copyWith(
-        color: colors.textPrimary,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-      ),
-      titleMedium: base.textTheme.titleMedium?.copyWith(
-        color: colors.textPrimary,
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-      ),
-      bodyMedium: base.textTheme.bodyMedium?.copyWith(
-        color: colors.textPrimary,
-        fontSize: 14,
-        height: 1.5,
-      ),
-      bodySmall: base.textTheme.bodySmall?.copyWith(
-        color: colors.textSecondary,
-        fontSize: 12,
-        height: 1.4,
-      ),
-      labelLarge: base.textTheme.labelLarge?.copyWith(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
-    );
+    final textTheme = base.textTheme
+        .apply(
+          fontFamily: japaneseFontFamily,
+          fontFamilyFallback: const <String>[japaneseFontFamily],
+        )
+        .copyWith(
+          headlineSmall: base.textTheme.headlineSmall?.copyWith(
+            color: colors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          titleMedium: base.textTheme.titleMedium?.copyWith(
+            color: colors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+          bodyMedium: base.textTheme.bodyMedium?.copyWith(
+            color: colors.textPrimary,
+            fontSize: 14,
+            height: 1.5,
+          ),
+          bodySmall: base.textTheme.bodySmall?.copyWith(
+            color: colors.textSecondary,
+            fontSize: 12,
+            height: 1.4,
+          ),
+          labelLarge: base.textTheme.labelLarge?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        );
 
     return base.copyWith(
       textTheme: textTheme,
+      primaryTextTheme: textTheme,
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -59,6 +69,7 @@ abstract final class V2Theme {
         backgroundColor: colors.surface,
         foregroundColor: colors.textPrimary,
         surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.titleLarge,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
