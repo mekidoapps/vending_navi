@@ -11,6 +11,7 @@ import '../../../../lib/features/machine_update/domain/models/machine_product_up
 import '../../../../lib/features/machine_update/domain/repositories/machine_product_update_repository.dart';
 import '../../../../lib/features/machine_update/domain/services/machine_product_update_request_id_generator.dart';
 import '../../../../lib/features/machine_update/presentation/v2_product_update_confirmation_screen.dart';
+import '../../../../lib/features/ugc_terms/presentation/ugc_terms_gate.dart';
 import '../../../../lib/features/vending_machine/domain/value_objects/vending_machine_id.dart';
 
 void main() {
@@ -32,6 +33,9 @@ void main() {
         machineProductUpdateRepositoryProvider.overrideWithValue(repository),
         machineProductUpdateRequestIdGeneratorProvider.overrideWithValue(
           const _RequestIdGenerator(),
+        ),
+        ugcTermsConsentServiceProvider.overrideWithValue(
+          const _AcceptedTermsConsentService(),
         ),
       ],
     );
@@ -108,6 +112,16 @@ void main() {
       findsNothing,
     );
   });
+}
+
+final class _AcceptedTermsConsentService implements UgcTermsConsentService {
+  const _AcceptedTermsConsentService();
+
+  @override
+  Future<void> acceptCurrentTerms() async {}
+
+  @override
+  Future<bool> hasAcceptedCurrentTerms() async => true;
 }
 
 final class _SuccessRepository implements MachineProductUpdateRepository {

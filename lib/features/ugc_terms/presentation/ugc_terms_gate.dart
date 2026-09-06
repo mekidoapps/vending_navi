@@ -9,10 +9,9 @@ abstract final class UgcTermsGate {
   static const _version = '2026-09-06';
 
   static Future<bool> ensure(BuildContext context, WidgetRef ref) async {
-    final functions = ref.read(cloudFunctionsProvider);
+    final consentService = ref.read(ugcTermsConsentServiceProvider);
     try {
-      final result = await functions.httpsCallable('getUgcTermsConsent').call<Map<Object?, Object?>>();
-      if (result.data?['accepted'] == true) return true;
+      if (await consentService.hasAcceptedCurrentTerms()) return true;
     } on FirebaseFunctionsException {
       if (context.mounted) _error(context);
       return false;
@@ -25,7 +24,7 @@ abstract final class UgcTermsGate {
     );
     if (accepted != true || !context.mounted) return false;
     try {
-      await functions.httpsCallable('acceptUgcTerms').call<Map<Object?, Object?>>(<String, Object?>{'version': _version});
+      await consentService.acceptCurrentTerms();
       return true;
     } on FirebaseFunctionsException {
       if (context.mounted) _error(context);
@@ -36,6 +35,37 @@ abstract final class UgcTermsGate {
   static void _error(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('投稿ルールを確認できませんでした。時間をおいて再度お試しください。')),
   );
+}
+
+abstract interface class UgcTermsConsentService {
+  Future<bool> hasAcceptedCurrentTerms();
+
+  Future<void> acceptCurrentTerms();
+}
+
+final ugcTermsConsentServiceProvider = Provider<UgcTermsConsentService>(
+  (ref) => CallableUgcTermsConsentService(ref.watch(cloudFunctionsProvider)),
+);
+
+final class CallableUgcTermsConsentService implements UgcTermsConsentService {
+  CallableUgcTermsConsentService(this._functions);
+
+  final FirebaseFunctions _functions;
+
+  @override
+  Future<bool> hasAcceptedCurrentTerms() async {
+    final result = await _functions
+        .httpsCallable('getUgcTermsConsent')
+        .call<Map<Object?, Object?>>();
+    return result.data?['accepted'] == true;
+  }
+
+  @override
+  Future<void> acceptCurrentTerms() async {
+    await _functions
+        .httpsCallable('acceptUgcTerms')
+        .call<Map<Object?, Object?>>(<String, Object?>{'version': UgcTermsGate._version});
+  }
 }
 
 class UgcTermsSheet extends StatelessWidget {

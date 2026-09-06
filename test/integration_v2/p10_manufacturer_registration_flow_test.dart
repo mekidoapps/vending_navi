@@ -28,6 +28,7 @@ import 'package:vending_app/features/product_master/application/providers/produc
 import 'package:vending_app/features/product_master/domain/entities/manufacturer.dart';
 import 'package:vending_app/features/product_master/domain/repositories/manufacturer_repository.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
+import 'package:vending_app/features/ugc_terms/presentation/ugc_terms_gate.dart';
 import 'package:vending_app/features/vending_machine/domain/entities/vending_machine.dart';
 import 'package:vending_app/features/vending_machine/domain/value_objects/geo_coordinate.dart';
 import 'package:vending_app/features/vending_machine/domain/value_objects/vending_machine_id.dart';
@@ -61,6 +62,9 @@ void main() {
             _FakeManufacturerRepository(
               <Manufacturer>[manufacturer],
             ),
+          ),
+          ugcTermsConsentServiceProvider.overrideWithValue(
+            const _AcceptedTermsConsentService(),
           ),
         ],
       );
@@ -345,6 +349,16 @@ void main() {
       );
     },
   );
+}
+
+final class _AcceptedTermsConsentService implements UgcTermsConsentService {
+  const _AcceptedTermsConsentService();
+
+  @override
+  Future<void> acceptCurrentTerms() async {}
+
+  @override
+  Future<bool> hasAcceptedCurrentTerms() async => true;
 }
 
 AuthSession _authenticatedSession() {

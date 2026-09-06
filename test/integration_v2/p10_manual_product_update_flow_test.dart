@@ -13,6 +13,7 @@ import 'package:vending_app/features/machine_update/domain/models/machine_produc
 import 'package:vending_app/features/machine_update/domain/models/machine_product_update_result.dart';
 import 'package:vending_app/features/machine_update/domain/repositories/machine_product_update_repository.dart';
 import 'package:vending_app/features/machine_update/domain/services/machine_product_update_request_id_generator.dart';
+import 'package:vending_app/features/ugc_terms/presentation/ugc_terms_gate.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
 import 'package:vending_app/features/vending_machine/application/models/vending_machine_detail_data.dart';
 import 'package:vending_app/features/vending_machine/application/providers/vending_machine_detail_providers.dart';
@@ -45,6 +46,9 @@ void main() {
           ),
           machineProductUpdateRequestIdGeneratorProvider.overrideWithValue(
             const _RequestIdGenerator(),
+          ),
+          ugcTermsConsentServiceProvider.overrideWithValue(
+            const _AcceptedTermsConsentService(),
           ),
         ],
       );
@@ -211,6 +215,16 @@ void main() {
       );
     },
   );
+}
+
+final class _AcceptedTermsConsentService implements UgcTermsConsentService {
+  const _AcceptedTermsConsentService();
+
+  @override
+  Future<void> acceptCurrentTerms() async {}
+
+  @override
+  Future<bool> hasAcceptedCurrentTerms() async => true;
 }
 
 VendingMachineDetailData _detailData() {

@@ -35,6 +35,7 @@ import 'package:vending_app/features/product_master/domain/entities/product.dart
 import 'package:vending_app/features/product_master/domain/repositories/manufacturer_repository.dart';
 import 'package:vending_app/features/product_master/domain/repositories/product_repository.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
+import 'package:vending_app/features/ugc_terms/presentation/ugc_terms_gate.dart';
 import 'package:vending_app/features/vending_machine/domain/value_objects/geo_coordinate.dart';
 import 'package:vending_app/features/vending_machine/domain/value_objects/vending_machine_id.dart';
 
@@ -267,8 +268,21 @@ ProviderContainer _createContainer({
       authRepositoryProvider.overrideWithValue(
         _AuthenticatedFakeAuthRepository(),
       ),
+      ugcTermsConsentServiceProvider.overrideWithValue(
+        const _AcceptedTermsConsentService(),
+      ),
     ],
   );
+}
+
+final class _AcceptedTermsConsentService implements UgcTermsConsentService {
+  const _AcceptedTermsConsentService();
+
+  @override
+  Future<void> acceptCurrentTerms() async {}
+
+  @override
+  Future<bool> hasAcceptedCurrentTerms() async => true;
 }
 
 void _prepareMethodStep(ProviderContainer container) {
