@@ -15,6 +15,7 @@ import '../application/machine_photo_update_controller.dart';
 import '../application/machine_photo_update_state.dart';
 import '../application/machine_photo_update_submit_controller.dart';
 import '../application/machine_photo_update_submit_state.dart';
+import '../../ugc_terms/presentation/ugc_terms_gate.dart';
 
 class V2MachinePhotoUpdateReviewScreen extends ConsumerWidget {
   const V2MachinePhotoUpdateReviewScreen({
@@ -94,6 +95,8 @@ class V2MachinePhotoUpdateReviewScreen extends ConsumerWidget {
     if (uploadId == null) {
       return;
     }
+
+    if (!await UgcTermsGate.ensure(context, ref)) return;
 
     final plan = MachinePhotoProductUpdatePlanner.build(
       currentProducts: detail.products,

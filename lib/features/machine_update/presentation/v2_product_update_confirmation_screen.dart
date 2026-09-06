@@ -8,6 +8,7 @@ import '../../../app/theme/v2_theme.dart';
 import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../application/machine_product_update_controller.dart';
 import '../application/machine_product_update_review.dart';
+import '../../ugc_terms/presentation/ugc_terms_gate.dart';
 
 class V2ProductUpdateConfirmationScreen extends ConsumerStatefulWidget {
   const V2ProductUpdateConfirmationScreen({
@@ -52,6 +53,7 @@ class _V2ProductUpdateConfirmationScreenState
   }
 
   Future<void> _submit() async {
+    if (!await UgcTermsGate.ensure(context, ref)) return;
     final submitted = await ref
         .read(machineProductUpdateControllerProvider.notifier)
         .submit();

@@ -134,6 +134,13 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+
+      // Contribution consent is server-written. The owner may inspect it so
+      // the client can decide whether to show the current terms gate.
+      match /ugc_consent/{consentId} {
+        allow read: if isOwner();
+        allow write: if false;
+      }
     }
 
     // Server-only machine ownership and audit metadata.

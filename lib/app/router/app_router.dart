@@ -15,6 +15,7 @@ import '../../features/machine_registration/presentation/v2_registration_photo_s
 import '../../features/machine_registration/presentation/v2_registration_photo_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_auth_gate.dart';
+import '../../features/ugc_terms/presentation/ugc_terms_gate.dart';
 import '../../features/product_search/application/genre_machine_search_controller.dart';
 import '../../features/product_search/application/genre_search_selection_controller.dart';
 import '../../features/product_search/application/product_machine_search_controller.dart';
@@ -547,6 +548,7 @@ GoRouter createAppRouter({
                     ref,
                     actionLabel: '自販機の登録',
                     action: () async {
+                      if (!await UgcTermsGate.ensure(context, ref)) return;
                       final registration = ref.read(
                         machineRegistrationControllerProvider.notifier,
                       );

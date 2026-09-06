@@ -25,6 +25,11 @@ import {
   createRecognitionProviderForEnvironment,
 } from "./photo_recognition/recognition_provider_environment";
 import {buildHealthPayload} from "./health_payload";
+import {
+  acceptUgcTermsForUser,
+  assertUgcTermsAccepted,
+  getUgcTermsConsentForUser,
+} from "./ugc_terms";
 
 const enforceAppCheckForRuntime = shouldEnforceAppCheck(process.env);
 
@@ -71,6 +76,26 @@ export const v2EmulatorHealth = onCall(() => {
   return buildHealthPayload();
 });
 
+export const acceptUgcTerms = onCall(
+  {enforceAppCheck: enforceAppCheckForRuntime},
+  async (request) => {
+    if (request.auth === undefined) {
+      throw new HttpsError("unauthenticated", "Authentication is required.");
+    }
+    return acceptUgcTermsForUser(adminFirestore(), request.auth.uid, request.data?.version);
+  },
+);
+
+export const getUgcTermsConsent = onCall(
+  {enforceAppCheck: enforceAppCheckForRuntime},
+  async (request) => {
+    if (request.auth === undefined) {
+      throw new HttpsError("unauthenticated", "Authentication is required.");
+    }
+    return getUgcTermsConsentForUser(adminFirestore(), request.auth.uid);
+  },
+);
+
 /**
  * Formal v2 vending-machine creation entry point.
  *
@@ -94,6 +119,8 @@ export const createVendingMachine = onCall(
         "Authentication is required.",
       );
     }
+
+    await assertUgcTermsAccepted(adminFirestore(), request.auth.uid);
 
     await enforceOperationRateLimit(
       adminFirestore(),
@@ -218,6 +245,8 @@ export const updateVendingMachineProducts = onCall(
       );
     }
 
+    await assertUgcTermsAccepted(adminFirestore(), request.auth.uid);
+
     await enforceOperationRateLimit(
       adminFirestore(),
       request.auth.uid,
@@ -289,6 +318,8 @@ export const addVendingMachinePhoto = onCall(
         "Authentication is required.",
       );
     }
+
+    await assertUgcTermsAccepted(adminFirestore(), request.auth.uid);
 
     await enforceOperationRateLimit(
       adminFirestore(),
