@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="自販機ナビにおけるユーザー情報の取扱い、外部サービス、保存期間、アカウント削除について説明します。" />
+    <link rel="canonical" href="https://vendingnavi.web.app/privacy" />
+    <title>自販機ナビ プライバシーポリシー | Mekido Apps</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f4f7fb; color: #172033; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif; line-height: 1.8; }
+      main { max-width: 760px; margin: 0 auto; padding: 32px 20px 48px; }
+      .brand { margin: 0 0 10px; color: #1a6cf8; font-size: .9rem; font-weight: 800; letter-spacing: .02em; }
+      article { padding: 28px; background: #fff; border-radius: 18px; box-shadow: 0 8px 28px rgb(23 32 51 / 9%); }
+      h1, h2, h3 { color: #172033; line-height: 1.45; }
+      h1 { margin: 0; font-size: clamp(1.55rem, 5vw, 2rem); }
+      h2 { margin: 2.1rem 0 .7rem; padding-bottom: .35rem; border-bottom: 1px solid #dce4f0; font-size: 1.25rem; }
+      h3 { margin: 1.3rem 0 .35rem; font-size: 1.05rem; }
+      p, li { overflow-wrap: anywhere; }
+      ul { padding-left: 1.25rem; }
+      a { color: #1769e0; font-weight: 700; }
+      .date { margin: .45rem 0 1.7rem; color: #536076; font-size: .92rem; }
+      .lead { margin-top: 0; }
+      .note { padding: 14px 16px; background: #eaf2ff; border-left: 4px solid #1a6cf8; border-radius: 8px; }
+      footer { margin-top: 22px; color: #536076; font-size: .88rem; text-align: center; }
+      @media (max-width: 480px) { main { padding: 18px 12px 32px; } article { padding: 20px 16px; border-radius: 12px; } h2 { font-size: 1.15rem; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">Mekido Apps / 自販機ナビ</p>
+      <article>
+        <h1>自販機ナビ プライバシーポリシー</h1>
+        <p class="date">制定日：2026年9月6日</p>
+        <p class="lead">Mekido Apps（以下「当社」）は、自販機ナビ（以下「本アプリ」）における利用者情報の取扱いについて、以下のとおり定めます。</p>
+
+        <h2>1. 取得する情報</h2>
+        <h3>アカウント情報</h3>
+        <ul><li>表示名、メールアドレス</li><li>Firebase Authentication が発行するユーザー識別子（UID）および認証に必要な情報</li></ul>
+        <p>本アプリはゲストとして閲覧できる機能を提供します。投稿、写真登録、商品情報の更新、修正報告、不具合報告など一部の機能はログインが必要です。</p>
+        <h3>位置情報</h3>
+        <ul><li>現在地周辺の自販機表示・検索のための位置情報</li><li>自販機の登録、位置修正、確認に入力・選択された位置情報</li></ul>
+        <p>現在地は、端末上で周辺の自販機を表示・検索する目的で利用します。利用者が登録または修正して送信した自販機の位置情報は、公開する自販機情報として保存されます。位置情報の利用可否は端末の設定から変更できます。</p>
+        <h3>写真</h3>
+        <ul><li>利用者が撮影または選択してアップロードする自販機の写真</li><li>写真から自販機や商品を認識するための画像データ</li></ul>
+        <p>認識処理のためにアップロードされた写真は、一時領域に保存され、通常の処理後に削除対象となります。一時アップロード領域（machine_uploads/）のファイルは、作成から7日後に自動削除されます。利用者が確認して正式に登録した写真は、自販機情報の一部として公開・保存されます。</p>
+        <h3>利用者が入力する内容</h3>
+        <ul><li>自販機名、商品名、メーカー、設置場所の説明、支払い方法、タグなどの投稿・更新情報</li><li>修正報告、不具合報告、フィードバックに含まれる本文・選択項目</li></ul>
+        <h3>アプリ・端末に関する情報</h3>
+        <ul><li>アプリの操作情報、エラー情報、診断情報</li><li>Firebase Installation ID など、Firebase や Google Maps SDK の動作に必要な端末またはアプリの識別子</li></ul>
+        <p>本アプリは Firebase Analytics、Firebase Crashlytics、Firebase Performance を独自に導入していません。ただし、利用する Firebase、Google Maps、Google Play Integrity などのサービスが、各サービスの提供・不正防止・診断のために技術情報を取り扱う場合があります。</p>
+
+        <h2>2. 利用目的</h2>
+        <ul><li>自販機の検索、地図表示、現在地周辺の表示</li><li>自販機、商品、写真、修正情報の登録・更新・公開</li><li>アカウント管理および認証</li><li>不正利用の防止、セキュリティの確保</li><li>不具合の調査、サービスの改善、問い合わせ対応</li></ul>
+        <h2>3. 利用する外部サービス</h2>
+        <ul>
+          <li><strong>Firebase（Google LLC）</strong>：Firebase Authentication、Cloud Firestore、Cloud Storage、Cloud Functions、Firebase App Check、Firebase Installations を利用し、認証、データ保存、写真保存、サーバー処理、不正利用対策に利用します。</li>
+          <li><strong>Google Maps Platform（Google LLC）</strong>：地図表示および自販機の位置表示に利用します。</li>
+          <li><strong>Google Play Integrity（Google LLC）</strong>：アプリの正当性確認および不正利用対策に利用します。</li>
+          <li><strong>Google Cloud Vertex AI（Google LLC）</strong>：利用者がアップロードした写真から自販機や商品を認識するために利用します。AIによる認識結果は、利用者が確認して登録するまで公開されません。</li>
+        </ul>
+        <p>各サービスにおける情報の取扱いは、各提供者のプライバシーポリシーおよび利用規約にも従います。</p>
+        <h2>4. 情報の共有・委託</h2>
+        <p>当社は、前項の外部サービス提供者に対し、本アプリの提供に必要な範囲で情報の処理を委託します。法令に基づく場合を除き、利用者の個人情報を第三者へ販売しません。</p>
+        <h2>5. 保存期間</h2>
+        <ul><li>アカウントに紐づく非公開データは、原則としてアカウント削除時に削除します。</li><li>公開済みの自販機情報、商品情報、正式に登録された写真は、地図情報の継続性のため保持される場合があります。この場合、投稿者 UID など投稿者を直接識別する情報は削除または匿名化します。</li><li>写真認識のための一時アップロードは、前記のとおり作成から7日後に自動削除されます。</li></ul>
+        <h2>6. アカウントおよびデータの削除</h2>
+        <p>アカウントは、アプリ内の<strong>マイページ → アカウント削除</strong>から削除できます。再認証を求める場合があります。削除方法と削除・保持される情報の詳細は、<a href="https://vendingnavi.web.app/delete-account">アカウント削除ページ</a>をご確認ください。</p>
+        <p>現在、アカウントを残したまま、関連する全データを一括削除する機能は提供していません。</p>
+        <h2>7. 安全管理</h2>
+        <p>当社は、認証、アクセス制御、Firebase App Check、Google Play Integrity などを用いて、不正利用の防止と情報の安全管理に努めます。</p>
+        <h2>8. 未成年者の利用</h2>
+        <p>未成年の利用者は、必要に応じて保護者の同意を得たうえで本アプリを利用してください。</p>
+        <h2>9. 本ポリシーの変更</h2>
+        <p>当社は、法令の変更またはサービス内容の変更に応じて、本ポリシーを変更することがあります。重要な変更がある場合は、本アプリまたは本ページで案内します。</p>
+        <h2>10. お問い合わせ</h2>
+        <p class="note">本アプリおよび個人情報の取扱いに関するお問い合わせ窓口については、今後Mekido Apps公式サイト上で案内します。</p>
+      </article>
+      <footer>© Mekido Apps</footer>
+    </main>
+  </body>
+</html>

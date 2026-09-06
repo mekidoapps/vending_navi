@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="VendingNavi（自販機ナビ）のアカウント削除ページ"
+      content="自販機ナビのアカウント削除方法と、削除・保持されるデータについて説明します。"
     />
-    <title>アカウント削除 | VendingNavi</title>
+    <link rel="canonical" href="https://vendingnavi.web.app/delete-account" />
+    <title>自販機ナビ アカウント削除 | Mekido Apps</title>
     <style>
       :root {
         color-scheme: light;
@@ -47,14 +48,24 @@
           削除するアカウントでログインしてください。
         </p>
 
+        <h2>アプリから削除する場合</h2>
+        <p>
+          自販機ナビへログインし、<strong>マイページ → アカウント削除</strong>から手続きできます。
+          本人確認のため、再認証を求める場合があります。
+        </p>
+
         <h2>削除されるもの</h2>
         <ul>
-          <li>プロフィールとアカウントに紐づく設定</li>
+          <li>Firebase Authenticationのアカウント、プロフィールとアカウントに紐づく設定</li>
           <li>よく飲む商品、フィードバック、一時アップロード写真などの非公開データ</li>
-          <li>Firebase Authenticationのアカウント</li>
         </ul>
         <p class="small">
-          公開済みの自販機情報は残る場合がありますが、作成者・確認者などの識別情報は切り離されます。
+          公開済みの自販機情報、商品情報、正式に採用された写真は残る場合がありますが、投稿者UIDなど、作成者・確認者を直接識別する情報は削除または匿名化されます。
+        </p>
+
+        <h2>アカウントを残したまま全データのみを削除する機能について</h2>
+        <p>
+          現在、アカウントを残したまま、関連する全データを一括削除する機能は提供していません。
         </p>
 
         <div id="setup-error" class="notice error hidden" role="alert"></div>
@@ -82,6 +93,7 @@
         </section>
 
         <div id="status" class="notice hidden" role="status"></div>
+        <p class="small"><a href="https://vendingnavi.web.app/privacy">プライバシーポリシー</a></p>
       </section>
     </main>
     <script src="./config.js"></script>

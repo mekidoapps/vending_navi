@@ -13,7 +13,7 @@
     }
   ],
   "hosting": {
-    "public": "hosting/delete-account",
+    "public": "hosting",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -23,7 +23,11 @@
     "rewrites": [
       {
         "source": "/delete-account",
-        "destination": "/index.html"
+        "destination": "/delete-account/index.html"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacy/index.html"
       }
     ],
     "headers": [
