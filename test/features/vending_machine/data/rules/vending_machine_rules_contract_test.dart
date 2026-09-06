@@ -100,4 +100,11 @@ void main() {
       isNot(contains('match /photos/{photoId}')),
     );
   });
+
+  test('投稿ルール同意は本人だけが読め、client直接書込みを許可しない', () {
+    final rules = File('firebase/v2/firestore.rules').readAsStringSync();
+    expect(rules, contains('match /ugc_consent/{consentId}'));
+    expect(rules, contains('allow read: if isOwner();'));
+    expect(rules, contains('allow write: if false;'));
+  });
 }
