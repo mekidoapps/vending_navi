@@ -21,7 +21,7 @@ abstract final class UgcTermsGate {
     final accepted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _TermsSheet(),
+      builder: (_) => const UgcTermsSheet(),
     );
     if (accepted != true || !context.mounted) return false;
     try {
@@ -38,8 +38,8 @@ abstract final class UgcTermsGate {
   );
 }
 
-class _TermsSheet extends StatelessWidget {
-  const _TermsSheet();
+class UgcTermsSheet extends StatelessWidget {
+  const UgcTermsSheet({super.key});
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Padding(

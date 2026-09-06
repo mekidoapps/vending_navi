@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node --test storage.rules.test.mjs"
+    "test": "node --test storage.rules.test.mjs firestore.ugc_consent.rules.test.mjs"
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "5.0.1",

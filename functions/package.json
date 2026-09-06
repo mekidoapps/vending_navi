@@ -20,7 +20,8 @@
     "verify:update-products": "npm run build && node lib/scripts/verify_update_vending_machine_products_emulator.js",
     "verify:add-photo": "npm run build && node lib/scripts/verify_add_vending_machine_photo_emulator.js",
     "verify:correction": "npm run build && node lib/scripts/verify_submit_machine_correction_emulator.js",
-    "verify:report": "npm run build && node lib/scripts/verify_submit_machine_report_emulator.js"
+    "verify:report": "npm run build && node lib/scripts/verify_submit_machine_report_emulator.js",
+    "verify:ugc-terms": "npm run build && node lib/scripts/verify_ugc_terms_emulator.js"
   },
   "dependencies": {
     "firebase-admin": "13.10.0",
