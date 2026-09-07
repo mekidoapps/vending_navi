@@ -102,6 +102,7 @@ export async function deleteAccountForUser(
       normalizedUid,
     );
 
+
   summary.deletedDocuments +=
     await deleteAuthoredModerationDocuments(
       firestore,
@@ -150,6 +151,13 @@ export async function deleteAccountForUser(
     firestore,
     normalizedUid,
     summary,
+  );
+
+  // A block record is private, but it must not retain an orphaned actor UID
+  // after that account is deleted. Keep no identity-bearing reference.
+  summary.deletedDocuments += await deleteBlockedActorReferences(
+    firestore,
+    normalizedUid,
   );
 
   // ------------------------------------------------------
@@ -375,6 +383,13 @@ async function anonymizePrivateMachineData(
       );
     }
 
+    const privatePhotos = await root.ref.collection("photos").get();
+    for (const photo of privatePhotos.docs) {
+      if (photo.data().uploadedBy === uid) {
+        await deleteFieldsFromDocument(photo.ref, ["uploadedBy"], summary);
+      }
+    }
+
     const products =
       await root.ref
         .collection("products")
@@ -438,6 +453,22 @@ async function anonymizeMachineAuditData(
       }
     }
   }
+}
+
+async function deleteBlockedActorReferences(
+  firestore: Firestore,
+  uid: string,
+): Promise<number> {
+  const snapshot = await firestore
+    .collectionGroup("blocked_actors")
+    .where("actorUid", "==", uid)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    await doc.ref.delete();
+  }
+
+  return snapshot.size;
 }
 
 async function deleteFieldsFromDocument(

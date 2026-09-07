@@ -5,6 +5,7 @@ import '../../../product_master/domain/repositories/manufacturer_repository.dart
 import '../../../product_master/domain/repositories/product_repository.dart';
 import '../../../product_master/domain/value_objects/master_id.dart';
 import '../../domain/repositories/vending_machine_repository.dart';
+import '../../domain/repositories/machine_photo_repository.dart';
 import '../../domain/value_objects/vending_machine_id.dart';
 import '../models/vending_machine_detail_data.dart';
 
@@ -13,13 +14,16 @@ final class VendingMachineDetailLoader {
     required VendingMachineRepository machineRepository,
     required ProductRepository productRepository,
     required ManufacturerRepository manufacturerRepository,
+    MachinePhotoRepository? machinePhotoRepository,
   }) : _machineRepository = machineRepository,
        _productRepository = productRepository,
-       _manufacturerRepository = manufacturerRepository;
+       _manufacturerRepository = manufacturerRepository,
+       _machinePhotoRepository = machinePhotoRepository;
 
   final VendingMachineRepository _machineRepository;
   final ProductRepository _productRepository;
   final ManufacturerRepository _manufacturerRepository;
+  final MachinePhotoRepository? _machinePhotoRepository;
 
   Future<AppResult<VendingMachineDetailData>> load(
     VendingMachineId machineId,
@@ -39,6 +43,13 @@ final class VendingMachineDetailLoader {
 
     final manufacturerName = await _manufacturerName(machine.manufacturerId);
     final productCatalog = await _productCatalog();
+    final photoResult = _machinePhotoRepository == null
+        ? null
+        : await _machinePhotoRepository!.getActivePhotos(machineId);
+    final photoFailure = photoResult?.failureOrNull;
+    if (photoFailure != null) {
+      return AppResult<VendingMachineDetailData>.failure(photoFailure);
+    }
 
     final products =
         machine.activeProducts
@@ -63,6 +74,7 @@ final class VendingMachineDetailLoader {
         machine: machine,
         manufacturerName: manufacturerName,
         products: List<VendingMachineProductDetailItem>.unmodifiable(products),
+        photos: List.unmodifiable(photoResult?.valueOrNull ?? const []),
       ),
     );
   }

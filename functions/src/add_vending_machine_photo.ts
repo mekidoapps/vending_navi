@@ -23,6 +23,7 @@ import {
   saveFormalPhoto,
 } from "./photo_recognition/photo_registration_finalization";
 import { buildTemporaryPhotoBinding } from "./photo_recognition/temporary_photo_binding";
+import {buildPhotoPublicationMetadata, writePhotoPublicationMetadata} from "./photo_publication_contract";
 
 const ACTIVE_ACCOUNT_STATUS = "active";
 const RESTRICTED_ACCOUNT_STATUSES = new Set(["restricted", "suspended"]);
@@ -343,16 +344,14 @@ export async function addVendingMachinePhotoForUser(
         now,
       );
 
-      transaction.create(photoRef, {
-        storagePath: formalPhotoPath,
-        thumbnailPath: null,
-        status: "active",
-        uploadedBy: normalizedUid,
-        uploadedAt: now,
-        recognitionStatus: "completed",
-        recognitionProvider: photoContext.provider,
-        isPrimary: primaryPhotoChanged,
+      const privatePhotoRef = firestore.collection("vending_machine_private")
+        .doc(input.machineId).collection("photos").doc(photoId);
+      const metadata = buildPhotoPublicationMetadata({
+        machineId: input.machineId, photoId, uploadedBy: normalizedUid,
+        uploadedAt: now, recognitionProvider: photoContext.provider,
+        storagePath: formalPhotoPath, isPrimary: primaryPhotoChanged,
       });
+      writePhotoPublicationMetadata(transaction, photoRef, privatePhotoRef, metadata);
 
       const machineUpdate: Record<string, unknown> = {
         updatedAt: now,

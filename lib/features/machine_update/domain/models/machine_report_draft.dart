@@ -6,6 +6,8 @@ final class MachineReportDraft {
     required this.machineId,
     required this.category,
     this.photoId,
+    this.productId,
+    this.targetType,
     this.message,
   });
 
@@ -17,6 +19,8 @@ final class MachineReportDraft {
   /// Null means the report targets the vending machine itself rather
   /// than a specific photo.
   final String? photoId;
+  final String? productId;
+  final String? targetType;
 
   final String? message;
 }

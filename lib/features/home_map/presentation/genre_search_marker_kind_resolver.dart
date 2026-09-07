@@ -11,6 +11,7 @@ abstract final class GenreSearchMarkerKindResolver {
     required VendingMachineId? selectedMachineId,
     required ProductGenre? selectedGenre,
     required GenreMachineSearchState searchState,
+    Set<String> blockedProductIds = const <String>{},
   }) {
     if (machine.id == selectedMachineId) {
       return VendingMachineMarkerKind.selected;
@@ -23,9 +24,21 @@ abstract final class GenreSearchMarkerKindResolver {
       );
     }
 
+    final visibleSearchState = blockedProductIds.isEmpty
+        ? searchState
+        : searchState.copyWith(
+            productIds: searchState.productIds
+                .where((id) => !blockedProductIds.contains(id.value))
+                .toSet(),
+            entries: searchState.entries
+                .where(
+                  (entry) => !blockedProductIds.contains(entry.productId.value),
+                )
+                .toList(),
+          );
     final evidence = GenreSearchMapFilter.evidenceForMachine(
       machine: machine,
-      searchState: searchState,
+      searchState: visibleSearchState,
     );
 
     if (evidence?.isConfirmed ?? false) {

@@ -17,6 +17,8 @@ test("valid machine report is parsed", () => {
     requestId: REQUEST_ID,
     machineId: "machine_v2_station_east",
     photoId: null,
+    productId: null,
+    targetType: "machine",
     category: "machineRemoved",
     message: " 撤去されていました ",
   });
@@ -25,6 +27,8 @@ test("valid machine report is parsed", () => {
     requestId: REQUEST_ID,
     machineId: "machine_v2_station_east",
     photoId: null,
+    productId: null,
+    targetType: "machine",
     category: "machineRemoved",
     message: "撤去されていました",
   });
@@ -43,6 +47,38 @@ test("formal photo ID can be attached", () => {
   });
 
   assert.equal(value.photoId, photoId);
+  assert.equal(value.targetType, "photo");
+});
+
+test("product target retains the exact product ID", () => {
+  const value = parseSubmitMachineReportInput({
+    requestId: REQUEST_ID,
+    machineId: "machine_v2_station_east",
+    photoId: null,
+    productId: "product_tea_green",
+    targetType: "product",
+    category: "other",
+    message: null,
+  });
+  assert.equal(value.targetType, "product");
+  assert.equal(value.productId, "product_tea_green");
+});
+
+test("target combinations are strict", () => {
+  for (const invalid of [
+    {targetType: "photo", photoId: null, productId: null},
+    {targetType: "product", photoId: null, productId: null},
+    {targetType: "machine", photoId: "p_0123456789abcdef0123456789abcd", productId: null},
+    {targetType: "photo", photoId: "p_0123456789abcdef0123456789abcd", productId: "product_tea_green"},
+  ]) {
+    assert.throws(() => parseSubmitMachineReportInput({
+      requestId: REQUEST_ID,
+      machineId: "machine_v2_station_east",
+      category: "other",
+      message: null,
+      ...invalid,
+    }), SubmitMachineReportValidationError);
+  }
 });
 
 test("empty message is normalized to null", () => {

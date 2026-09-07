@@ -12,6 +12,7 @@ import {addVendingMachinePhotoForUser} from "./add_vending_machine_photo";
 import {submitMachineCorrectionForUser} from "./submit_machine_correction";
 import {submitMachineReportForUser} from "./submit_machine_report";
 import {deleteAccountForUser} from "./delete_account";
+import {blockContentSourceForUser, getBlockedContentIdsForUser, resolveContentBlockMode as resolveContentBlockModeForUser, unblockContentSourceForUser} from "./content_blocking";
 import {
   DeleteAccountValidationError,
   assertRecentAuthentication,
@@ -513,6 +514,30 @@ export const submitMachineReport = onCall(
     }
   },
 );
+
+export const blockContentSource = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  await enforceOperationRateLimit(adminFirestore(), request.auth.uid, "blockContentSource");
+  return blockContentSourceForUser(adminFirestore(), request.auth.uid, request.data);
+});
+
+export const resolveContentBlockMode = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  await enforceOperationRateLimit(adminFirestore(), request.auth.uid, "resolveContentBlockMode");
+  return resolveContentBlockModeForUser(adminFirestore(), request.data);
+});
+
+export const unblockContentSource = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  await enforceOperationRateLimit(adminFirestore(), request.auth.uid, "unblockContentSource");
+  return unblockContentSourceForUser(adminFirestore(), request.auth.uid, request.data);
+});
+
+export const getBlockedContentIds = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  await enforceOperationRateLimit(adminFirestore(), request.auth.uid, "getBlockedContentIds");
+  return getBlockedContentIdsForUser(adminFirestore(), request.auth.uid);
+});
 
 
 /**

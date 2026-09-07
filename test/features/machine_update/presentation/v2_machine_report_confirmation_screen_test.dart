@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../../lib/core/result/app_result.dart';
 import '../../../../lib/features/machine_update/application/machine_report_controller.dart';
 import '../../../../lib/features/machine_update/application/providers/machine_report_providers.dart';
+import '../../../../lib/features/content_blocking/application/blocked_content_state.dart';
 import '../../../../lib/features/machine_update/domain/models/machine_report_category.dart';
 import '../../../../lib/features/machine_update/domain/models/machine_report_draft.dart';
 import '../../../../lib/features/machine_update/domain/models/machine_report_result.dart';
@@ -22,6 +23,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         machineReportRepositoryProvider.overrideWithValue(repository),
+        blockedContentGatewayProvider.overrideWithValue(_ContentBlockGateway()),
       ],
     );
     addTearDown(container.dispose);
@@ -64,12 +66,28 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('submitMachineReportButton')));
-
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reportBlockCancelButton')));
     await tester.pumpAndSettle();
 
     expect(completed, 1);
     expect(repository.callCount, 1);
   });
+}
+
+final class _ContentBlockGateway implements BlockedContentGateway {
+  @override
+  Future<void> change({
+    required String operation,
+    required Map<String, Object?> data,
+  }) async {}
+
+  @override
+  Future<Object?> getBlockedContentIds() async => const <String, Object?>{};
+
+  @override
+  Future<Object?> resolveContentBlockMode(Map<String, Object?> data) async =>
+      const <String, Object?>{'blockMode': 'content'};
 }
 
 final class _SuccessRepository implements MachineReportRepository {

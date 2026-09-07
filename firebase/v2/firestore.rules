@@ -29,6 +29,16 @@ service cloud.firestore {
                     ).data.status == 'active';
         allow write: if false;
       }
+
+      // Formal-photo metadata is intentionally limited to the publication
+      // state. Attribution and Storage details live under the private tree.
+      match /photos/{photoId} {
+        allow read: if resource.data.status == 'active'
+                    && get(
+                      /databases/$(database)/documents/vending_machines/$(machineId)
+                    ).data.status == 'active';
+        allow write: if false;
+      }
     }
 
     // Derived public search index.
@@ -141,6 +151,10 @@ service cloud.firestore {
         allow read: if isOwner();
         allow write: if false;
       }
+
+      // Blocking metadata contains private actor attribution and is callable-only.
+      match /blocked_actors/{document=**} { allow read, write: if false; }
+      match /blocked_content/{document=**} { allow read, write: if false; }
     }
 
     // Server-only machine ownership and audit metadata.
@@ -149,7 +163,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // photos, revisions and all other paths remain deny-by-default until
+    // revisions and all other paths remain deny-by-default until
     // their own implementation phases.
     match /{document=**} {
       allow read, write: if false;

@@ -101,6 +101,7 @@ export async function submitMachineReportForUser(
       machineRef
         .collection("photos")
         .doc(input.photoId);
+  const productRef = input.productId === null ? null : machineRef.collection("products").doc(input.productId);
 
   return firestore.runTransaction<
     SubmitMachineReportResult
@@ -165,6 +166,10 @@ export async function submitMachineReportForUser(
           );
         }
       }
+      if (productRef !== null) {
+        const productSnapshot = await transaction.get(productRef);
+        if (!productSnapshot.exists) throw new HttpsError("not-found", "The reported product does not exist on this vending machine.", {appCode: "machine-product-not-found"});
+      }
 
       const now = Timestamp.now();
 
@@ -179,6 +184,8 @@ export async function submitMachineReportForUser(
       transaction.create(reportRef, {
         machineId: input.machineId,
         photoId: input.photoId,
+        productId: input.productId,
+        targetType: input.targetType,
         category: input.category,
         message: input.message,
         status: "new",

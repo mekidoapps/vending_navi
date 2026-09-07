@@ -26,6 +26,7 @@ import {
   preparePhotoRegistration,
   saveFormalPhoto,
 } from "./photo_recognition/photo_registration_finalization";
+import {buildPhotoPublicationMetadata, writePhotoPublicationMetadata} from "./photo_publication_contract";
 
 export interface CreateVendingMachineResult {
   readonly machineId: string;
@@ -306,16 +307,13 @@ export async function createVendingMachineForUser(
         formalPhotoPath !== null
       ) {
         const photoRef = machineRef.collection("photos").doc(photoId);
-        transaction.create(photoRef, {
-          storagePath: formalPhotoPath,
-          thumbnailPath: null,
-          status: "active",
-          uploadedBy: normalizedUid,
-          uploadedAt: now,
-          recognitionStatus: "completed",
-          recognitionProvider: photoContext.provider,
-          isPrimary: true,
+        const privatePhotoRef = privateMachineRef.collection("photos").doc(photoId);
+        const metadata = buildPhotoPublicationMetadata({
+          machineId: machineRef.id, photoId, uploadedBy: normalizedUid,
+          uploadedAt: now, recognitionProvider: photoContext.provider,
+          storagePath: formalPhotoPath, isPrimary: true,
         });
+        writePhotoPublicationMetadata(transaction, photoRef, privatePhotoRef, metadata);
       }
 
       for (const plan of productPlans) {

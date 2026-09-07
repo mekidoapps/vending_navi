@@ -14,15 +14,18 @@ import '../../../core/ui/states/v2_loading_state.dart';
 import '../../auth/application/auth_required_action_runner.dart';
 import '../../auth/application/providers/auth_action_gate_provider.dart';
 import '../../auth/presentation/v2_login_required_sheet.dart';
+import '../../content_blocking/application/blocked_content_state.dart';
 import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
 import '../../product_search/application/genre_search_selection_controller.dart';
 import '../../product_search/application/product_search_selection_controller.dart';
 import '../application/models/vending_machine_detail_data.dart';
 import '../application/vending_machine_detail_search_priority.dart';
+import '../application/vending_machine_detail_block_filter.dart';
 import '../application/providers/external_map_service_provider.dart';
 import '../application/providers/vending_machine_detail_providers.dart';
 import '../domain/entities/vending_machine_enums.dart';
+import '../domain/entities/public_machine_photo.dart';
 import '../domain/value_objects/vending_machine_id.dart';
 
 class V2VendingMachineDetailScreen extends ConsumerWidget {
@@ -35,6 +38,7 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
     final detail = ref.watch(vendingMachineDetailProvider(machineId));
     final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
     final selectedGenre = ref.watch(genreSearchSelectionControllerProvider);
+    final blocked = ref.watch(blockedContentProvider);
 
     return Theme(
       data: V2Theme.light(),
@@ -51,15 +55,31 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
           ),
           data: (result) {
             return result.fold(
-              onSuccess: (data) => _DetailBody(
-                data: data,
-                selectedProduct: selectedProduct,
-                selectedGenre: selectedGenre,
-                onDirectionsPressed: () => _openDirections(context, ref, data),
-                onUpdatePressed: data.machine.isLegacy
-                    ? null
-                    : () => _openUpdateMenu(context, ref),
-              ),
+              onSuccess: (data) =>
+                  VendingMachineDetailBlockFilter.isMachineHidden(
+                    machineId: machineId.value,
+                    blockedMachineIds: blocked.machineIds,
+                  )
+                  ? const _BlockedMachineBody()
+                  : _DetailBody(
+                      data: data,
+                      blockedProductIds: blocked.productIds,
+                      blockedPhotoIds: blocked.photoIds,
+                      selectedProduct: selectedProduct,
+                      selectedGenre: selectedGenre,
+                      onDirectionsPressed: () =>
+                          _openDirections(context, ref, data),
+                      onUpdatePressed: data.machine.isLegacy
+                          ? null
+                          : () => _openUpdateMenu(context, ref),
+                      onReportPressed: () => context.pushNamed(
+                        AppRoute.v2MachineReport.name,
+                        pathParameters: <String, String>{
+                          'machineId': machineId.value,
+                        },
+                      ),
+                      onBlockPressed: () => _blockMachine(context, ref),
+                    ),
               onFailure: (failure) => _FailureBody(
                 failure: failure,
                 onRetry: failure.isRetryable
@@ -71,6 +91,18 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Future<void> _blockMachine(BuildContext context, WidgetRef ref) async {
+    final blocked = await ref
+        .read(blockedContentProvider.notifier)
+        .block(targetType: 'machine', machineId: machineId.value);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(blocked ? 'この投稿者のコンテンツを非表示にしました' : '非表示設定を変更できませんでした'),
       ),
     );
   }
@@ -159,20 +191,129 @@ class _FailureBody extends StatelessWidget {
   }
 }
 
+class _BlockedMachineBody extends StatelessWidget {
+  const _BlockedMachineBody();
+  @override
+  Widget build(BuildContext context) =>
+      const Center(child: Text('この自販機は非表示設定されています'));
+}
+
+class _FormalPhotoSection extends ConsumerWidget {
+  const _FormalPhotoSection({
+    required this.machineId,
+    required this.photos,
+    required this.blockedPhotoIds,
+  });
+
+  final String machineId;
+  final List<PublicMachinePhoto> photos;
+  final Set<String> blockedPhotoIds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = VendingMachineDetailBlockFilter.visiblePhotos(
+      photos: photos,
+      blockedPhotoIds: blockedPhotoIds,
+    );
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return _SectionCard(
+      title: '写真',
+      child: Column(
+        children: <Widget>[
+          for (final photo in visible) ...<Widget>[
+            _FormalPhotoTile(machineId: machineId, photo: photo),
+            if (photo != visible.last) const SizedBox(height: V2Spacing.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FormalPhotoTile extends ConsumerWidget {
+  const _FormalPhotoTile({required this.machineId, required this.photo});
+
+  final String machineId;
+  final PublicMachinePhoto photo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final image = ref.watch(
+      formalMachinePhotoUrlProvider((
+        machineId: machineId,
+        photoId: photo.photoId,
+      )),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: V2Radius.control,
+          child: image.when(
+            data: (url) => Image.network(
+              url,
+              key: Key('formalPhoto_${photo.photoId}'),
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const _FormalPhotoUnavailable(),
+            ),
+            loading: () => const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (_, _) => const _FormalPhotoUnavailable(),
+          ),
+        ),
+        _ContentActionMenu(
+          menuKey: Key('photoActions_${photo.photoId}'),
+          target: ContentBlockTarget(
+            targetType: 'photo',
+            machineId: machineId,
+            photoId: photo.photoId,
+          ),
+          reportLabel: 'この写真を報告',
+          contentBlockLabel: 'この写真を非表示',
+          onReport: () => context.pushNamed(
+            AppRoute.v2MachineReport.name,
+            pathParameters: <String, String>{'machineId': machineId},
+            queryParameters: <String, String>{'photoId': photo.photoId},
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FormalPhotoUnavailable extends StatelessWidget {
+  const _FormalPhotoUnavailable();
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox(height: 96, child: Center(child: Text('写真を表示できませんでした')));
+}
+
 class _DetailBody extends StatelessWidget {
   const _DetailBody({
     required this.data,
+    required this.blockedProductIds,
+    required this.blockedPhotoIds,
     required this.selectedProduct,
     required this.selectedGenre,
     required this.onDirectionsPressed,
     required this.onUpdatePressed,
+    required this.onReportPressed,
+    required this.onBlockPressed,
   });
 
   final VendingMachineDetailData data;
+  final Set<String> blockedProductIds;
+  final Set<String> blockedPhotoIds;
   final Product? selectedProduct;
   final ProductGenre? selectedGenre;
   final VoidCallback onDirectionsPressed;
   final VoidCallback? onUpdatePressed;
+  final VoidCallback onReportPressed;
+  final VoidCallback onBlockPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +322,10 @@ class _DetailBody extends StatelessWidget {
       products: data.products,
       selectedProduct: selectedProduct,
       selectedGenre: selectedGenre,
+    );
+    final visibleProducts = VendingMachineDetailBlockFilter.visibleProducts(
+      products: orderedProducts,
+      blockedProductIds: blockedProductIds,
     );
     final searchLabel = VendingMachineDetailSearchPriority.searchLabel(
       selectedProduct: selectedProduct,
@@ -191,6 +336,17 @@ class _DetailBody extends StatelessWidget {
       padding: const EdgeInsets.all(V2Spacing.md),
       children: <Widget>[
         _MachineHeaderCard(data: data),
+        if (VendingMachineDetailBlockFilter.visiblePhotos(
+          photos: data.photos,
+          blockedPhotoIds: blockedPhotoIds,
+        ).isNotEmpty) ...<Widget>[
+          const SizedBox(height: V2Spacing.md),
+          _FormalPhotoSection(
+            machineId: machine.id.value,
+            photos: data.photos,
+            blockedPhotoIds: blockedPhotoIds,
+          ),
+        ],
         const SizedBox(height: V2Spacing.md),
         _SectionCard(
           title: '設置情報',
@@ -233,7 +389,7 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: V2Spacing.md),
         _SectionCard(
           title: 'ドリンク',
-          child: orderedProducts.isEmpty
+          child: visibleProducts.isEmpty
               ? const _NoProducts()
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,19 +400,20 @@ class _DetailBody extends StatelessWidget {
                     ],
                     for (
                       var index = 0;
-                      index < orderedProducts.length;
+                      index < visibleProducts.length;
                       index++
                     ) ...<Widget>[
                       _ProductRow(
-                        item: orderedProducts[index],
+                        item: visibleProducts[index],
+                        machineId: machine.id.value,
                         isSearchMatch:
                             VendingMachineDetailSearchPriority.isSearchMatch(
-                              item: orderedProducts[index],
+                              item: visibleProducts[index],
                               selectedProduct: selectedProduct,
                               selectedGenre: selectedGenre,
                             ),
                       ),
-                      if (index != orderedProducts.length - 1)
+                      if (index != visibleProducts.length - 1)
                         const Divider(height: V2Spacing.lg),
                     ],
                   ],
@@ -274,6 +431,20 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: V2Spacing.md),
+        OutlinedButton.icon(
+          key: const Key('reportMachineContentButton'),
+          onPressed: onReportPressed,
+          icon: const Icon(Icons.flag_outlined),
+          label: const Text('この内容を報告'),
+        ),
+        const SizedBox(height: V2Spacing.sm),
+        TextButton.icon(
+          key: const Key('blockMachineContentButton'),
+          onPressed: onBlockPressed,
+          icon: const Icon(Icons.visibility_off_outlined),
+          label: const Text('この投稿者のコンテンツを非表示'),
+        ),
       ],
     );
   }
@@ -462,14 +633,19 @@ class _SearchPriorityNotice extends StatelessWidget {
   }
 }
 
-class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.item, required this.isSearchMatch});
+class _ProductRow extends ConsumerWidget {
+  const _ProductRow({
+    required this.item,
+    required this.machineId,
+    required this.isSearchMatch,
+  });
 
   final VendingMachineProductDetailItem item;
+  final String machineId;
   final bool isSearchMatch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = V2ColorTokens.of(context);
 
     return Row(
@@ -507,6 +683,80 @@ class _ProductRow extends StatelessWidget {
             ],
           ),
         ),
+        _ContentActionMenu(
+          menuKey: Key('productActions_${item.productId.value}'),
+          target: ContentBlockTarget(
+            targetType: 'product',
+            machineId: machineId,
+            productId: item.productId.value,
+          ),
+          reportLabel: 'この商品情報を報告',
+          contentBlockLabel: 'この商品を非表示',
+          onReport: () => context.pushNamed(
+            AppRoute.v2MachineReport.name,
+            pathParameters: <String, String>{'machineId': machineId},
+            queryParameters: <String, String>{
+              'productId': item.productId.value,
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContentActionMenu extends ConsumerWidget {
+  const _ContentActionMenu({
+    required this.menuKey,
+    required this.target,
+    required this.reportLabel,
+    required this.contentBlockLabel,
+    required this.onReport,
+  });
+
+  final Key menuKey;
+  final ContentBlockTarget target;
+  final String reportLabel;
+  final String contentBlockLabel;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(contentBlockModeProvider(target));
+    final isActorMode = mode.asData?.value == ContentBlockMode.actor;
+    final blockLabel = isActorMode ? 'この投稿者のコンテンツを非表示' : contentBlockLabel;
+
+    return PopupMenuButton<String>(
+      key: menuKey,
+      onSelected: (action) async {
+        if (action == 'report') {
+          onReport();
+          return;
+        }
+        final blocked = await ref
+            .read(blockedContentProvider.notifier)
+            .block(
+              targetType: target.targetType,
+              machineId: target.machineId,
+              photoId: target.photoId,
+              productId: target.productId,
+            );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              blocked
+                  ? isActorMode
+                        ? 'この投稿者のコンテンツを非表示にしました'
+                        : '$contentBlockLabelにしました'
+                  : '$contentBlockLabelにできませんでした',
+            ),
+          ),
+        );
+      },
+      itemBuilder: (_) => <PopupMenuEntry<String>>[
+        PopupMenuItem(value: 'report', child: Text(reportLabel)),
+        PopupMenuItem(value: 'block', child: Text(blockLabel)),
       ],
     );
   }

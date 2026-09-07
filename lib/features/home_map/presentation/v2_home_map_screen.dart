@@ -14,6 +14,7 @@ import '../../../app/router/app_route.dart';
 import '../../auth/application/auth_required_action_runner.dart';
 import '../../auth/application/providers/auth_action_gate_provider.dart';
 import '../../auth/presentation/v2_login_required_sheet.dart';
+import '../../content_blocking/application/blocked_content_state.dart';
 import '../../favorite_products/application/favorite_products_controller.dart';
 import '../../favorite_products/application/favorite_products_state.dart';
 import '../../location/application/current_location_controller.dart';
@@ -25,8 +26,8 @@ import '../../product_search/application/genre_search_map_filter.dart';
 import '../../product_search/application/genre_search_selection_controller.dart';
 import '../../product_search/application/product_machine_search_controller.dart';
 import '../../product_search/application/product_machine_search_state.dart';
-import '../../product_search/application/product_search_controller.dart';
 import '../../product_search/application/product_search_map_filter.dart';
+import '../../product_search/application/product_search_controller.dart';
 import '../../product_search/application/product_search_selection_controller.dart';
 import '../../product_search/presentation/v2_product_search_panel.dart';
 import '../../product_search/presentation/v2_selected_genre_label.dart';
@@ -41,6 +42,7 @@ import '../application/vending_machine_map_state.dart';
 import '../domain/value_objects/map_viewport_bounds.dart';
 import 'genre_search_marker_kind_resolver.dart';
 import 'product_search_marker_kind_resolver.dart';
+import 'vending_machine_map_block_filter.dart';
 import 'vending_machine_marker_kind.dart';
 
 typedef V2HomeMapBuilder = Widget Function(BuildContext context);
@@ -122,13 +124,16 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       genreMachineSearchControllerProvider,
     );
     final favoriteProductsState = ref.watch(favoriteProductsControllerProvider);
+    final blockedContent = ref.watch(blockedContentProvider);
 
-    final visibleMachines = _visibleMachinesForSearch(
-      machineState: machineState,
+    final visibleMachines = VendingMachineMapBlockFilter.visibleMachines(
+      machines: machineState.machines,
       selectedProduct: selectedProduct,
       selectedGenre: selectedGenre,
       productSearchState: productMachineSearchState,
       genreSearchState: genreMachineSearchState,
+      blockedMachineIds: blockedContent.machineIds,
+      blockedProductIds: blockedContent.productIds,
     );
 
     final visibleSelectedMachine = machineState.selectedMachine;
@@ -172,6 +177,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   selectedGenre,
                   productMachineSearchState,
                   genreMachineSearchState,
+                  blockedContent,
                 ),
                 const _AppLabel(),
                 _LocationStatusOverlay(
@@ -289,6 +295,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
     GenreMachineSearchState genreMachineSearchState,
+    BlockedContentState blockedContent,
   ) {
     final overrideBuilder = widget.mapBuilder;
     if (overrideBuilder != null) {
@@ -311,6 +318,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         selectedGenre,
         productMachineSearchState,
         genreMachineSearchState,
+        blockedContent,
       ),
       onMapCreated: (controller) {
         _mapController = controller;
@@ -333,16 +341,19 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
     GenreMachineSearchState genreMachineSearchState,
+    BlockedContentState blockedContent,
   ) {
-    final visibleMachines = _visibleMachinesForSearch(
-      machineState: state,
+    final filteredMachines = VendingMachineMapBlockFilter.visibleMachines(
+      machines: state.machines,
       selectedProduct: selectedProduct,
       selectedGenre: selectedGenre,
       productSearchState: productMachineSearchState,
       genreSearchState: genreMachineSearchState,
+      blockedMachineIds: blockedContent.machineIds,
+      blockedProductIds: blockedContent.productIds,
     );
 
-    return visibleMachines.map((machine) {
+    return filteredMachines.map((machine) {
       final kind = _markerKindForSearch(
         machine: machine,
         selectedMachineId: state.selectedMachineId,
@@ -350,6 +361,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         selectedGenre: selectedGenre,
         productSearchState: productMachineSearchState,
         genreSearchState: genreMachineSearchState,
+        blockedProductIds: blockedContent.productIds,
       );
 
       return Marker(
@@ -362,32 +374,6 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     }).toSet();
   }
 
-  static List<VendingMachine> _visibleMachinesForSearch({
-    required VendingMachineMapState machineState,
-    required Product? selectedProduct,
-    required ProductGenre? selectedGenre,
-    required ProductMachineSearchState productSearchState,
-    required GenreMachineSearchState genreSearchState,
-  }) {
-    if (selectedProduct != null) {
-      return ProductSearchMapFilter.visibleMachines(
-        machines: machineState.machines,
-        selectedProduct: selectedProduct,
-        searchState: productSearchState,
-      );
-    }
-
-    if (selectedGenre != null) {
-      return GenreSearchMapFilter.visibleMachines(
-        machines: machineState.machines,
-        selectedGenre: selectedGenre,
-        searchState: genreSearchState,
-      );
-    }
-
-    return List<VendingMachine>.unmodifiable(machineState.machines);
-  }
-
   static VendingMachineMarkerKind _markerKindForSearch({
     required VendingMachine machine,
     required VendingMachineId? selectedMachineId,
@@ -395,6 +381,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     required ProductGenre? selectedGenre,
     required ProductMachineSearchState productSearchState,
     required GenreMachineSearchState genreSearchState,
+    Set<String> blockedProductIds = const <String>{},
   }) {
     if (selectedProduct != null) {
       return ProductSearchMarkerKindResolver.resolve(
@@ -411,6 +398,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         selectedMachineId: selectedMachineId,
         selectedGenre: selectedGenre,
         searchState: genreSearchState,
+        blockedProductIds: blockedProductIds,
       );
     }
 

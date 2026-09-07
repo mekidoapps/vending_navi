@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../core/result/app_result.dart';
 import '../../../product_master/application/providers/product_master_providers.dart';
 import '../../../product_master/domain/value_objects/master_id.dart';
@@ -13,6 +14,7 @@ final vendingMachineDetailLoaderProvider = Provider<VendingMachineDetailLoader>(
     machineRepository: ref.watch(vendingMachineRepositoryProvider),
     productRepository: ref.watch(productRepositoryProvider),
     manufacturerRepository: ref.watch(manufacturerRepositoryProvider),
+    machinePhotoRepository: ref.watch(machinePhotoRepositoryProvider),
   ),
   name: 'vendingMachineDetailLoaderProvider',
 );
@@ -24,6 +26,16 @@ final vendingMachineDetailProvider =
     >((ref, machineId) {
       return ref.watch(vendingMachineDetailLoaderProvider).load(machineId);
     }, name: 'vendingMachineDetailProvider');
+
+final formalMachinePhotoUrlProvider = FutureProvider.family<String, ({
+  String machineId,
+  String photoId,
+})>((ref, target) {
+  return ref
+      .watch(firebaseStorageProvider)
+      .ref('vending_machines/${target.machineId}/${target.photoId}/original.jpg')
+      .getDownloadURL();
+}, name: 'formalMachinePhotoUrlProvider');
 
 final manufacturerDisplayNameProvider =
     FutureProvider.family<String, ManufacturerId?>((ref, manufacturerId) async {

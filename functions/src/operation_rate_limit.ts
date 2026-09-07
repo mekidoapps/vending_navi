@@ -33,6 +33,10 @@ export const OPERATION_RATE_LIMIT_POLICIES = {
     windowMs: ONE_HOUR_MS,
     maxRequests: 30,
   },
+  blockContentSource: {windowMs: ONE_HOUR_MS, maxRequests: 60},
+  resolveContentBlockMode: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  unblockContentSource: {windowMs: ONE_HOUR_MS, maxRequests: 60},
+  getBlockedContentIds: {windowMs: ONE_HOUR_MS, maxRequests: 120},
 } as const;
 
 export type RateLimitedOperation =

@@ -15,6 +15,7 @@ class V2MachineReportScreen extends ConsumerStatefulWidget {
     super.key,
     required this.machineId,
     this.photoId,
+    this.productId,
     this.onReviewPressed,
   });
 
@@ -23,6 +24,7 @@ class V2MachineReportScreen extends ConsumerStatefulWidget {
   /// 写真単体から報告する場合に指定する正式photoId。
   /// 通常の自販機報告ではnull。
   final String? photoId;
+  final String? productId;
 
   final VoidCallback? onReviewPressed;
 
@@ -147,6 +149,8 @@ class _V2MachineReportScreenState extends ConsumerState<V2MachineReportScreen> {
           MachineReportDraft(
             machineId: widget.machineId,
             photoId: widget.photoId,
+            productId: widget.productId,
+            targetType: widget.photoId != null ? 'photo' : widget.productId != null ? 'product' : 'machine',
             category: category,
             message: normalizedMessage.isEmpty ? null : normalizedMessage,
           ),

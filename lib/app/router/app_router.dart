@@ -353,6 +353,7 @@ GoRouter createAppRouter({
               V2MachineReportScreen(
                 machineId: machineId,
                 photoId: state.uri.queryParameters['photoId'],
+                productId: state.uri.queryParameters['productId'],
                 onReviewPressed: () {
                   context.pushNamed(
                     AppRoute.v2MachineReportConfirmation.name,

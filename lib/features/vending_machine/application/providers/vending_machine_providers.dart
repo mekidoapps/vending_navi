@@ -5,6 +5,9 @@ import '../../../product_master/application/providers/product_master_providers.d
 import '../../data/repositories/vending_machine_repository_impl.dart';
 import '../../data/sources/firestore_vending_machine_document_source.dart';
 import '../../data/sources/vending_machine_document_source.dart';
+import '../../data/sources/firestore_machine_photo_source.dart';
+import '../../data/repositories/machine_photo_repository_impl.dart';
+import '../../domain/repositories/machine_photo_repository.dart';
 import '../../domain/repositories/vending_machine_repository.dart';
 
 final vendingMachineDocumentSourceProvider =
@@ -21,4 +24,11 @@ final vendingMachineRepositoryProvider = Provider<VendingMachineRepository>(
     manufacturerRepository: ref.watch(manufacturerRepositoryProvider),
   ),
   name: 'vendingMachineRepositoryProvider',
+);
+
+final machinePhotoRepositoryProvider = Provider<MachinePhotoRepository>(
+  (ref) => MachinePhotoRepositoryImpl(
+    FirestoreMachinePhotoSource(ref.watch(firestoreProvider)),
+  ),
+  name: 'machinePhotoRepositoryProvider',
 );

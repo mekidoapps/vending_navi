@@ -20,6 +20,8 @@ void main() {
       'requestId': '123e4567-e89b-42d3-a456-426614174000',
       'machineId': 'machine-001',
       'photoId': null,
+      'productId': null,
+      'targetType': 'machine',
       'category': 'machineRemoved',
       'message': '撤去されていました',
     });
@@ -40,8 +42,23 @@ void main() {
     final map = dto.toMap();
 
     expect(map['photoId'], photoId);
+    expect(map['targetType'], 'photo');
     expect(map['category'], 'inappropriatePhoto');
     expect(map['message'], isNull);
+  });
+
+  test('serializes product target without changing its ID', () {
+    final dto = SubmitMachineReportRequestDto(
+      requestId: '123e4567-e89b-42d3-a456-426614174000',
+      draft: MachineReportDraft(
+        machineId: VendingMachineId.tryParse('machine-001')!,
+        category: MachineReportCategory.other,
+        productId: 'product_tea_green',
+        targetType: 'product',
+      ),
+    );
+    expect(dto.toMap()['productId'], 'product_tea_green');
+    expect(dto.toMap()['targetType'], 'product');
   });
 
   test('rejects invalid formal photo id', () {

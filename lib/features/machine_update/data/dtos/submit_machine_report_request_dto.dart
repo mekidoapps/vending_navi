@@ -33,6 +33,8 @@ final class SubmitMachineReportRequestDto {
       'photoId': normalizedPhotoId == null || normalizedPhotoId.isEmpty
           ? null
           : normalizedPhotoId,
+      'productId': draft.productId,
+      'targetType': draft.targetType ?? (normalizedPhotoId == null || normalizedPhotoId.isEmpty ? 'machine' : 'photo'),
       'category': draft.category.wireValue,
       'message': normalizedMessage == null || normalizedMessage.isEmpty
           ? null

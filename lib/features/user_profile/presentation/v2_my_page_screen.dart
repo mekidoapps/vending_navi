@@ -7,6 +7,7 @@ import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../favorite_products/application/favorite_products_controller.dart';
 import '../../favorite_products/presentation/v2_favorite_products_card.dart';
+import '../../content_blocking/application/blocked_content_state.dart';
 import '../application/v2_my_page_controller.dart';
 import '../application/v2_my_page_state.dart';
 
@@ -508,6 +509,8 @@ class _AuthenticatedMyPage extends StatelessWidget {
             description: 'P5-07でProduct IDベースの保存機能を接続します。',
           ),
         const SizedBox(height: V2Spacing.md),
+        const _BlockedContentSettingsCard(),
+        const SizedBox(height: V2Spacing.md),
         OutlinedButton.icon(
           key: const Key('myPageSignOutButton'),
           onPressed: state.isSigningOut ? null : onSignOut,
@@ -564,6 +567,36 @@ class _AuthenticatedMyPage extends StatelessWidget {
     }
     return labels.join(' / ');
   }
+}
+
+class _BlockedContentSettingsCard extends ConsumerWidget {
+  const _BlockedContentSettingsCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entries = ref.watch(blockedContentProvider).blocks;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(V2Spacing.md),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('非表示設定', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: V2Spacing.xs),
+          if (entries.isEmpty) const Text('非表示にしたコンテンツはありません。'),
+          for (final entry in entries) ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(_label(entry)),
+            trailing: TextButton(
+              onPressed: () async {
+                final success = await ref.read(blockedContentProvider.notifier).unblockHandle(entry.handle);
+                if (context.mounted && !success) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('非表示設定を解除できませんでした')));
+              },
+              child: const Text('解除'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+  static String _label(BlockedContentEntry entry) => entry.kind == 'actor' ? '投稿者由来コンテンツ' : switch (entry.targetType) { 'photo' => '写真', 'product' => '商品', 'text' => 'その他コンテンツ', _ => '自販機' };
 }
 
 class _ProfileCard extends StatelessWidget {

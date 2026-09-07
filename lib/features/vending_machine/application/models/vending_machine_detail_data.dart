@@ -2,17 +2,20 @@ import '../../../product_master/domain/entities/product_genre.dart';
 import '../../../product_master/domain/value_objects/master_id.dart';
 import '../../domain/entities/vending_machine.dart';
 import '../../domain/entities/vending_machine_enums.dart';
+import '../../domain/entities/public_machine_photo.dart';
 
 final class VendingMachineDetailData {
   const VendingMachineDetailData({
     required this.machine,
     required this.manufacturerName,
     required this.products,
+    this.photos = const <PublicMachinePhoto>[],
   });
 
   final VendingMachine machine;
   final String manufacturerName;
   final List<VendingMachineProductDetailItem> products;
+  final List<PublicMachinePhoto> photos;
 
   bool get hasConfirmedProducts =>
       products.any((product) => product.isConfirmed);

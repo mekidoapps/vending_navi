@@ -1,4 +1,5 @@
 import {strict as assert} from "node:assert";
+import {randomUUID} from "node:crypto";
 import {readFile} from "node:fs/promises";
 import {after, before, beforeEach, test} from "node:test";
 
@@ -23,7 +24,6 @@ const FIVE_MIB = 5 * 1024 * 1024;
 const OWNER_UID = "p711-owner";
 const OTHER_UID = "p711-other";
 const VALID_UPLOAD_ID = "123e4567-e89b-42d3-a456-426614174000";
-const SECOND_UPLOAD_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 let testEnv;
 
@@ -55,13 +55,17 @@ async function anonymousStorage() {
 }
 
 before(async () => {
-  const rules = await readFile(
+  const [rules, firestoreRules] = await Promise.all([
+    readFile(
     new URL("../../firebase/v2/storage.rules", import.meta.url),
     "utf8",
-  );
+    ),
+    readFile(new URL("../../firebase/v2/firestore.rules", import.meta.url), "utf8"),
+  ]);
 
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
+    firestore: {host: "127.0.0.1", port: 8080, rules: firestoreRules},
     storage: {
       host: STORAGE_HOST,
       port: STORAGE_PORT,
@@ -71,6 +75,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
+  await testEnv.clearFirestore();
   await testEnv.clearStorage();
 });
 
@@ -259,7 +264,7 @@ test("a second UUID upload folder can be created for retake", async () => {
   );
   await assertSucceeds(
     uploadBytes(
-      ref(storage, tempPath(OWNER_UID, SECOND_UPLOAD_ID)),
+      ref(storage, tempPath(OWNER_UID, randomUUID())),
       jpegBytes(),
       {contentType: "image/jpeg"},
     ),
@@ -280,7 +285,7 @@ test("formal vending-machine photo writes remain denied", async () => {
   );
 });
 
-test("formal vending-machine photo reads remain denied at P7-11", async () => {
+test("formal vending-machine photo without public metadata remains denied", async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const storage = context.storage(BUCKET);
     await uploadBytes(

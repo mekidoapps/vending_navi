@@ -5,6 +5,7 @@ import '../../../app/theme/v2_color_tokens.dart';
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../../../app/theme/v2_theme.dart';
+import '../../content_blocking/application/blocked_content_state.dart';
 import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../application/machine_report_controller.dart';
 import '../domain/models/machine_report_category.dart';
@@ -51,6 +52,8 @@ class _V2MachineReportConfirmationScreenState
   }
 
   Future<void> _submit() async {
+    final draft = ref.read(machineReportControllerProvider).draft;
+    if (draft == null) return;
     final submitted = await ref
         .read(machineReportControllerProvider.notifier)
         .submit();
@@ -59,11 +62,95 @@ class _V2MachineReportConfirmationScreenState
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('報告を受け付けました。')));
+    // Keep one immutable target for the whole report-to-block sequence.  The
+    // target is deliberately built from the submitted draft, never from UI
+    // state or a report response.
+    final target = _blockTarget(draft);
+    final mode = await _resolveBlockMode(target);
+    if (!mounted) return;
+
+    final blockAfterReport = mode == null
+        ? false
+        : await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('報告を受け付けました'),
+              content: Text(_blockPrompt(target, mode)),
+              actions: <Widget>[
+                TextButton(
+                  key: const Key('reportBlockCancelButton'),
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('今回はしない'),
+                ),
+                FilledButton(
+                  key: const Key('reportBlockConfirmButton'),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('非表示にする'),
+                ),
+              ],
+            ),
+          ) ??
+              false;
+
+    if (!mounted) return;
+    var blockFailed = false;
+    if (blockAfterReport == true) {
+      final blocked = await ref.read(blockedContentProvider.notifier).block(
+        targetType: target.targetType,
+        machineId: target.machineId,
+        photoId: target.photoId,
+        productId: target.productId,
+      );
+      if (!mounted) return;
+      if (!blocked) {
+        blockFailed = true;
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          blockFailed
+              ? '報告を受け付けました。非表示設定を変更できませんでした。'
+              : '報告を受け付けました。',
+        ),
+      ),
+    );
 
     widget.onCompleted();
+  }
+
+  Future<ContentBlockMode?> _resolveBlockMode(ContentBlockTarget target) async {
+    try {
+      return await ref.read(contentBlockModeProvider(target).future);
+    } catch (_) {
+      // Reporting has already succeeded.  A private attribution lookup must
+      // never turn that success into an error or prompt with a guessed actor.
+      return null;
+    }
+  }
+
+  static ContentBlockTarget _blockTarget(MachineReportDraft draft) =>
+      ContentBlockTarget(
+        targetType: draft.targetType ?? 'machine',
+        machineId: draft.machineId.value,
+        photoId: draft.photoId,
+        productId: draft.productId,
+      );
+
+  static String _blockPrompt(
+    ContentBlockTarget target,
+    ContentBlockMode mode,
+  ) {
+    if (mode == ContentBlockMode.actor) {
+      return 'この投稿者のコンテンツも非表示にしますか？';
+    }
+    return switch (target.targetType) {
+      'photo' => 'この写真も非表示にしますか？',
+      'product' => 'この商品も非表示にしますか？',
+      'text' => 'この内容も非表示にしますか？',
+      _ => 'この自販機も非表示にしますか？',
+    };
   }
 }
 

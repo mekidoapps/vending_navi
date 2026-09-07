@@ -80,7 +80,7 @@ void main() {
     );
   });
 
-  test('写真・履歴・その他private pathはdeny-by-defaultを維持する', () {
+  test('公開写真はactiveな親とphotoだけがreadでき、client writeは拒否する', () {
     final rules = File(
       'firebase/v2/firestore.rules',
     ).readAsStringSync();
@@ -95,10 +95,17 @@ void main() {
       isNot(contains('match /revisions/{revisionId}')),
     );
 
-    expect(
-      rules,
-      isNot(contains('match /photos/{photoId}')),
-    );
+    expect(rules, contains('match /photos/{photoId}'));
+    expect(rules, contains("resource.data.status == 'active'"));
+    expect(rules, contains('allow write: if false;'));
+  });
+
+  test('正式Storage写真は公開metadataと親machineの両方を要求する', () {
+    final rules = File('firebase/v2/storage.rules').readAsStringSync();
+    expect(rules, contains('match /vending_machines/{machineId}/{photoId}/original.jpg'));
+    expect(rules, contains('function isActiveMachine(machineId)'));
+    expect(rules, contains('function isActiveFormalPhoto(machineId, photoId)'));
+    expect(rules, contains('allow write: if false;'));
   });
 
   test('投稿ルール同意は本人だけが読め、client直接書込みを許可しない', () {

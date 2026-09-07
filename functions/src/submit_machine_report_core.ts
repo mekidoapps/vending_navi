@@ -28,11 +28,14 @@ export type MachineReportCategory =
   | "inappropriatePhoto"
   | "inappropriateText"
   | "other";
+export type MachineReportTargetType = "machine" | "photo" | "product" | "text";
 
 export interface SubmitMachineReportInput {
   readonly requestId: string;
   readonly machineId: string;
   readonly photoId: string | null;
+  readonly productId: string | null;
+  readonly targetType: MachineReportTargetType;
   readonly category: MachineReportCategory;
   readonly message: string | null;
 }
@@ -65,6 +68,8 @@ export function parseSubmitMachineReportInput(
       "requestId",
       "machineId",
       "photoId",
+      "productId",
+      "targetType",
       "category",
       "message",
     ]),
@@ -94,6 +99,7 @@ export function parseSubmitMachineReportInput(
   }
 
   let photoId: string | null = null;
+  let productId: string | null = null;
 
   if (
     input.photoId !== undefined &&
@@ -110,6 +116,21 @@ export function parseSubmitMachineReportInput(
       );
     }
   }
+
+  if (input.productId !== undefined && input.productId !== null) {
+    productId = requireString(input.productId, "productId is invalid.");
+    if (!isMasterId(productId)) throw new SubmitMachineReportValidationError("productId is invalid.");
+  }
+
+  const inferredTargetType = photoId === null ? "machine" : "photo";
+  const targetType = input.targetType === undefined ? inferredTargetType : requireString(input.targetType, "targetType is invalid.");
+  if (!["machine", "photo", "product", "text"].includes(targetType)) throw new SubmitMachineReportValidationError("targetType is invalid.");
+  if (
+    (targetType === "photo" && (photoId === null || productId !== null)) ||
+    (targetType === "product" && (productId === null || photoId !== null)) ||
+    ((targetType === "machine" || targetType === "text") &&
+      (photoId !== null || productId !== null))
+  ) throw new SubmitMachineReportValidationError("targetType does not match target ID.");
 
   const category = requireString(
     input.category,
@@ -150,6 +171,8 @@ export function parseSubmitMachineReportInput(
     requestId,
     machineId,
     photoId,
+    productId,
+    targetType: targetType as MachineReportTargetType,
     category: category as MachineReportCategory,
     message,
   };
