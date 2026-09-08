@@ -31,6 +31,15 @@ import {
   assertUgcTermsAccepted,
   getUgcTermsConsentForUser,
 } from "./ugc_terms";
+import {
+  createFirestoreModerationReadStore,
+  assertModeratorForCaller,
+  getModerationTargetForCaller,
+  listModerationQueueForCaller,
+  planModerationActionForCaller,
+} from "./moderation_read";
+import {applyModerationActionForCaller} from "./moderation_mutation";
+import {applyModerationQueueActionForCaller, markModerationItemInReviewForCaller, resolveModerationItemForCaller} from "./moderation_queue_mutation";
 
 const enforceAppCheckForRuntime = shouldEnforceAppCheck(process.env);
 
@@ -537,6 +546,69 @@ export const getBlockedContentIds = onCall({enforceAppCheck: enforceAppCheckForR
   if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
   await enforceOperationRateLimit(adminFirestore(), request.auth.uid, "getBlockedContentIds");
   return getBlockedContentIdsForUser(adminFirestore(), request.auth.uid);
+});
+
+export const listModerationQueue = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "listModerationQueue");
+  return listModerationQueueForCaller(createFirestoreModerationReadStore(firestore), caller, request.data);
+});
+
+export const getModerationTarget = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "getModerationTarget");
+  return getModerationTargetForCaller(createFirestoreModerationReadStore(firestore), caller, request.data);
+});
+
+export const planModerationAction = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "planModerationAction");
+  return planModerationActionForCaller(createFirestoreModerationReadStore(firestore), caller, request.data);
+});
+
+export const applyModerationAction = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "applyModerationAction");
+  return applyModerationActionForCaller(firestore, caller, request.data, adminStorageBucket());
+});
+
+export const markModerationItemInReview = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "markModerationItemInReview");
+  return markModerationItemInReviewForCaller(firestore, caller, request.data);
+});
+
+export const resolveModerationItem = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "resolveModerationItem");
+  return resolveModerationItemForCaller(firestore, caller, request.data);
+});
+
+export const applyModerationQueueAction = onCall({enforceAppCheck: enforceAppCheckForRuntime}, async (request) => {
+  if (request.auth === undefined) throw new HttpsError("unauthenticated", "Authentication is required.");
+  const firestore = adminFirestore();
+  const caller = {uid: request.auth.uid, customClaims: request.auth.token};
+  await assertModeratorForCaller(createFirestoreModerationReadStore(firestore), caller);
+  await enforceOperationRateLimit(firestore, request.auth.uid, "applyModerationQueueAction");
+  return applyModerationQueueActionForCaller(firestore, caller, request.data, adminStorageBucket());
 });
 
 

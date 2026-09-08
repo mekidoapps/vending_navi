@@ -37,6 +37,13 @@ export const OPERATION_RATE_LIMIT_POLICIES = {
   resolveContentBlockMode: {windowMs: ONE_HOUR_MS, maxRequests: 120},
   unblockContentSource: {windowMs: ONE_HOUR_MS, maxRequests: 60},
   getBlockedContentIds: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  listModerationQueue: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  getModerationTarget: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  planModerationAction: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  applyModerationAction: {windowMs: ONE_HOUR_MS, maxRequests: 60},
+  markModerationItemInReview: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  resolveModerationItem: {windowMs: ONE_HOUR_MS, maxRequests: 120},
+  applyModerationQueueAction: {windowMs: ONE_HOUR_MS, maxRequests: 60},
 } as const;
 
 export type RateLimitedOperation =

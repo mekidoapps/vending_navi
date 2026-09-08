@@ -48,6 +48,35 @@ test("content block mode uses the same protected callable policy as block action
   assert.doesNotMatch(block, /assertUgcTermsAccepted\(/);
 });
 
+test("moderation read callables retain App Check, auth, and rate-limit wiring", () => {
+  const source = readFileSync("src/index.ts", "utf8");
+  for (const callable of ["listModerationQueue", "getModerationTarget", "planModerationAction", "markModerationItemInReview", "resolveModerationItem", "applyModerationQueueAction"]) {
+    const start = source.indexOf(`export const ${callable} = onCall(`);
+    const end = source.indexOf("export const", start + 1);
+    const block = source.slice(start, end === -1 ? undefined : end);
+    assert.notEqual(start, -1, `${callable} Callable must exist.`);
+    assert.match(block, /enforceAppCheck:\s*enforceAppCheckForRuntime/);
+    assert.match(block, /request\.auth === undefined/);
+    assert.match(block, /assertModeratorForCaller\(/);
+    assert.match(block, new RegExp(`"${callable}"`));
+  }
+});
+
+test("moderation mutation callable retains the protected policy without Auth or Storage mutation", () => {
+  const source = readFileSync("src/index.ts", "utf8");
+  const mutationSource = readFileSync("src/moderation_mutation.ts", "utf8");
+  const start = source.indexOf("export const applyModerationAction = onCall(");
+  const end = source.indexOf("export const", start + 1);
+  const block = source.slice(start, end === -1 ? undefined : end);
+  assert.notEqual(start, -1, "applyModerationAction Callable must exist.");
+  assert.match(block, /enforceAppCheck:\s*enforceAppCheckForRuntime/);
+  assert.match(block, /request\.auth === undefined/);
+  assert.match(block, /assertModeratorForCaller\(/);
+  assert.match(block, /"applyModerationAction"/);
+  assert.match(mutationSource, /moderation_private_audit/);
+  assert.doesNotMatch(mutationSource, /getAuth\(|deleteUser\(|updateUser\(|getStorage\(|deleteFiles\(/);
+});
+
 
 test(
   "deleteAccount intentionally uses recent auth instead of content rate limiting",
