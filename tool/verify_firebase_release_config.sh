@@ -76,6 +76,13 @@ expected_exports=(
   "addVendingMachinePhoto"
   "submitMachineCorrection"
   "submitMachineReport"
+  "listModerationQueue"
+  "getModerationTarget"
+  "planModerationAction"
+  "applyModerationAction"
+  "markModerationItemInReview"
+  "resolveModerationItem"
+  "applyModerationQueueAction"
   "deleteAccount"
 )
 
