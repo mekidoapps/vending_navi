@@ -38,7 +38,7 @@ Cloud Storage Object Lifecycle Management is used for this orphan cleanup.
 Lifecycle rule:
 
 - prefix: machine_uploads/
-- age: 1 day
+- age: 7 days
 - action: Delete
 
 Formal vending-machine photos under vending_machines/ are outside the prefix
@@ -54,6 +54,10 @@ It is not applied automatically by Firebase deploy.
 
 Production application requires an explicit bucket metadata update after the
 configuration has been reviewed.
+
+The 7-day value is the Production contract. Before any future lifecycle
+application, compare the existing bucket policy and merge rather than replace
+unrelated rules.
 
 Application command:
 

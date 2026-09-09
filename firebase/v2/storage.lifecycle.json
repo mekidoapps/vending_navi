@@ -5,7 +5,7 @@
         "type": "Delete"
       },
       "condition": {
-        "age": 1,
+        "age": 7,
         "matchesPrefix": [
           "machine_uploads/"
         ]
