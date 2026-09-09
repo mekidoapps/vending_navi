@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="VendingNaviの運営管理者向けモデレーション画面です。"
+    />
+    <title>VendingNavi 管理 | Mekido Apps</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <div class="brand">VendingNavi / 自販機ナビ</div>
+      <section class="card" aria-labelledby="page-title">
+        <h1 id="page-title">VendingNavi 管理</h1>
+
+        <section id="boot-view" aria-live="polite">
+          <p>アクセスを確認しています。</p>
+        </section>
+
+        <div id="setup-error" class="notice error hidden" role="alert"></div>
+
+        <section id="login-view" class="hidden" aria-labelledby="login-title">
+          <h2 id="login-title">管理者ログイン</h2>
+          <p>管理用アカウントでログインしてください。</p>
+          <form id="email-sign-in-form">
+            <label for="email">メールアドレス</label>
+            <input id="email" type="email" autocomplete="email" required />
+            <label for="password">パスワード</label>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <button type="submit">メールアドレスでログイン</button>
+          </form>
+          <button id="google-sign-in" class="secondary" type="button">
+            Googleでログイン
+          </button>
+        </section>
+
+        <section id="access-denied-view" class="hidden" aria-labelledby="denied-title">
+          <h2 id="denied-title">アクセスできません</h2>
+          <p>この画面にはアクセスできません。</p>
+          <button id="denied-sign-out" class="secondary" type="button">
+            別のアカウントでログイン
+          </button>
+        </section>
+
+        <section id="connection-error-view" class="hidden" aria-labelledby="error-title">
+          <h2 id="error-title">接続を確認できませんでした</h2>
+          <p id="connection-error-message"></p>
+          <button id="retry-authorization" type="button">再試行</button>
+          <button id="error-sign-out" class="secondary" type="button">
+            ログアウト
+          </button>
+        </section>
+
+        <section id="admin-shell" class="hidden" aria-labelledby="admin-title">
+          <div class="admin-heading">
+            <div>
+              <p class="eyebrow">管理者としてログイン中</p>
+              <h2 id="admin-title">管理キュー</h2>
+            </div>
+            <button id="admin-sign-out" class="secondary compact" type="button">
+              ログアウト
+            </button>
+          </div>
+          <div id="queue-view">
+          <div class="queue-toolbar">
+            <p>確認待ちの通報と修正提案を表示します。</p>
+            <button id="refresh-queue" class="secondary compact" type="button">更新</button>
+          </div>
+          <div id="queue-loading" class="queue-state hidden" role="status">管理キューを読み込んでいます。</div>
+          <div id="queue-empty" class="queue-state hidden">現在、確認待ちの項目はありません。</div>
+          <div id="queue-error" class="notice error hidden" role="alert">
+            <span id="queue-error-message">管理キューを読み込めませんでした。</span>
+            <button id="retry-queue" type="button">再試行</button>
+          </div>
+          <div id="queue-items" class="queue-items" aria-live="polite"></div>
+          <div class="queue-pagination">
+            <div id="queue-page-loading" class="queue-state hidden" role="status">続きを読み込んでいます。</div>
+            <button id="load-more-queue" class="secondary hidden" type="button">さらに読み込む</button>
+          </div>
+          </div>
+
+          <section id="detail-view" class="hidden" aria-labelledby="detail-title">
+            <button id="detail-back" class="text-button" type="button">← 管理キューへ戻る</button>
+            <h3 id="detail-title">対象情報</h3>
+            <div id="detail-loading" class="queue-state hidden" role="status">対象情報を読み込んでいます。</div>
+            <div id="detail-error" class="notice error hidden" role="alert">
+              <span id="detail-error-message">対象情報を読み込めませんでした。</span>
+              <button id="retry-detail" type="button">再読み込み</button>
+            </div>
+            <div id="detail-content" class="hidden">
+              <dl id="detail-summary" class="queue-detail detail-summary"></dl>
+              <label for="moderation-action">対応内容</label>
+              <select id="moderation-action"></select>
+              <label for="moderation-reason">対応理由（1〜500文字）</label>
+              <textarea id="moderation-reason" rows="5" maxlength="500" required></textarea>
+              <p id="reason-error" class="field-error hidden" role="alert">対応理由を1〜500文字で入力してください。</p>
+              <button id="preview-plan" type="button">変更内容を確認</button>
+              <div id="queue-mutation-actions" class="mutation-actions">
+                <button id="mark-in-review" class="secondary" type="button">確認を開始</button>
+                <button id="resolve-no-action" class="secondary" type="button">措置なしで完了</button>
+                <button id="resolve-rejected" class="danger-secondary" type="button">通報・修正提案を却下</button>
+              </div>
+              <div id="pending-recovery" class="notice warning hidden">
+                <p id="pending-recovery-message">中断した処理を再開できます。</p>
+                <button id="retry-mutation" type="button">同じ処理を再試行</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="plan-view" class="hidden" aria-labelledby="plan-title">
+            <button id="plan-back" class="text-button" type="button">← 対象情報へ戻る</button>
+            <h3 id="plan-title">変更内容の確認</h3>
+            <div id="plan-loading" class="queue-state hidden" role="status">変更内容を確認しています。</div>
+            <div id="plan-error" class="notice error hidden" role="alert">
+              <span id="plan-error-message">変更内容を確認できませんでした。</span>
+              <button id="retry-plan" type="button">再試行</button>
+            </div>
+            <div id="plan-content" class="hidden">
+              <dl id="plan-summary" class="queue-detail detail-summary"></dl>
+              <div id="plan-disallowed" class="notice error hidden">現在の状態ではこの操作を実行できません。</div>
+              <div id="photo-delete-warning" class="notice warning hidden">正式写真を削除します。</div>
+              <div id="index-update-warning" class="notice hidden">検索用インデックスも更新されます。</div>
+              <button id="prepare-action" class="danger" type="button">この対応を実行する</button>
+            </div>
+          </section>
+
+          <section id="mutation-confirm-view" class="hidden" aria-labelledby="mutation-confirm-title">
+            <button id="mutation-confirm-back" class="text-button" type="button">← 戻る</button>
+            <h3 id="mutation-confirm-title">最終確認</h3>
+            <dl id="mutation-confirm-summary" class="queue-detail detail-summary"></dl>
+            <div id="mutation-confirm-warning" class="notice warning hidden"></div>
+            <div class="confirmation-actions">
+              <button id="confirm-mutation" class="danger" type="button">確認して実行</button>
+              <button id="cancel-mutation" class="secondary" type="button">キャンセル</button>
+            </div>
+          </section>
+
+          <section id="mutation-progress-view" class="hidden" aria-labelledby="mutation-progress-title" aria-busy="true">
+            <h3 id="mutation-progress-title">処理しています</h3>
+            <p>画面を閉じずにお待ちください。</p>
+          </section>
+
+          <section id="mutation-error-view" class="hidden" aria-labelledby="mutation-error-title">
+            <h3 id="mutation-error-title">処理を完了できませんでした</h3>
+            <p id="mutation-error-message"></p>
+            <button id="mutation-error-retry" type="button">同じ処理を再試行</button>
+            <button id="mutation-error-refresh" class="secondary" type="button">管理キューを再読み込み</button>
+          </section>
+        </section>
+
+        <div id="status" class="notice hidden" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
