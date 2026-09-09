@@ -344,7 +344,13 @@ test("admin hardening keeps static rendering and approved callable boundaries", 
 
 test("moderation admin runbook fixes bootstrap, revocation, rollback and smoke contracts", () => {
   for (const text of ["管理者の初期登録", "admin: true", "accountStatus", "refresh token", "管理者権限の失効", "正式写真の削除", "resolutionPending", "同一requestId", "Hosting rollback", "一般ユーザー拒否", "管理者read-only確認", "最小mutation確認", "WAIVED"]) assert.match(runbook, new RegExp(text));
-  assert.match(runbook, /正式な運用スクリプトは存在しない/);
+  assert.match(runbook, /tool\/manage_moderation_admin\.cjs/);
+  assert.match(runbook, /status/);
+  assert.match(runbook, /grant/);
+  assert.match(runbook, /revoke/);
+  assert.match(runbook, /source lock済みのclean環境/);
+  assert.match(runbook, /再度`status`/);
+  assert.match(runbook, /Production smoke/);
   assert.match(runbook, /Hostingだけを戻す/);
   assert.match(runbook, /Functions、indexes、Rules、Storage、Productionデータは同時にrollbackしない/);
   assert.match(runbook, /UID、メールアドレス、token、secret、credential、Firestore\/Storage pathを残さない/);

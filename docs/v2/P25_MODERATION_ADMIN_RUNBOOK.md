@@ -16,7 +16,28 @@
 
 ## 3. 管理者の初期登録
 
-リポジトリには、管理者claimを付与する正式な運用スクリプトは存在しない。Production smoke前に、承認済みの管理環境・担当者・実施記録・レビュー手順を確定する。即席スクリプトやブラウザへ配置した認証情報は使用しない。
+正式な管理者identity操作には`tool/manage_moderation_admin.cjs`を使用する。Functionsに固定された既存Firebase Admin SDKと、承認済みのtrusted環境で利用できるApplication Default Credentials（ADC）だけを使用する。service account JSON、秘密鍵、UID、メールアドレス、tokenをリポジトリや運用記録へ保存しない。
+
+実行前に環境のproject IDを`vendingnavi`へ明示し、ツール自身のproject guardを通す。対象アカウントはコマンド引数にせず、起動後のpromptへUIDまたはメールアドレスを入力する。
+
+```text
+node tool/manage_moderation_admin.cjs status
+node tool/manage_moderation_admin.cjs grant
+node tool/manage_moderation_admin.cjs revoke
+```
+
+`status`はAuth account、admin claim、`users/{uid}.accountStatus`の安全な要約だけを読み取る。`grant`はuser documentが存在し、`accountStatus == active`の場合だけ確認後に`admin: true`を追加する。`revoke`はadmin claimだけを削除し、他claimを維持したうえでrefresh tokenを失効する。このツールは`accountStatus`を変更しない。
+
+Production bootstrapは次の順序に固定する。
+
+1. source lock済みのclean環境を用意する。
+2. trusted環境のADCとproject IDを確認する。
+3. `status`を実行する。
+4. `grant`を実行し、表示された確認に明示同意する。
+5. 再度`status`を実行する。
+6. 対象管理者アカウントをログアウトし、再ログインする。
+7. `/admin`のProduction smokeを実施する。
+8. 緊急時に同じ環境から`revoke`を実行できることを確認する。ただし平常時にrevokeを試行しない。
 
 1. 既存の正式なFirebase Authアカウントを管理者候補として選定する。
 2. 承認済み管理環境から対象アカウントへ`admin: true`を付与する。
@@ -35,6 +56,8 @@ UID、token、秘密鍵、credential値は運用記録へ転記しない。実�
 4. 既存セッションを終了し、再ログイン後に`/admin`が汎用拒否画面になることを確認する。
 
 claim削除、token失効、アカウント状態変更は別々の防御であり、必要な措置を省略しない。
+
+緊急失効時も同じtrusted環境から`revoke`を実行し、完了後に`status`でadmin claimが無効になったことと、対象アカウントの次回ログインで`/admin`が拒否されることを確認する。
 
 ## 5. 通常運用
 
