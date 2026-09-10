@@ -31,6 +31,12 @@ test("admin route and static files coexist with existing Hosting pages", () => {
   assert.match(html, /<meta name="viewport"/);
   assert.match(html, /id="admin-shell" class="hidden"/);
   assert.match(html, /id="boot-view"/);
+  for (const assetPath of ["/admin/styles.css", "/admin/config.js", "/admin/app.js"]) {
+    assert.match(html, new RegExp(`[\"']${assetPath.replace(".", "\\.")}[\"']`));
+  }
+  for (const relativeAssetPath of ["./styles.css", "./config.js", "./app.js"]) {
+    assert.equal(html.includes(`\"${relativeAssetPath}\"`), false);
+  }
   assert.ok(styles.length > 0);
 });
 
