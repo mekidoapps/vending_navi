@@ -163,22 +163,43 @@ test("wrong project blocks normalize-active before account or Firestore access",
 });
 
 test("grant preserves other claims and only adds admin true", async () => {
-  const result = await run("grant", harness({claims: {billing: true, role: "operator"}}));
+  let preview = "";
+  let confirmationReached = false;
+  const result = await run("grant", harness({claims: {billing: true, role: "operator"}}), async (message) => {
+    preview = message;
+    confirmationReached = true;
+    return true;
+  });
+  assert.equal(confirmationReached, true);
+  for (const expected of ["Operation: GRANT MODERATION ADMIN", "Project: vendingnavi", "Account: resolved existing account", "Account status: active", "Current admin claim: disabled", "Planned change: admin false/absent → true", "Other claims: preserved"]) assert.match(preview, new RegExp(expected));
+  assert.doesNotMatch(preview, /private-uid|private@example|billing|role|operator|token|provider|credential/i);
   assert.deepEqual(result.writes, [{uid: "private-uid", claims: {billing: true, role: "operator", admin: true}}]);
   assert.equal(result.revocations.length, 0);
   assert.match(result.output, /Changed: yes/);
 });
 
 test("declined grant confirmation causes no writes", async () => {
-  const result = await run("grant", harness(), async () => false);
+  let previewObserved = false;
+  const result = await run("grant", harness(), async (message) => {
+    previewObserved = /Planned change: admin false\/absent → true/.test(message);
+    return false;
+  });
+  assert.equal(previewObserved, true);
   assert.equal(result.writes.length, 0);
   assert.equal(result.revocations.length, 0);
   assert.match(result.output, /Changed: no/);
 });
 
 test("repeated grant is a safe no-op", async () => {
-  const result = await run("grant", harness({claims: {admin: true, other: 1}}));
+  let confirmationCalled = false;
+  const result = await run("grant", harness({claims: {admin: true, other: 1}}), async () => {
+    confirmationCalled = true;
+    return true;
+  });
+  assert.equal(confirmationCalled, false);
   assert.equal(result.writes.length, 0);
+  assert.match(result.output, /Admin claim: enabled/);
+  assert.doesNotMatch(result.output, /Current admin claim: disabled|admin false\/absent → true/);
   assert.match(result.output, /Changed: no/);
 });
 

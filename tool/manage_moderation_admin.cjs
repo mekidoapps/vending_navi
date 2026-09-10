@@ -163,6 +163,9 @@ async function manageModerationAdmin({operation, target, projectId, auth, firest
       `Project: ${EXPECTED_PROJECT_ID}`,
       "Account: resolved existing account",
       "Account status: active",
+      "Current admin claim: disabled",
+      "Planned change: admin false/absent → true",
+      "Other claims: preserved",
     ].join("\n"));
     if (!accepted) return safeSummary({operation, accountResolved: true, ...state, changed: false, tokenRevoked: false});
     await auth.setCustomUserClaims(state.account.uid, {...state.claims, admin: true});

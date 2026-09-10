@@ -43,7 +43,7 @@ Production bootstrapは次の順序に固定する。
 3. `status`を実行する。
 4. accountStatusがmissingの場合だけ`normalize-active`のpreviewを確認し、明示同意して1アカウントを正規化する。
 5. 再度`status`を実行し、accountStatusが`active`であることを確認する。
-6. `grant`を実行し、表示された確認に明示同意する。
+6. `grant`を実行し、current admin claimがdisabled、planned changeがadmin trueの追加、other claimsがpreservedと表示されることを確認してから明示同意する。
 7. 再度`status`を実行する。
 8. 対象管理者アカウントをログアウトし、再ログインする。
 9. `/admin`のProduction smokeを実施する。
