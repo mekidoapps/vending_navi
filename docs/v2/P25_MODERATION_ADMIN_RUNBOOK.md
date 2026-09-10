@@ -27,22 +27,27 @@ Production bootstrap中にツールからnpm installを行わない。依存を�
 ```text
 node tool/manage_moderation_admin.cjs runtime-check
 node tool/manage_moderation_admin.cjs status
+node tool/manage_moderation_admin.cjs normalize-active
 node tool/manage_moderation_admin.cjs grant
 node tool/manage_moderation_admin.cjs revoke
 ```
 
-`status`はAuth account、admin claim、`users/{uid}.accountStatus`の安全な要約だけを読み取る。`grant`はuser documentが存在し、`accountStatus == active`の場合だけ確認後に`admin: true`を追加する。`revoke`はadmin claimだけを削除し、他claimを維持したうえでrefresh tokenを失効する。このツールは`accountStatus`を変更しない。
+`status`はAuth account、admin claim、`users/{uid}.accountStatus`の安全な要約だけを読み取る。`normalize-active`は既存user documentでaccountStatus propertyが完全に欠落している場合だけ、previewと明示確認後のtransactionで`active`を追加する。既に`active`なら変更せず、`restricted`、`suspended`、null、空文字、未知値、非stringは上書きしない。`grant`はuser documentが存在し、`accountStatus == active`の場合だけ確認後に`admin: true`を追加する。`revoke`はadmin claimだけを削除し、他claimを維持したうえでrefresh tokenを失効する。
+
+現行profile作成は、最初のserver-side public writeによる正規化までaccountStatusが未設定のuser documentを作る場合がある。これは既知のschema gapであり、`normalize-active`をbulk migrationとして使用しない。
 
 Production bootstrapは次の順序に固定する。
 
 1. source lock済みのclean環境を用意する。
 2. trusted環境のADCとproject IDを確認する。
 3. `status`を実行する。
-4. `grant`を実行し、表示された確認に明示同意する。
-5. 再度`status`を実行する。
-6. 対象管理者アカウントをログアウトし、再ログインする。
-7. `/admin`のProduction smokeを実施する。
-8. 緊急時に同じ環境から`revoke`を実行できることを確認する。ただし平常時にrevokeを試行しない。
+4. accountStatusがmissingの場合だけ`normalize-active`のpreviewを確認し、明示同意して1アカウントを正規化する。
+5. 再度`status`を実行し、accountStatusが`active`であることを確認する。
+6. `grant`を実行し、表示された確認に明示同意する。
+7. 再度`status`を実行する。
+8. 対象管理者アカウントをログアウトし、再ログインする。
+9. `/admin`のProduction smokeを実施する。
+10. 緊急時に同じ環境から`revoke`を実行できることを確認する。ただし平常時にrevokeを試行しない。
 
 1. 既存の正式なFirebase Authアカウントを管理者候補として選定する。
 2. 承認済み管理環境から対象アカウントへ`admin: true`を付与する。

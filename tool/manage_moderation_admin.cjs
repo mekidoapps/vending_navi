@@ -97,10 +97,12 @@ async function readState(auth, firestore, target) {
   const account = await resolveAccount(auth, target);
   const snapshot = await firestore.collection("users").doc(account.uid).get();
   const data = snapshot.exists ? snapshot.data() : null;
-  const status = data && ["active", "restricted", "suspended"].includes(data.accountStatus) ? data.accountStatus : "unknown";
+  const accountStatusFieldExists = data !== null && Object.prototype.hasOwnProperty.call(data, "accountStatus");
+  const status = accountStatusFieldExists && ["active", "restricted", "suspended"].includes(data.accountStatus) ? data.accountStatus : "unknown";
   return {
     account,
     documentExists: snapshot.exists,
+    accountStatusFieldExists,
     accountStatus: status,
     claims: account.customClaims ?? {},
     adminEnabled: account.customClaims?.admin === true,
@@ -109,11 +111,45 @@ async function readState(auth, firestore, target) {
 
 async function manageModerationAdmin({operation, target, projectId, auth, firestore, confirm = async () => false}) {
   if (projectId !== EXPECTED_PROJECT_ID) throw new AdminBootstrapError(projectId ? "wrong-project" : "project-unresolved");
-  if (!new Set(["status", "grant", "revoke"]).has(operation)) throw new AdminBootstrapError("invalid-operation");
+  if (!new Set(["status", "grant", "revoke", "normalize-active"]).has(operation)) throw new AdminBootstrapError("invalid-operation");
   const state = await readState(auth, firestore, target);
 
   if (operation === "status") {
     return safeSummary({operation, accountResolved: true, ...state, changed: false, tokenRevoked: false});
+  }
+
+  if (operation === "normalize-active") {
+    if (!state.documentExists) throw new AdminBootstrapError("user-document-missing");
+    if (state.accountStatusFieldExists) {
+      if (state.accountStatus === "active") return "Normalization: not needed\nAccount status: active\nOther fields: preserved";
+      throw new AdminBootstrapError("account-status-not-normalizable");
+    }
+    const accepted = await confirm([
+      "DRY RUN / PREVIEW",
+      "Operation: NORMALIZE ACCOUNT STATUS",
+      `Project: ${EXPECTED_PROJECT_ID}`,
+      "Account: resolved existing account",
+      "User document: exists",
+      "accountStatus field: missing",
+      "Planned change: missing → active",
+      "Other fields: unchanged",
+      "Scope: one resolved account only",
+    ].join("\n"));
+    if (!accepted) return "Normalization: cancelled\nAccount status: unknown\nOther fields: unchanged";
+    const userRef = firestore.collection("users").doc(state.account.uid);
+    const changed = await firestore.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(userRef);
+      if (!snapshot.exists) throw new AdminBootstrapError("user-document-missing");
+      const data = snapshot.data();
+      const fieldExists = data !== undefined && Object.prototype.hasOwnProperty.call(data, "accountStatus");
+      if (fieldExists) {
+        if (data.accountStatus === "active") return false;
+        throw new AdminBootstrapError("account-status-not-normalizable");
+      }
+      transaction.update(userRef, {accountStatus: "active"});
+      return true;
+    });
+    return changed ? "Normalization: completed\nAccount status: active\nOther fields: preserved" : "Normalization: not needed\nAccount status: active\nOther fields: preserved";
   }
 
   if (operation === "grant") {
@@ -175,7 +211,7 @@ async function main() {
     process.stdout.write("Firebase Admin dependencies: available\nProduction API calls: none\n");
     return;
   }
-  if (!new Set(["status", "grant", "revoke"]).has(operation)) throw new AdminBootstrapError("usage: status|grant|revoke|runtime-check");
+  if (!new Set(["status", "grant", "revoke", "normalize-active"]).has(operation)) throw new AdminBootstrapError("usage: status|grant|revoke|normalize-active|runtime-check");
   const projectId = resolveProjectId(process.env);
   process.stdout.write(`Project: ${projectId}\n`);
   const target = await prompt("Account UID or email (not stored): ");

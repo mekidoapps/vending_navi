@@ -13,9 +13,10 @@ const tool = toolRequire("../../../tool/manage_moderation_admin.cjs") as {
 
 type Claims = Record<string, unknown>;
 
-function harness({exists = true, status = "active", claims = {}}: {exists?: boolean; status?: string; claims?: Claims} = {}) {
+function harness({exists = true, status = "active", statusFieldExists = true, transactionStatus, transactionStatusFieldExists, claims = {}}: {exists?: boolean; status?: unknown; statusFieldExists?: boolean; transactionStatus?: unknown; transactionStatusFieldExists?: boolean; claims?: Claims} = {}) {
   const writes: Array<{uid: string; claims: Claims}> = [];
   const revocations: string[] = [];
+  const firestoreWrites: Claims[] = [];
   const account = {uid: "private-uid", email: "private@example.invalid", customClaims: claims};
   const auth = {
     async getUser() { return account; },
@@ -23,11 +24,22 @@ function harness({exists = true, status = "active", claims = {}}: {exists?: bool
     async setCustomUserClaims(uid: string, nextClaims: Claims) { writes.push({uid, claims: nextClaims}); },
     async revokeRefreshTokens(uid: string) { revocations.push(uid); },
   };
-  const firestore = {collection() { return {doc() { return {async get() { return {exists, data: () => exists ? {accountStatus: status, privateProfile: "secret"} : undefined}; }}; }}; }};
-  return {auth, firestore, writes, revocations};
+  const initialData = () => exists ? {...(statusFieldExists ? {accountStatus: status} : {}), privateProfile: "secret"} : undefined;
+  const transactionData = () => exists ? {...((transactionStatusFieldExists ?? statusFieldExists) ? {accountStatus: transactionStatus === undefined ? status : transactionStatus} : {}), privateProfile: "secret"} : undefined;
+  const reference = {async get() { return {exists, data: initialData}; }};
+  const firestore = {
+    collection() { return {doc() { return reference; }}; },
+    async runTransaction(callback: (transaction: {get(ref: unknown): Promise<unknown>; update(ref: unknown, value: Claims): void}) => Promise<unknown>) {
+      return callback({
+        async get() { return {exists, data: transactionData}; },
+        update(_ref, value) { firestoreWrites.push(value); },
+      });
+    },
+  };
+  return {auth, firestore, writes, revocations, firestoreWrites};
 }
 
-async function run(operation: string, h = harness(), confirm = async () => true) {
+async function run(operation: string, h = harness(), confirm: (message: string) => Promise<boolean> = async () => true) {
   const output = await tool.manageModerationAdmin({operation, target: "private-uid", projectId: "vendingnavi", auth: h.auth, firestore: h.firestore, confirm});
   return {output, ...h};
 }
@@ -92,6 +104,62 @@ test("grant rejects missing, restricted, and suspended user state", async () => 
   await rejectsCode(() => run("grant", harness({exists: false})), "user-document-missing");
   await rejectsCode(() => run("grant", harness({status: "restricted"})), "account-not-active");
   await rejectsCode(() => run("grant", harness({status: "suspended"})), "account-not-active");
+});
+
+test("normalize-active writes only a missing accountStatus and preserves other fields", async () => {
+  let preview = "";
+  const result = await run("normalize-active", harness({statusFieldExists: false}), async (message) => { preview = message; return true; });
+  for (const expected of ["DRY RUN / PREVIEW", "Project: vendingnavi", "Account: resolved existing account", "accountStatus field: missing", "missing → active", "Other fields: unchanged", "one resolved account only"]) assert.match(preview, new RegExp(expected));
+  assert.doesNotMatch(preview, /private-uid|private@example|privateProfile|secret/);
+  assert.deepEqual(result.firestoreWrites, [{accountStatus: "active"}]);
+  assert.equal(result.writes.length, 0);
+  assert.equal(result.revocations.length, 0);
+  assert.match(result.output, /Normalization: completed/);
+  assert.match(result.output, /Other fields: preserved/);
+  assert.doesNotMatch(result.output, /private-uid|private@example|privateProfile|secret/);
+});
+
+test("normalize-active is a safe no-op when status is already active", async () => {
+  const result = await run("normalize-active", harness({status: "active"}));
+  assert.equal(result.firestoreWrites.length, 0);
+  assert.match(result.output, /Normalization: not needed/);
+});
+
+test("normalize-active rejects restricted, suspended, null, blank, unknown, and non-string states", async () => {
+  for (const status of ["restricted", "suspended", null, "", "legacy", 7, false, {value: "active"}]) {
+    await rejectsCode(() => run("normalize-active", harness({status})), "account-status-not-normalizable");
+  }
+});
+
+test("normalize-active rejects missing Auth accounts and user documents", async () => {
+  const missingAuth = harness({statusFieldExists: false});
+  missingAuth.auth.getUser = async () => { throw new Error("missing"); };
+  await rejectsCode(() => run("normalize-active", missingAuth), "account-not-found");
+  await rejectsCode(() => run("normalize-active", harness({exists: false, statusFieldExists: false})), "user-document-missing");
+});
+
+test("normalize-active confirmation rejection performs no mutation", async () => {
+  const result = await run("normalize-active", harness({statusFieldExists: false}), async () => false);
+  assert.equal(result.firestoreWrites.length, 0);
+  assert.equal(result.writes.length, 0);
+  assert.equal(result.revocations.length, 0);
+  assert.match(result.output, /Normalization: cancelled/);
+});
+
+test("normalize-active transaction reread rejects newly restricted state", async () => {
+  const h = harness({statusFieldExists: false, transactionStatusFieldExists: true, transactionStatus: "restricted"});
+  await rejectsCode(() => run("normalize-active", h), "account-status-not-normalizable");
+  assert.equal(h.firestoreWrites.length, 0);
+});
+
+test("normalize-active transaction reread treats newly active state as a safe no-op", async () => {
+  const result = await run("normalize-active", harness({statusFieldExists: false, transactionStatusFieldExists: true, transactionStatus: "active"}));
+  assert.equal(result.firestoreWrites.length, 0);
+  assert.match(result.output, /Normalization: not needed/);
+});
+
+test("wrong project blocks normalize-active before account or Firestore access", async () => {
+  await rejectsCode(() => tool.manageModerationAdmin({operation: "normalize-active", target: "private-uid", projectId: "other", auth: {}, firestore: {}}), "wrong-project");
 });
 
 test("grant preserves other claims and only adds admin true", async () => {
