@@ -50,7 +50,7 @@ test("admin authentication uses the canonical web Auth and App Check pattern", (
     readPublicWebConfig(config, "VENDING_NAVI_ADMIN_CONFIG"),
     readPublicWebConfig(deleteAccountConfig, "VENDING_NAVI_DELETE_ACCOUNT_CONFIG"),
   );
-  assert.doesNotMatch(config, /PRIVATE KEY|client_secret|refresh_token|serviceAccount/i);
+  assert.doesNotMatch(`${config}\n${deleteAccountConfig}`, /PRIVATE KEY|client_secret|refresh_token|serviceAccount/i);
 });
 
 test("authorization probe and formal queue load remain separate and fail closed", () => {
