@@ -20,7 +20,12 @@
 
 実行前に環境のproject IDを`vendingnavi`へ明示し、ツール自身のproject guardを通す。対象アカウントはコマンド引数にせず、起動後のpromptへUIDまたはメールアドレスを入力する。
 
+Node 22と既存のFunctions依存が前提である。clean source-lock worktreeに`functions/node_modules`がない場合は、既存依存を持つ検証済みFunctions package rootの絶対パスを`VENDING_NAVI_FUNCTIONS_ROOT`へprocess-localに指定する。ツールは指定先の実在、`package.json`のpackage名、`firebase-admin`依存、Admin SDKのpackage exportsを検証する。個人環境固有の絶対パスはsourceや運用記録へ残さない。
+
+Production bootstrap中にツールからnpm installを行わない。依存を解決できない場合は操作せず停止する。ADCやProduction APIを使わずmodule解決だけを確認する場合は、先に次を実行する。
+
 ```text
+node tool/manage_moderation_admin.cjs runtime-check
 node tool/manage_moderation_admin.cjs status
 node tool/manage_moderation_admin.cjs grant
 node tool/manage_moderation_admin.cjs revoke

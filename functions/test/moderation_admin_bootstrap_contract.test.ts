@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
+import {resolve} from "node:path";
 import test from "node:test";
 
 const toolRequire = createRequire(__filename);
 const tool = toolRequire("../../../tool/manage_moderation_admin.cjs") as {
   manageModerationAdmin(input: Record<string, unknown>): Promise<string>;
+  resolveAdminModules(env: Record<string, string | undefined>): Record<string, unknown>;
+  resolveFunctionsPackage(env: Record<string, string | undefined>): string;
   resolveProjectId(env: Record<string, string | undefined>): string;
 };
 
@@ -38,6 +41,29 @@ test("project guard rejects missing, conflicting, and wrong projects", async () 
   assert.throws(() => tool.resolveProjectId({GOOGLE_CLOUD_PROJECT: "other"}), /wrong-project/);
   assert.throws(() => tool.resolveProjectId({GOOGLE_CLOUD_PROJECT: "vendingnavi", GCLOUD_PROJECT: "other"}), /wrong-project/);
   await rejectsCode(() => tool.manageModerationAdmin({operation: "status", target: "x", projectId: "other", auth: {}, firestore: {}}), "wrong-project");
+});
+
+test("firebase-admin package exports resolve from the validated functions package boundary", () => {
+  const functionsRoot = resolve(__dirname, "../..");
+  const packagePath = tool.resolveFunctionsPackage({VENDING_NAVI_FUNCTIONS_ROOT: functionsRoot});
+  assert.equal(packagePath.endsWith("package.json"), true);
+  const modules = tool.resolveAdminModules({VENDING_NAVI_FUNCTIONS_ROOT: functionsRoot});
+  assert.equal(typeof modules.app, "object");
+  assert.equal(typeof modules.auth, "object");
+  assert.equal(typeof modules.firestore, "object");
+});
+
+test("invalid or unavailable dependency roots fail closed with safe errors", () => {
+  assert.throws(() => tool.resolveFunctionsPackage({VENDING_NAVI_FUNCTIONS_ROOT: "relative/functions"}), /functions-root-invalid/);
+  assert.throws(() => tool.resolveFunctionsPackage({VENDING_NAVI_FUNCTIONS_ROOT: resolve(__dirname, "missing-functions-root")}), /functions-dependencies-unavailable/);
+});
+
+test("tool source uses createRequire package exports without node_modules subpath hardcodes", () => {
+  const source = require("node:fs").readFileSync(resolve(__dirname, "../../../tool/manage_moderation_admin.cjs"), "utf8");
+  assert.match(source, /createRequire\(resolveFunctionsPackage\(env\)\)/);
+  for (const packageExport of ["firebase-admin/app", "firebase-admin/auth", "firebase-admin/firestore"]) assert.match(source, new RegExp(`requireFromFunctions\\(\"${packageExport}\"\\)`));
+  assert.doesNotMatch(source, /node_modules[\\/]firebase-admin/);
+  assert.doesNotMatch(source, /npm (?:install|ci)/);
 });
 
 test("missing Auth account is rejected without leaking the target", async () => {

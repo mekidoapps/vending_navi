@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
+const {createRequire} = require("node:module");
+const {existsSync, readFileSync, realpathSync} = require("node:fs");
+const path = require("node:path");
+
 const EXPECTED_PROJECT_ID = "vendingnavi";
+const EXPECTED_FUNCTIONS_PACKAGE = "vending-navi-v2-functions";
 
 class AdminBootstrapError extends Error {
   constructor(code) {
@@ -27,6 +32,43 @@ function resolveProjectId(env) {
     throw new AdminBootstrapError("wrong-project");
   }
   return candidates[0];
+}
+
+function resolveFunctionsPackage(env) {
+  const configuredRoot = env.VENDING_NAVI_FUNCTIONS_ROOT;
+  const root = configuredRoot ?? path.resolve(__dirname, "../functions");
+  if (!path.isAbsolute(root)) throw new AdminBootstrapError("functions-root-invalid");
+  let packagePath;
+  try {
+    const realRoot = realpathSync(root);
+    packagePath = path.join(realRoot, "package.json");
+  } catch {
+    throw new AdminBootstrapError("functions-dependencies-unavailable");
+  }
+  if (!existsSync(packagePath)) throw new AdminBootstrapError("functions-dependencies-unavailable");
+  try {
+    const manifest = JSON.parse(readFileSync(packagePath, "utf8"));
+    if (manifest.name !== EXPECTED_FUNCTIONS_PACKAGE || typeof manifest.dependencies?.["firebase-admin"] !== "string") {
+      throw new AdminBootstrapError("functions-root-invalid");
+    }
+  } catch (error) {
+    if (error instanceof AdminBootstrapError) throw error;
+    throw new AdminBootstrapError("functions-root-invalid");
+  }
+  return packagePath;
+}
+
+function resolveAdminModules(env) {
+  const requireFromFunctions = createRequire(resolveFunctionsPackage(env));
+  try {
+    return {
+      app: requireFromFunctions("firebase-admin/app"),
+      auth: requireFromFunctions("firebase-admin/auth"),
+      firestore: requireFromFunctions("firebase-admin/firestore"),
+    };
+  } catch {
+    throw new AdminBootstrapError("functions-dependencies-unavailable");
+  }
 }
 
 function safeSummary({operation, accountResolved, documentExists, adminEnabled, accountStatus, changed, tokenRevoked}) {
@@ -107,10 +149,11 @@ async function manageModerationAdmin({operation, target, projectId, auth, firest
   return safeSummary({operation, accountResolved: true, ...state, adminEnabled: false, changed: true, tokenRevoked: true});
 }
 
-function createServices(projectId) {
-  const {applicationDefault, getApps, initializeApp} = require("../functions/node_modules/firebase-admin/app");
-  const {getAuth} = require("../functions/node_modules/firebase-admin/auth");
-  const {getFirestore} = require("../functions/node_modules/firebase-admin/firestore");
+function createServices(projectId, env) {
+  const modules = resolveAdminModules(env);
+  const {applicationDefault, getApps, initializeApp} = modules.app;
+  const {getAuth} = modules.auth;
+  const {getFirestore} = modules.firestore;
   const app = getApps()[0] ?? initializeApp({credential: applicationDefault(), projectId});
   return {auth: getAuth(app), firestore: getFirestore(app)};
 }
@@ -127,11 +170,16 @@ async function prompt(question) {
 
 async function main() {
   const operation = process.argv[2];
-  if (!new Set(["status", "grant", "revoke"]).has(operation)) throw new AdminBootstrapError("usage: status|grant|revoke");
+  if (operation === "runtime-check") {
+    resolveAdminModules(process.env);
+    process.stdout.write("Firebase Admin dependencies: available\nProduction API calls: none\n");
+    return;
+  }
+  if (!new Set(["status", "grant", "revoke"]).has(operation)) throw new AdminBootstrapError("usage: status|grant|revoke|runtime-check");
   const projectId = resolveProjectId(process.env);
   process.stdout.write(`Project: ${projectId}\n`);
   const target = await prompt("Account UID or email (not stored): ");
-  const services = createServices(projectId);
+  const services = createServices(projectId, process.env);
   const result = await manageModerationAdmin({
     operation,
     target,
@@ -159,4 +207,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = {AdminBootstrapError, EXPECTED_PROJECT_ID, manageModerationAdmin, resolveProjectId};
+module.exports = {
+  AdminBootstrapError,
+  EXPECTED_PROJECT_ID,
+  manageModerationAdmin,
+  resolveAdminModules,
+  resolveFunctionsPackage,
+  resolveProjectId,
+};
