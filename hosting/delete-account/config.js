@@ -5,5 +5,5 @@ window.VENDING_NAVI_DELETE_ACCOUNT_CONFIG = {
     projectId: "vendingnavi",
     appId: "1:589528386744:web:eff282f588a9ebb752784d",
   },
-  appCheckSiteKey: "6LejP6YtAAAAAFbPOhmRCA0d-d_3FqUg_C72JFBK",
+  appCheckSiteKey: "6LejP6YtAAAAAFbP0hmRCA0d-d_3FqUg_C72JFBK",
 };
