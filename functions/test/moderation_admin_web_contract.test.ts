@@ -58,7 +58,7 @@ test("admin authentication uses the canonical web Auth and App Check pattern", (
   );
   assert.equal(
     (readPublicWebConfig(config, "VENDING_NAVI_ADMIN_CONFIG") as {appCheckSiteKey: string}).appCheckSiteKey,
-    "6LejP6YtAAAAAFbP0hmRCA0d-d_3FqUg_C72JFBK",
+    "6LejP6YtAAAAAFbPOhmRCA0d-d_3FqUg_C72JFBK",
   );
   assert.doesNotMatch(`${config}\n${deleteAccountConfig}`, /PRIVATE KEY|client_secret|refresh_token|serviceAccount/i);
 });
