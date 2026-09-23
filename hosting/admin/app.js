@@ -1,4 +1,4 @@
-import {initializeApp} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 import {
   GoogleAuthProvider,
   getAuth,
@@ -6,13 +6,13 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
   ReCaptchaEnterpriseProvider,
   getToken,
   initializeAppCheck,
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
-import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app-check.js";
+import {getFunctions, httpsCallable} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-functions.js";
 import {formatCreatedAt, mergeQueueItems, parseQueueResponse, sourceLabel, statusLabel, targetPresentation} from "./queue.mjs";
 import {actionLabel, actionsForTarget, parseModerationPlan, parseTargetDetail, targetKey, validateReason} from "./detail.mjs";
 import {buildMutationRequest, createPendingOperation, decodePendingOperation, encodePendingOperation, operationMatchesItem, parseMutationResult} from "./mutation.mjs";
