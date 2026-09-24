@@ -46,6 +46,42 @@ before proposing a limited Production recovery:
 - `vending_machine_private` metadata and formal-photo public/private pairs;
 - reports, corrections, and moderation/audit records where relevant.
 
+## Deleted-account safeguards for selective Firestore recovery
+
+The following checks supplement the isolated-restore and approved limited-
+recovery process. They do not authorize Production writes or create a deleted-
+UID ledger. An absent Firebase Auth account is a fail-closed recovery condition,
+not proof that account deletion caused the absence.
+
+### Before promotion
+
+1. Identify every candidate document and field to be copied from the isolated
+   database, including UID references in nested and related records.
+2. Compare those references with the current Production Firebase Auth state.
+   Exclude private account data associated with a UID that has no current Auth
+   account. If a UID reference cannot be determined safely, stop and request
+   individual owner/security review instead of promoting that data.
+3. Compare public community content with current Production state. Do not
+   restore old creator, reviewer, uploader, or other attribution fields that
+   would reintroduce a deleted user's identity.
+
+### During promotion
+
+4. Copy only the approved documents and fields. Do not bulk overwrite the
+   Production database or replace current anonymized attribution with older
+   snapshot values.
+
+### After promotion
+
+5. Verify that `users/{uid}` and other private account roots for any UID with
+   no current Auth account remain absent. Check related records for orphaned
+   private data and stale UID references, and check retained public content for
+   restored attribution.
+6. Recheck the relevant Auth state and record the outcome and any exceptions
+   as restricted operations evidence outside the repository. Stop further
+   promotion if any check fails; do not infer that an absent Auth account must
+   have been intentionally deleted.
+
 ## Scenario playbooks
 
 ### A. One vending machine is accidentally lost
@@ -103,7 +139,8 @@ Account deletion intentionally removes private user data before Firebase Auth
 and preserves public community contributions. Do not automatically resurrect an
 account. Preserve incident evidence, use an isolated Firestore restore to assess
 the affected private data, and require explicit owner/security review before any
-limited recovery.
+limited recovery. Apply the deleted-account safeguards above before, during,
+and after any selective promotion.
 
 ## Functions recovery
 

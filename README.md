@@ -51,7 +51,7 @@
 
 ## プライバシー文書
 
-このREADMEはプライバシーポリシーではありません。写真・AI画像認識・位置情報・投稿・ログ・保持期間・削除方法を含むデータ台帳と専用HTTPSポリシーは、本番公開前のP0対応として整備中です。
+このREADMEはプライバシーポリシーではありません。情報の取扱いと削除方法は、[プライバシーポリシー](https://vendingnavi.web.app/privacy)と[アカウント削除ページ](https://vendingnavi.web.app/delete-account)を参照してください。文書の更新は、確認後にHostingへ別途反映します。
 
 ---
 
@@ -65,7 +65,7 @@
 
 ## アカウント削除
 
-アプリ内削除とWeb削除手段は、本番公開前のP0対応として実装・検証中です。未実装の削除を利用可能とは案内しません。
+アプリ内削除とWeb削除手段を提供しています。Play配布版1.0.0（version code 19）で専用テストアカウントのProduction削除E2Eを確認しました。証跡と残る文書・運用上の確認事項は[Phase D closeout](docs/v2/PHASE_D_ACCOUNT_DELETION_CLOSEOUT.md)を参照してください。
 
 ## 開発状況
 
