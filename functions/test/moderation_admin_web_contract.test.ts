@@ -333,7 +333,10 @@ test("admin route receives basic scoped security headers without changing existi
     assert.match(csp, /default-src 'none'/);
     assert.match(csp, /frame-ancestors 'none'/);
     assert.match(csp, /script-src 'self' https:\/\/www\.gstatic\.com https:\/\/www\.google\.com https:\/\/www\.recaptcha\.net/);
-    assert.match(csp, /connect-src 'self'[^;]*https:\/\/identitytoolkit\.googleapis\.com[^;]*https:\/\/securetoken\.googleapis\.com[^;]*https:\/\/firebaseappcheck\.googleapis\.com[^;]*https:\/\/us-central1-vendingnavi\.cloudfunctions\.net/);
+    assert.equal(
+      csp.split(";").map((directive) => directive.trim()).find((directive) => directive.startsWith("connect-src ")),
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.googleapis.com https://www.google.com https://www.recaptcha.net https://accounts.google.com https://vendingnavi.firebaseapp.com https://us-central1-vendingnavi.cloudfunctions.net",
+    );
     assert.match(csp, /frame-src[^;]*https:\/\/accounts\.google\.com[^;]*https:\/\/vendingnavi\.firebaseapp\.com[^;]*https:\/\/www\.google\.com[^;]*https:\/\/www\.recaptcha\.net/);
     assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|(?:^|\s)\*(?:\s|;|$)/);
   }
