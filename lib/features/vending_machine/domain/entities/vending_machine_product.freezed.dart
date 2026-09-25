@@ -18,7 +18,9 @@ mixin _$VendingMachineProduct {
 ///
 /// Every schemaVersion=2 Firestore product document must have a valid
 /// evidence type.
- ProductEvidenceType? get evidenceType; ProductAvailability get availability; bool get isActive; String? get confirmedBy; DateTime? get confirmedAt; DateTime? get createdAt; DateTime? get updatedAt;
+ ProductEvidenceType? get evidenceType; ProductAvailability get availability; bool get isActive;/// Internal/legacy compatibility only.
+/// Public Firestore product documents must not expose user IDs.
+ String? get confirmedBy; DateTime? get confirmedAt; DateTime? get createdAt; DateTime? get updatedAt;
 /// Create a copy of VendingMachineProduct
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -228,6 +230,8 @@ class _VendingMachineProduct extends VendingMachineProduct {
 @override final  ProductEvidenceType? evidenceType;
 @override final  ProductAvailability availability;
 @override@JsonKey() final  bool isActive;
+/// Internal/legacy compatibility only.
+/// Public Firestore product documents must not expose user IDs.
 @override final  String? confirmedBy;
 @override final  DateTime? confirmedAt;
 @override final  DateTime? createdAt;

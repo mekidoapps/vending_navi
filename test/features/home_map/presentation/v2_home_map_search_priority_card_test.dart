@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/result/app_result.dart';
+import 'package:vending_app/features/auth/application/providers/auth_providers.dart';
+import 'package:vending_app/features/auth/domain/entities/auth_session.dart';
 import 'package:vending_app/features/home_map/application/providers/vending_machine_map_providers.dart';
 import 'package:vending_app/features/home_map/application/vending_machine_map_controller.dart';
 import 'package:vending_app/features/home_map/domain/repositories/vending_machine_map_repository.dart';
@@ -39,6 +41,9 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        authSessionChangesProvider.overrideWith(
+          (ref) => Stream<AuthSession>.value(const GuestAuthSession()),
+        ),
         locationServiceProvider.overrideWithValue(_FakeLocationService()),
         vendingMachineMapRepositoryProvider.overrideWithValue(
           _FakeMapRepository(machine),

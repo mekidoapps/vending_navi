@@ -8,6 +8,7 @@ import 'package:vending_app/features/auth/application/providers/auth_providers.d
 import 'package:vending_app/features/auth/domain/entities/auth_session.dart';
 import 'package:vending_app/features/auth/domain/entities/auth_user.dart';
 import 'package:vending_app/features/auth/domain/repositories/auth_repository.dart';
+import 'package:vending_app/features/content_blocking/application/blocked_content_state.dart';
 import 'package:vending_app/features/machine_update/application/providers/machine_product_update_providers.dart';
 import 'package:vending_app/features/machine_update/domain/models/machine_product_update_draft.dart';
 import 'package:vending_app/features/machine_update/domain/models/machine_product_update_result.dart';
@@ -24,197 +25,148 @@ import 'package:vending_app/features/vending_machine/domain/value_objects/geo_co
 import 'package:vending_app/features/vending_machine/domain/value_objects/vending_machine_id.dart';
 
 void main() {
-  testWidgets(
-    'P10-I04 詳細から手動商品更新で売り切れに変更しsubmit後に詳細へ戻る',
-    (WidgetTester tester) async {
-      final data = _detailData();
-      final machineId = data.machine.id;
-      final updateRepository = _FakeProductUpdateRepository(machineId);
+  testWidgets('P10-I04 詳細から手動商品更新で売り切れに変更しsubmit後に詳細へ戻る', (
+    WidgetTester tester,
+  ) async {
+    final data = _detailData();
+    final machineId = data.machine.id;
+    final updateRepository = _FakeProductUpdateRepository(machineId);
 
-      final container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(
-            _AuthenticatedRepository(),
-          ),
-          vendingMachineDetailProvider(machineId).overrideWithValue(
-            AsyncValue<AppResult<VendingMachineDetailData>>.data(
-              AppResult<VendingMachineDetailData>.success(data),
-            ),
-          ),
-          machineProductUpdateRepositoryProvider.overrideWithValue(
-            updateRepository,
-          ),
-          machineProductUpdateRequestIdGeneratorProvider.overrideWithValue(
-            const _RequestIdGenerator(),
-          ),
-          ugcTermsConsentServiceProvider.overrideWithValue(
-            const _AcceptedTermsConsentService(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final router = createAppRouter(
-        entryMode: AppEntryMode.v2,
-        v2Builder: (_) => const Scaffold(
-          body: Text('P10 home'),
+    final container = ProviderContainer(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(_AuthenticatedRepository()),
+        blockedContentGatewayProvider.overrideWithValue(
+          _EmptyBlockedContentGateway(),
         ),
-      );
-      addTearDown(router.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            routerConfig: router,
+        vendingMachineDetailProvider(machineId).overrideWithValue(
+          AsyncValue<AppResult<VendingMachineDetailData>>.data(
+            AppResult<VendingMachineDetailData>.success(data),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-
-      //
-      // Open the real machine detail route.
-      //
-      router.go('/v2/machines/${machineId.value}');
-      await tester.pumpAndSettle();
-
-      expect(find.text('駅前の自販機'), findsOneWidget);
-      expect(find.text('BOSS ブラック'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('machineInfoUpdateButton')),
-        300,
-      );
-
-      expect(
-        find.byKey(const Key('machineInfoUpdateButton')),
-        findsOneWidget,
-      );
-
-      //
-      // Detail -> authenticated update menu.
-      //
-      await tester.tap(
-        find.byKey(const Key('machineInfoUpdateButton')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('manualProductUpdateMenuItem')),
-        findsOneWidget,
-      );
-
-      //
-      // Update menu -> manual product update.
-      //
-      await tester.tap(
-        find.byKey(const Key('manualProductUpdateMenuItem')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('manualProductUpdateScreen')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          const Key(
-            'manualProductCurrent_suntory_boss_black',
-          ),
+        machineProductUpdateRepositoryProvider.overrideWithValue(
+          updateRepository,
         ),
-        findsOneWidget,
-      );
-
-      //
-      // Confirmed + available -> sold out.
-      //
-      await tester.tap(
-        find.byKey(
-          const Key(
-            'toggleSoldOut_suntory_boss_black',
-          ),
+        machineProductUpdateRequestIdGeneratorProvider.overrideWithValue(
+          const _RequestIdGenerator(),
         ),
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(
-          const Key(
-            'pendingProductUpdate_suntory_boss_black',
-          ),
+        ugcTermsConsentServiceProvider.overrideWithValue(
+          const _AcceptedTermsConsentService(),
         ),
-        findsOneWidget,
-      );
-      expect(
-        find.text('売り切れに変更予定'),
-        findsOneWidget,
-      );
+      ],
+    );
+    addTearDown(container.dispose);
 
-      //
-      // Manual edit -> confirmation.
-      //
-      await tester.scrollUntilVisible(
-        find.byKey(
-          const Key('reviewMachineProductChangesButton'),
-        ),
-        250,
-      );
+    final router = createAppRouter(
+      entryMode: AppEntryMode.v2,
+      v2Builder: (_) => const Scaffold(body: Text('P10 home')),
+    );
+    addTearDown(router.dispose);
 
-      await tester.tap(
-        find.byKey(
-          const Key('reviewMachineProductChangesButton'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(
-          const Key('productUpdateConfirmationScreen'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('BOSS ブラック'), findsOneWidget);
+    //
+    // Open the real machine detail route.
+    //
+    router.go('/v2/machines/${machineId.value}');
+    await tester.pumpAndSettle();
 
-      //
-      // Confirmation -> fake Callable repository -> detail.
-      //
-      await tester.tap(
-        find.byKey(
-          const Key('submitMachineProductUpdateButton'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    expect(find.text('駅前の自販機'), findsOneWidget);
+    expect(find.text('BOSS ブラック'), findsOneWidget);
 
-      expect(updateRepository.callCount, 1);
-      expect(
-        updateRepository.lastRequestId,
-        '123e4567-e89b-42d3-a456-426614174099',
-      );
-      expect(
-        updateRepository.lastDraft?.machineId,
-        machineId,
-      );
-      expect(
-        updateRepository.lastDraft?.operations.length,
-        1,
-      );
-      expect(
-        updateRepository
-            .lastDraft
-            ?.productNames['suntory_boss_black'],
-        'BOSS ブラック',
-      );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('machineInfoUpdateButton')),
+      300,
+    );
 
-      //
-      // Production router returns to detail and invalidates detail state.
-      //
-      expect(find.text('自販機詳細'), findsOneWidget);
-      expect(
-        find.byKey(const Key('productUpdateConfirmationScreen')),
-        findsNothing,
-      );
-    },
-  );
+    expect(find.byKey(const Key('machineInfoUpdateButton')), findsOneWidget);
+
+    //
+    // Detail -> authenticated update menu.
+    //
+    await tester.tap(find.byKey(const Key('machineInfoUpdateButton')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('manualProductUpdateMenuItem')),
+      findsOneWidget,
+    );
+
+    //
+    // Update menu -> manual product update.
+    //
+    await tester.tap(find.byKey(const Key('manualProductUpdateMenuItem')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('manualProductUpdateScreen')), findsOneWidget);
+    expect(
+      find.byKey(const Key('manualProductCurrent_suntory_boss_black')),
+      findsOneWidget,
+    );
+
+    //
+    // Confirmed + available -> sold out.
+    //
+    await tester.tap(find.byKey(const Key('toggleSoldOut_suntory_boss_black')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('pendingProductUpdate_suntory_boss_black')),
+      findsOneWidget,
+    );
+    expect(find.text('売り切れに変更予定'), findsOneWidget);
+
+    //
+    // Manual edit -> confirmation.
+    //
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('reviewMachineProductChangesButton')),
+      250,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('reviewMachineProductChangesButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('productUpdateConfirmationScreen')),
+      findsOneWidget,
+    );
+    expect(find.text('BOSS ブラック'), findsOneWidget);
+
+    //
+    // Confirmation -> fake Callable repository -> detail.
+    //
+    await tester.tap(find.byKey(const Key('submitMachineProductUpdateButton')));
+    await tester.pumpAndSettle();
+
+    expect(updateRepository.callCount, 1);
+    expect(
+      updateRepository.lastRequestId,
+      '123e4567-e89b-42d3-a456-426614174099',
+    );
+    expect(updateRepository.lastDraft?.machineId, machineId);
+    expect(updateRepository.lastDraft?.operations.length, 1);
+    expect(
+      updateRepository.lastDraft?.productNames['suntory_boss_black'],
+      'BOSS ブラック',
+    );
+
+    //
+    // Production router returns to detail and invalidates detail state.
+    //
+    expect(find.text('自販機詳細'), findsOneWidget);
+    expect(
+      find.byKey(const Key('productUpdateConfirmationScreen')),
+      findsNothing,
+    );
+  });
 }
 
 final class _AcceptedTermsConsentService implements UgcTermsConsentService {
@@ -227,6 +179,26 @@ final class _AcceptedTermsConsentService implements UgcTermsConsentService {
   Future<bool> hasAcceptedCurrentTerms() async => true;
 }
 
+final class _EmptyBlockedContentGateway implements BlockedContentGateway {
+  @override
+  Future<Object?> getBlockedContentIds() async => <String, Object?>{
+    'machineIds': <String>[],
+    'photoIds': <String>[],
+    'productIds': <String>[],
+    'blocks': <Map<String, Object?>>[],
+  };
+
+  @override
+  Future<Object?> resolveContentBlockMode(Map<String, Object?> data) async =>
+      <String, Object?>{'blockMode': 'content'};
+
+  @override
+  Future<void> change({
+    required String operation,
+    required Map<String, Object?> data,
+  }) async {}
+}
+
 VendingMachineDetailData _detailData() {
   final machine = VendingMachine(
     id: VendingMachineId.parse('machine_p10_update'),
@@ -234,10 +206,7 @@ VendingMachineDetailData _detailData() {
     name: '駅前の自販機',
     manufacturerId: ManufacturerId.parse('suntory'),
     manufacturerStatus: ManufacturerStatus.confirmed,
-    location: GeoCoordinate(
-      latitude: 35.681236,
-      longitude: 139.767125,
-    ),
+    location: GeoCoordinate(latitude: 35.681236, longitude: 139.767125),
     geohash: 'xn76ur',
     placeDescription: '駅東口の壁沿い',
     installationType: InstallationType.outdoor,
@@ -301,9 +270,7 @@ final class _FakeProductUpdateRepository
       MachineProductUpdateResult(
         machineId: machineId,
         updated: true,
-        changedProductIds: const <String>[
-          'suntory_boss_black',
-        ],
+        changedProductIds: const <String>['suntory_boss_black'],
       ),
     );
   }
@@ -319,8 +286,7 @@ final class _RequestIdGenerator
   }
 }
 
-final class _AuthenticatedRepository
-    implements AuthRepository {
+final class _AuthenticatedRepository implements AuthRepository {
   final AuthSession _session = AuthenticatedAuthSession(
     AuthUser(
       uid: 'p10_update_user',
@@ -364,15 +330,11 @@ final class _AuthenticatedRepository
 
   @override
   Future<AppResult<AuthSession>> signOut() async {
-    return const AppResult<AuthSession>.success(
-      GuestAuthSession(),
-    );
+    return const AppResult<AuthSession>.success(GuestAuthSession());
   }
 
   @override
-  Future<AppResult<bool>> sendPasswordResetEmail({
-    required String email,
-  }) {
+  Future<AppResult<bool>> sendPasswordResetEmail({required String email}) {
     throw UnimplementedError();
   }
 }

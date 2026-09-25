@@ -48,23 +48,31 @@ void main() {
     expect(find.text('private@example.invalid'), findsNothing);
   });
 
-  testWidgets('unblock sends only the safe handle then reflects server refresh', (
-    tester,
-  ) async {
-    final gateway = _Gateway(entries: _entries());
-    await _pump(tester, gateway: gateway);
+  testWidgets(
+    'unblock sends only the safe handle then reflects server refresh',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.tap(find.text('解除').at(2));
-    await tester.pumpAndSettle();
+      final gateway = _Gateway(entries: _entries());
+      await _pump(tester, gateway: gateway);
 
-    expect(gateway.changedHandles, <String>['raw_handle_should_never_render']);
-    expect(gateway.readCount, greaterThanOrEqualTo(2));
-    expect(find.text('写真'), findsNothing);
-    expect(find.text('投稿者由来コンテンツ'), findsOneWidget);
-    expect(find.text('自販機'), findsOneWidget);
-    expect(find.text('商品'), findsOneWidget);
-    expect(find.text('その他コンテンツ'), findsOneWidget);
-  });
+      await tester.tap(find.text('解除').at(2));
+      await tester.pumpAndSettle();
+
+      expect(gateway.changedHandles, <String>[
+        'raw_handle_should_never_render',
+      ]);
+      expect(gateway.readCount, greaterThanOrEqualTo(2));
+      expect(find.text('写真'), findsNothing);
+      expect(find.text('投稿者由来コンテンツ'), findsOneWidget);
+      expect(find.text('自販機'), findsOneWidget);
+      expect(find.text('商品'), findsOneWidget);
+      expect(find.text('その他コンテンツ'), findsOneWidget);
+    },
+  );
 
   testWidgets('unblock failure keeps every entry and shows a safe error', (
     tester,
@@ -123,7 +131,7 @@ Future<void> _pump(
   final session = guest ? const GuestAuthSession() : _authenticatedSession();
   await tester.pumpWidget(
     ProviderScope(
-      overrides: <Override>[
+      overrides: [
         authRepositoryProvider.overrideWithValue(_AuthRepository(session)),
         userProfileRepositoryProvider.overrideWithValue(_ProfileRepository()),
         blockedContentGatewayProvider.overrideWithValue(gateway),
@@ -184,7 +192,9 @@ AuthSession _authenticatedSession() => AuthenticatedAuthSession(
 
 final class _Gateway implements BlockedContentGateway {
   _Gateway({List<BlockedContentEntry>? entries, this.failChange = false})
-    : _entries = List<BlockedContentEntry>.from(entries ?? const <BlockedContentEntry>[]);
+    : _entries = List<BlockedContentEntry>.from(
+        entries ?? const <BlockedContentEntry>[],
+      );
 
   List<BlockedContentEntry> _entries;
   final bool failChange;
@@ -211,7 +221,10 @@ final class _Gateway implements BlockedContentGateway {
           .map((entry) => entry.machineId)
           .whereType<String>()
           .toList(),
-      'photoIds': _entries.map((entry) => entry.photoId).whereType<String>().toList(),
+      'photoIds': _entries
+          .map((entry) => entry.photoId)
+          .whereType<String>()
+          .toList(),
       'productIds': _entries
           .map((entry) => entry.productId)
           .whereType<String>()
@@ -244,21 +257,34 @@ final class _AuthRepository implements AuthRepository {
   @override
   Stream<AuthSession> watchSession() => Stream<AuthSession>.value(_session);
   @override
-  Future<AppResult<AuthSession>> registerWithEmail({required String email, required String password}) => throw UnimplementedError();
+  Future<AppResult<AuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
   @override
-  Future<AppResult<bool>> reauthenticateWithPassword({required String password}) => throw UnimplementedError();
+  Future<AppResult<bool>> reauthenticateWithPassword({
+    required String password,
+  }) => throw UnimplementedError();
   @override
-  Future<AppResult<bool>> sendPasswordResetEmail({required String email}) => throw UnimplementedError();
+  Future<AppResult<bool>> sendPasswordResetEmail({required String email}) =>
+      throw UnimplementedError();
   @override
-  Future<AppResult<AuthSession>> signInWithEmail({required String email, required String password}) => throw UnimplementedError();
+  Future<AppResult<AuthSession>> signInWithEmail({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
   @override
   Future<AppResult<AuthSession>> signOut() => throw UnimplementedError();
 }
 
 final class _ProfileRepository implements UserProfileRepository {
   @override
-  Future<AppResult<UserProfile>> getOrCreateProfile({required String uid}) async =>
-      AppResult<UserProfile>.success(UserProfile(uid: uid));
+  Future<AppResult<UserProfile>> getOrCreateProfile({
+    required String uid,
+  }) async => AppResult<UserProfile>.success(UserProfile(uid: uid));
   @override
-  Future<AppResult<UserProfile>> saveDisplayName({required String uid, required String? displayName}) => throw UnimplementedError();
+  Future<AppResult<UserProfile>> saveDisplayName({
+    required String uid,
+    required String? displayName,
+  }) => throw UnimplementedError();
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/result/app_result.dart';
+import 'package:vending_app/features/auth/application/providers/auth_providers.dart';
+import 'package:vending_app/features/auth/domain/entities/auth_session.dart';
 import 'package:vending_app/features/home_map/presentation/v2_home_map_screen.dart';
 import 'package:vending_app/features/location/application/providers/location_service_provider.dart';
 import 'package:vending_app/features/location/domain/entities/app_location_permission.dart';
@@ -24,6 +26,9 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        authSessionChangesProvider.overrideWith(
+          (ref) => Stream<AuthSession>.value(const GuestAuthSession()),
+        ),
         locationServiceProvider.overrideWithValue(_FakeLocationService()),
         machineProductIndexRepositoryProvider.overrideWithValue(
           _EmptyIndexRepository(),

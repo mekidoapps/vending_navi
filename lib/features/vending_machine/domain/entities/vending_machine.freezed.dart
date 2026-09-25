@@ -17,7 +17,8 @@ mixin _$VendingMachine {
  VendingMachineId get id; int get schemaVersion; String get name; ManufacturerId? get manufacturerId; ManufacturerStatus get manufacturerStatus; GeoCoordinate get location;/// Required for schemaVersion=2. Nullable only while legacy documents
 /// coexist with v2.
  String? get geohash; String? get placeDescription; InstallationType get installationType; VendingMachineStatus get status; VendingMachineId? get mergedIntoMachineId;/// Required for schemaVersion=2. Nullable only for legacy read data.
- VendingMachineDataLevel? get dataLevel; String? get primaryPhotoId;/// Required for schemaVersion=2. Nullable only for legacy read data.
+ VendingMachineDataLevel? get dataLevel; String? get primaryPhotoId;/// Internal/legacy compatibility only.
+/// Public Firestore vending-machine documents must not expose user IDs.
  String? get createdBy; DateTime? get createdAt; DateTime? get updatedAt; DateTime? get lastProductUpdatedAt; List<VendingMachineProduct> get products;
 /// Create a copy of VendingMachine
 /// with the given fields replaced by the non-null parameter values.
@@ -246,7 +247,8 @@ class _VendingMachine extends VendingMachine {
 /// Required for schemaVersion=2. Nullable only for legacy read data.
 @override final  VendingMachineDataLevel? dataLevel;
 @override final  String? primaryPhotoId;
-/// Required for schemaVersion=2. Nullable only for legacy read data.
+/// Internal/legacy compatibility only.
+/// Public Firestore vending-machine documents must not expose user IDs.
 @override final  String? createdBy;
 @override final  DateTime? createdAt;
 @override final  DateTime? updatedAt;

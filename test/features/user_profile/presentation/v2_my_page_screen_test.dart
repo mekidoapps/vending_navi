@@ -114,6 +114,11 @@ void main() {
   });
 
   testWidgets('削除開始をキャンセルすると削除処理を実行しない', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final deletionRepository = _FakeAccountDeletionRepository();
 
     await tester.pumpWidget(
@@ -139,7 +144,7 @@ void main() {
 
     final deleteButton = find.byKey(const Key('myPageDeleteAccountButton'));
 
-    await tester.ensureVisible(deleteButton);
+    await tester.scrollUntilVisible(deleteButton, 200);
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
@@ -152,6 +157,11 @@ void main() {
   });
 
   testWidgets('password本人確認後にアカウントを削除してGuestへ戻る', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final authRepository = _FakeAuthRepository(
       session: _authenticatedSession(providerIds: const <String>['password']),
     );
@@ -179,7 +189,7 @@ void main() {
 
     final deleteButton = find.byKey(const Key('myPageDeleteAccountButton'));
 
-    await tester.ensureVisible(deleteButton);
+    await tester.scrollUntilVisible(deleteButton, 200);
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 
@@ -206,6 +216,11 @@ void main() {
   });
 
   testWidgets('Google本人確認後にアカウントを削除してGuestへ戻る', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final authRepository = _FakeAuthRepository(
       session: _authenticatedSession(providerIds: const <String>['google.com']),
     );
@@ -235,7 +250,7 @@ void main() {
 
     final deleteButton = find.byKey(const Key('myPageDeleteAccountButton'));
 
-    await tester.ensureVisible(deleteButton);
+    await tester.scrollUntilVisible(deleteButton, 200);
     await tester.tap(deleteButton);
     await tester.pumpAndSettle();
 

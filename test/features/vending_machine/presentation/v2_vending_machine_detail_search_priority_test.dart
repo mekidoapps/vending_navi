@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/result/app_result.dart';
+import 'package:vending_app/features/auth/application/providers/auth_providers.dart';
+import 'package:vending_app/features/auth/domain/entities/auth_session.dart';
+import 'package:vending_app/features/content_blocking/application/blocked_content_state.dart';
 import 'package:vending_app/features/product_master/data/fixtures/product_master_fixture.dart';
 import 'package:vending_app/features/product_master/domain/entities/product_genre.dart';
 import 'package:vending_app/features/product_master/domain/value_objects/master_id.dart';
@@ -23,6 +26,12 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        authSessionChangesProvider.overrideWith(
+          (ref) => Stream<AuthSession>.value(const GuestAuthSession()),
+        ),
+        blockedContentGatewayProvider.overrideWithValue(
+          _EmptyBlockedContentGateway(),
+        ),
         vendingMachineDetailProvider(data.machine.id).overrideWithValue(
           AsyncValue<AppResult<VendingMachineDetailData>>.data(
             AppResult<VendingMachineDetailData>.success(data),
@@ -52,6 +61,26 @@ void main() {
     expect(find.text('検索条件「BOSS ブラック」に合う商品を先に表示しています'), findsOneWidget);
     expect(find.text('検索対象'), findsOneWidget);
   });
+}
+
+final class _EmptyBlockedContentGateway implements BlockedContentGateway {
+  @override
+  Future<Object?> getBlockedContentIds() async => <String, Object?>{
+    'machineIds': <String>[],
+    'photoIds': <String>[],
+    'productIds': <String>[],
+    'blocks': <Map<String, Object?>>[],
+  };
+
+  @override
+  Future<Object?> resolveContentBlockMode(Map<String, Object?> data) async =>
+      <String, Object?>{'blockMode': 'content'};
+
+  @override
+  Future<void> change({
+    required String operation,
+    required Map<String, Object?> data,
+  }) async {}
 }
 
 VendingMachineDetailData _detailData() {
