@@ -45,6 +45,16 @@ void main() {
     expect(find.text('登録'), findsOneWidget);
     expect(find.text('マイ'), findsOneWidget);
     expect(find.byKey(const Key('currentLocationMapAction')), findsOneWidget);
+    expect(
+      find.text('自販機位置データの一部 © OpenStreetMap contributors'),
+      findsOneWidget,
+    );
+    final attribution = find.byKey(const Key('osmMapAttributionLink'));
+    expect(attribution, findsOneWidget);
+    expect(tester.widget<InkWell>(attribution).onTap, isNotNull);
+    // Google Maps places its own attribution at the map's bottom edge.
+    expect(tester.getTopLeft(attribution).dy, lessThan(150));
+    expect(tester.getBottomLeft(attribution).dy, lessThan(200));
 
     final searchSize = tester.getSize(find.byKey(const Key('searchMapAction')));
     final registerSize = tester.getSize(

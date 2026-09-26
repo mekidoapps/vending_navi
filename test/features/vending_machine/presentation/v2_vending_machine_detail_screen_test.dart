@@ -44,12 +44,34 @@ void main() {
     expect(find.text('あるかも'), findsWidgets);
     expect(find.text('販売中'), findsOneWidget);
     expect(find.text('在庫不明'), findsOneWidget);
+    expect(find.byKey(const Key('osmMachineSourceLink')), findsNothing);
+  });
+
+  testWidgets('OSM識別子の詳細だけ出典ラベルを表示する', (WidgetTester tester) async {
+    final data = _detailData(sourceId: 'osm:node:123');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          vendingMachineDetailProvider(data.machine.id).overrideWithValue(
+            AsyncValue<AppResult<VendingMachineDetailData>>.data(
+              AppResult<VendingMachineDetailData>.success(data),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: V2VendingMachineDetailScreen(machineId: data.machine.id),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('osmMachineSourceLink')), findsOneWidget);
+    expect(find.text('位置データ: OpenStreetMap'), findsOneWidget);
   });
 }
 
-VendingMachineDetailData _detailData() {
+VendingMachineDetailData _detailData({String sourceId = 'machine_detail'}) {
   final machine = VendingMachine(
-    id: VendingMachineId.parse('machine_detail'),
+    id: VendingMachineId.parse(sourceId),
     schemaVersion: 2,
     name: '駅前の自販機',
     manufacturerId: ManufacturerId.parse('suntory'),

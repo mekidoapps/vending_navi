@@ -14,6 +14,7 @@ import '../../features/machine_registration/presentation/v2_registration_method_
 import '../../features/machine_registration/presentation/v2_registration_photo_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_photo_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
+import '../../features/osm/presentation/v2_data_licenses_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_auth_gate.dart';
 import '../../features/ugc_terms/presentation/ugc_terms_gate.dart';
 import '../../features/product_search/application/genre_machine_search_controller.dart';
@@ -414,6 +415,12 @@ GoRouter createAppRouter({
           return myPageBuilder?.call(context) ??
               const V2MyPageScreen(enableFavoriteProducts: true);
         },
+      ),
+      GoRoute(
+        name: AppRoute.v2DataLicenses.name,
+        path: AppRoute.v2DataLicenses.path,
+        builder: (BuildContext context, GoRouterState state) =>
+            const V2DataLicensesScreen(),
       ),
       GoRoute(
         name: AppRoute.v2RegistrationPosition.name,

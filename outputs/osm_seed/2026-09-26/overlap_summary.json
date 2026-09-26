@@ -1,0 +1,20 @@
+{
+  "native_with_coordinates": 11,
+  "native_overlap": {
+    "very_close_10m": 0,
+    "near_50m": 3,
+    "unique_over_50m": 40785
+  },
+  "osm_internal_proximity": {
+    "very_close_10m": 8075,
+    "near_50m": 7743,
+    "unique_over_50m": 24970
+  },
+  "exact_coordinate_duplicates": 2,
+  "unique_after_proximity_review": 32710,
+  "automatic_merge": false,
+  "thresholds_m": {
+    "very_close": 10,
+    "near": 50
+  }
+}

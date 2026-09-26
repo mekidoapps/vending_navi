@@ -34,6 +34,7 @@ import '../../product_search/presentation/v2_selected_genre_label.dart';
 import '../../product_search/presentation/v2_selected_product_label.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
+import '../../osm/presentation/osm_license_links.dart';
 import '../../vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../vending_machine/domain/entities/vending_machine.dart';
 import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
@@ -180,6 +181,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   blockedContent,
                 ),
                 const _AppLabel(),
+                const _OsmAttributionOverlay(),
                 _LocationStatusOverlay(
                   state: locationState,
                   onRetry: _retryLocation,
@@ -786,6 +788,36 @@ class _AppLabel extends StatelessWidget {
   }
 }
 
+class _OsmAttributionOverlay extends StatelessWidget {
+  const _OsmAttributionOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.only(top: 64, left: V2Spacing.sm, right: 80),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
+          borderRadius: V2Radius.control,
+          child: InkWell(
+            key: const Key('osmMapAttributionLink'),
+            borderRadius: V2Radius.control,
+            onTap: () => openOsmLicenseLink(context, osmCopyrightUrl),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Text(
+                '自販機位置データの一部 © OpenStreetMap contributors',
+                style: TextStyle(fontSize: 11, height: 1.25),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SelectedProductOverlay extends StatelessWidget {
   const _SelectedProductOverlay({required this.product, required this.onClear});
 
@@ -795,7 +827,7 @@ class _SelectedProductOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      minimum: const EdgeInsets.only(top: 62, left: V2Spacing.sm, right: 76),
+      minimum: const EdgeInsets.only(top: 112, left: V2Spacing.sm, right: 76),
       child: Align(
         alignment: Alignment.topLeft,
         child: V2SelectedProductLabel(product: product, onClear: onClear),
@@ -813,7 +845,7 @@ class _SelectedGenreOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      minimum: const EdgeInsets.only(top: 62, left: V2Spacing.sm, right: 76),
+      minimum: const EdgeInsets.only(top: 112, left: V2Spacing.sm, right: 76),
       child: Align(
         alignment: Alignment.topLeft,
         child: V2SelectedGenreLabel(genre: genre, onClear: onClear),
@@ -1538,7 +1570,7 @@ class _LocationStatusOverlay extends StatelessWidget {
 
     return SafeArea(
       minimum: const EdgeInsets.only(
-        top: 64,
+        top: 112,
         left: V2Spacing.md,
         right: V2Spacing.md,
       ),

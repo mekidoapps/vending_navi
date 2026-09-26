@@ -40,6 +40,7 @@ void main() {
     expect(find.text('ゲスト利用中'), findsOneWidget);
     expect(find.byKey(const Key('myPageLoginButton')), findsOneWidget);
     expect(find.byKey(const Key('myPageDeleteAccountButton')), findsNothing);
+    expect(find.byKey(const Key('myPageDataLicensesLink')), findsOneWidget);
   });
 
   testWidgets('ログイン済みではprofile・email・logoutを表示する', (WidgetTester tester) async {
@@ -71,6 +72,11 @@ void main() {
     expect(find.text('screen@example.com'), findsOneWidget);
     expect(find.byKey(const Key('myPageSignOutButton')), findsOneWidget);
     expect(find.byKey(const Key('myPageDeleteAccountButton')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('myPageDataLicensesLink')),
+      180,
+    );
+    expect(find.byKey(const Key('myPageDataLicensesLink')), findsOneWidget);
   });
 
   testWidgets('表示名dialog保存後もdisposed controller例外を起こさない', (

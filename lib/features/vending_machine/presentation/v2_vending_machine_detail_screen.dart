@@ -15,6 +15,7 @@ import '../../auth/application/auth_required_action_runner.dart';
 import '../../auth/application/providers/auth_action_gate_provider.dart';
 import '../../auth/presentation/v2_login_required_sheet.dart';
 import '../../content_blocking/application/blocked_content_state.dart';
+import '../../osm/presentation/v2_osm_machine_source_label.dart';
 import '../../product_master/domain/entities/product.dart';
 import '../../product_master/domain/entities/product_genre.dart';
 import '../../product_search/application/genre_search_selection_controller.dart';
@@ -174,6 +175,8 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
     ).showSnackBar(const SnackBar(content: Text('地図アプリを開けませんでした')));
   }
 }
+
+final _osmSourceIdPattern = RegExp(r'^osm:(node|way|relation):[1-9][0-9]*$');
 
 class _FailureBody extends StatelessWidget {
   const _FailureBody({required this.failure, required this.onRetry});
@@ -485,6 +488,8 @@ class _MachineHeaderCard extends StatelessWidget {
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
             ),
+            if (_osmSourceIdPattern.hasMatch(machine.id.value))
+              const V2OsmMachineSourceLabel(),
             const SizedBox(height: V2Spacing.sm),
             Wrap(
               spacing: V2Spacing.xs,

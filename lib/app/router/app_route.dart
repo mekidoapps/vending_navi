@@ -40,6 +40,7 @@ enum AppRoute {
   ),
   v2EmailAuth(name: 'v2EmailAuth', path: '/v2/auth/email'),
   v2MyPage(name: 'v2MyPage', path: '/v2/my'),
+  v2DataLicenses(name: 'v2DataLicenses', path: '/v2/data-licenses'),
   v2RegistrationPosition(
     name: 'v2RegistrationPosition',
     path: '/v2/register/position',

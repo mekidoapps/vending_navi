@@ -73,6 +73,14 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
                 )
               else
                 _GuestMyPage(onLogin: _openAuthentication),
+              const SizedBox(height: V2Spacing.md),
+              ListTile(
+                key: const Key('myPageDataLicensesLink'),
+                leading: const Icon(Icons.info_outline),
+                title: const Text('データ・ライセンス'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.pushNamed(AppRoute.v2DataLicenses.name),
+              ),
             ],
           ),
         ),
