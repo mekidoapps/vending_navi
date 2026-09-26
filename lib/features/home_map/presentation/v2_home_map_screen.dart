@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -35,6 +37,8 @@ import '../../product_search/presentation/v2_selected_product_label.dart';
 import '../../location/application/current_location_state.dart';
 import '../../location/domain/entities/current_location.dart';
 import '../../osm/presentation/osm_license_links.dart';
+import '../../osm/application/osm_map_controller.dart';
+import '../../osm/data/osm_map_repository.dart';
 import '../../vending_machine/application/providers/vending_machine_detail_providers.dart';
 import '../../vending_machine/domain/entities/vending_machine.dart';
 import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
@@ -82,6 +86,7 @@ class V2HomeMapScreen extends ConsumerStatefulWidget {
 }
 
 class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
+  static const ClusterManagerId _osmClusterId = ClusterManagerId('osm-points');
   static const CameraPosition _fallbackCamera = CameraPosition(
     target: LatLng(36.2048, 138.2529),
     zoom: 5.2,
@@ -90,6 +95,8 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   static const double _currentLocationZoom = 16;
 
   GoogleMapController? _mapController;
+  Timer? _cameraIdleTimer;
+  int _cameraEpoch = 0;
   bool _isProductSearchPanelOpen = false;
 
   @override
@@ -108,6 +115,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
 
   @override
   void dispose() {
+    _cameraIdleTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -116,6 +124,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
   Widget build(BuildContext context) {
     final locationState = ref.watch(currentLocationControllerProvider);
     final machineState = ref.watch(vendingMachineMapControllerProvider);
+    final osmState = ref.watch(osmMapControllerProvider);
     final selectedProduct = ref.watch(productSearchSelectionControllerProvider);
     final selectedGenre = ref.watch(genreSearchSelectionControllerProvider);
     final productMachineSearchState = ref.watch(
@@ -174,6 +183,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   context,
                   locationState,
                   machineState,
+                  osmState,
                   selectedProduct,
                   selectedGenre,
                   productMachineSearchState,
@@ -182,6 +192,10 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                 ),
                 const _AppLabel(),
                 const _OsmAttributionOverlay(),
+                if (osmState.result.dense &&
+                    selectedProduct == null &&
+                    selectedGenre == null)
+                  const _OsmDenseAreaNotice(),
                 _LocationStatusOverlay(
                   state: locationState,
                   onRetry: _retryLocation,
@@ -293,6 +307,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     BuildContext context,
     CurrentLocationState locationState,
     VendingMachineMapState machineState,
+    OsmMapState osmState,
     Product? selectedProduct,
     ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
@@ -316,12 +331,16 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       tiltGesturesEnabled: true,
       markers: _buildMarkers(
         machineState,
+        osmState,
         selectedProduct,
         selectedGenre,
         productMachineSearchState,
         genreMachineSearchState,
         blockedContent,
       ),
+      clusterManagers: <ClusterManager>{
+        const ClusterManager(clusterManagerId: _osmClusterId),
+      },
       onMapCreated: (controller) {
         _mapController = controller;
 
@@ -330,7 +349,18 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
           _moveCamera(location);
         }
       },
-      onCameraIdle: _loadVisibleMachines,
+      onCameraMoveStarted: () {
+        _cameraEpoch++;
+        _cameraIdleTimer?.cancel();
+        ref.read(osmMapControllerProvider.notifier).invalidate();
+      },
+      onCameraIdle: () {
+        _cameraIdleTimer?.cancel();
+        _cameraIdleTimer = Timer(
+          OsmMapBudget.cameraDebounce,
+          _loadVisibleMachines,
+        );
+      },
       onTap: (_) {
         ref.read(vendingMachineMapControllerProvider.notifier).clearSelection();
       },
@@ -339,6 +369,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
 
   Set<Marker> _buildMarkers(
     VendingMachineMapState state,
+    OsmMapState osmState,
     Product? selectedProduct,
     ProductGenre? selectedGenre,
     ProductMachineSearchState productMachineSearchState,
@@ -355,7 +386,9 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       blockedProductIds: blockedContent.productIds,
     );
 
-    return filteredMachines.map((machine) {
+    final nativeMarkers = filteredMachines.take(OsmMapBudget.totalMarkers).map((
+      machine,
+    ) {
       final kind = _markerKindForSearch(
         machine: machine,
         selectedMachineId: state.selectedMachineId,
@@ -374,6 +407,57 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         onTap: () => _selectMachine(machine),
       );
     }).toSet();
+    if (selectedProduct != null || selectedGenre != null) return nativeMarkers;
+    final remaining = OsmMapBudget.totalMarkers - nativeMarkers.length;
+    final osmMarkers = <Marker>{};
+    for (final point in osmState.result.points.take(remaining)) {
+      osmMarkers.add(
+        Marker(
+          markerId: MarkerId('osm-${point.sourceId}'),
+          position: LatLng(point.latitude, point.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          clusterManagerId: _osmClusterId,
+          infoWindow: InfoWindow(
+            title: point.brand ?? point.operator ?? 'OSM自販機',
+          ),
+          onTap: () => context.pushNamed(
+            AppRoute.v2OsmMachineDetail.name,
+            pathParameters: <String, String>{'sourceId': point.sourceId},
+          ),
+        ),
+      );
+    }
+    for (final cell in osmState.result.cells.take(
+      remaining - osmMarkers.length,
+    )) {
+      osmMarkers.add(
+        Marker(
+          markerId: MarkerId('osm-cell-${cell.cellId}'),
+          position: LatLng(cell.latitude, cell.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueYellow,
+          ),
+          infoWindow: InfoWindow(
+            title: 'OSM自販機 約${cell.count}件',
+            snippet: '拡大して表示',
+          ),
+          onTap: () async {
+            final controller = _mapController;
+            if (controller == null) return;
+            final zoom = await controller.getZoomLevel();
+            await controller.animateCamera(
+              CameraUpdate.newLatLngZoom(
+                LatLng(cell.latitude, cell.longitude),
+                zoom + 2,
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return nativeMarkers..addAll(osmMarkers);
   }
 
   static VendingMachineMarkerKind _markerKindForSearch({
@@ -426,6 +510,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
     bool forceGenreSearch = false,
   }) async {
     final controller = _mapController;
+    final cameraEpoch = _cameraEpoch;
 
     MapViewportBounds? bounds;
     if (controller != null) {
@@ -448,7 +533,7 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
       bounds = ref.read(vendingMachineMapControllerProvider).lastViewport;
     }
 
-    if (!mounted || bounds == null) {
+    if (!mounted || bounds == null || cameraEpoch != _cameraEpoch) {
       return;
     }
 
@@ -456,6 +541,19 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
         productOverride ?? ref.read(productSearchSelectionControllerProvider);
     final genre =
         genreOverride ?? ref.read(genreSearchSelectionControllerProvider);
+
+    final osmController = ref.read(osmMapControllerProvider.notifier);
+    if (product != null || genre != null) {
+      osmController.suspend();
+    } else if (controller != null) {
+      final zoom = await controller.getZoomLevel();
+      if (mounted &&
+          cameraEpoch == _cameraEpoch &&
+          ref.read(productSearchSelectionControllerProvider) == null &&
+          ref.read(genreSearchSelectionControllerProvider) == null) {
+        unawaited(osmController.load(bounds, zoom));
+      }
+    }
 
     if (product != null) {
       ref.read(genreMachineSearchControllerProvider.notifier).clear();
@@ -810,6 +908,30 @@ class _OsmAttributionOverlay extends StatelessWidget {
                 '自販機位置データの一部 © OpenStreetMap contributors',
                 style: TextStyle(fontSize: 11, height: 1.25),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OsmDenseAreaNotice extends StatelessWidget {
+  const _OsmDenseAreaNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 112, left: 16, right: 16),
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: V2Radius.control,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text('このエリアには自販機が多くあります。拡大すると詳しく表示します'),
             ),
           ),
         ),

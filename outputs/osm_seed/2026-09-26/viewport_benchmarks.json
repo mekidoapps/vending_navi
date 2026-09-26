@@ -1,0 +1,362 @@
+[
+  {
+    "case": "Tokyo dense",
+    "zoom": 5,
+    "pointDocsIfUnbounded": 36319,
+    "aggregateCells": {
+      "2": 7,
+      "4": 496,
+      "6": 7498
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 8,
+    "pointDocsIfUnbounded": 14276,
+    "aggregateCells": {
+      "2": 1,
+      "4": 96,
+      "6": 2606
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 9,
+    "pointDocsIfUnbounded": 13338,
+    "aggregateCells": {
+      "2": 1,
+      "4": 54,
+      "6": 2183
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 10,
+    "pointDocsIfUnbounded": 9813,
+    "aggregateCells": {
+      "2": 1,
+      "4": 18,
+      "6": 1316
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 12,
+    "pointDocsIfUnbounded": 5630,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 286
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 14,
+    "pointDocsIfUnbounded": 1458,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 38
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 15,
+    "pointDocsIfUnbounded": 214,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 12
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 16,
+    "pointDocsIfUnbounded": 20,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 6
+    }
+  },
+  {
+    "case": "Tokyo dense",
+    "zoom": 17,
+    "pointDocsIfUnbounded": 3,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 6
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 5,
+    "pointDocsIfUnbounded": 40755,
+    "aggregateCells": {
+      "2": 7,
+      "4": 543,
+      "6": 8328
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 8,
+    "pointDocsIfUnbounded": 12951,
+    "aggregateCells": {
+      "2": 4,
+      "4": 79,
+      "6": 2121
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 9,
+    "pointDocsIfUnbounded": 11652,
+    "aggregateCells": {
+      "2": 2,
+      "4": 40,
+      "6": 1637
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 10,
+    "pointDocsIfUnbounded": 9629,
+    "aggregateCells": {
+      "2": 1,
+      "4": 18,
+      "6": 1126
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 12,
+    "pointDocsIfUnbounded": 4948,
+    "aggregateCells": {
+      "2": 1,
+      "4": 3,
+      "6": 343
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 14,
+    "pointDocsIfUnbounded": 957,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 42
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 15,
+    "pointDocsIfUnbounded": 247,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 12
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 16,
+    "pointDocsIfUnbounded": 68,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 6
+    }
+  },
+  {
+    "case": "Osaka dense",
+    "zoom": 17,
+    "pointDocsIfUnbounded": 16,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 6
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 5,
+    "pointDocsIfUnbounded": 40359,
+    "aggregateCells": {
+      "2": 7,
+      "4": 538,
+      "6": 8209
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 8,
+    "pointDocsIfUnbounded": 4379,
+    "aggregateCells": {
+      "2": 2,
+      "4": 92,
+      "6": 1255
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 9,
+    "pointDocsIfUnbounded": 1739,
+    "aggregateCells": {
+      "2": 1,
+      "4": 37,
+      "6": 414
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 10,
+    "pointDocsIfUnbounded": 1388,
+    "aggregateCells": {
+      "2": 1,
+      "4": 17,
+      "6": 255
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 12,
+    "pointDocsIfUnbounded": 1028,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 113
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 14,
+    "pointDocsIfUnbounded": 582,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 35
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 15,
+    "pointDocsIfUnbounded": 211,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 16
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 16,
+    "pointDocsIfUnbounded": 74,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 6
+    }
+  },
+  {
+    "case": "normal urban",
+    "zoom": 17,
+    "pointDocsIfUnbounded": 19,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 2
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 5,
+    "pointDocsIfUnbounded": 36014,
+    "aggregateCells": {
+      "2": 7,
+      "4": 478,
+      "6": 7374
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 8,
+    "pointDocsIfUnbounded": 14225,
+    "aggregateCells": {
+      "2": 1,
+      "4": 93,
+      "6": 2561
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 9,
+    "pointDocsIfUnbounded": 10122,
+    "aggregateCells": {
+      "2": 1,
+      "4": 45,
+      "6": 1457
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 10,
+    "pointDocsIfUnbounded": 1370,
+    "aggregateCells": {
+      "2": 1,
+      "4": 18,
+      "6": 312
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 12,
+    "pointDocsIfUnbounded": 146,
+    "aggregateCells": {
+      "2": 1,
+      "4": 2,
+      "6": 35
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 14,
+    "pointDocsIfUnbounded": 30,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 12
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 15,
+    "pointDocsIfUnbounded": 18,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 7
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 16,
+    "pointDocsIfUnbounded": 7,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 6
+    }
+  },
+  {
+    "case": "suburban",
+    "zoom": 17,
+    "pointDocsIfUnbounded": 2,
+    "aggregateCells": {
+      "2": 1,
+      "4": 1,
+      "6": 4
+    }
+  }
+]

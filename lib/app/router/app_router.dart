@@ -15,6 +15,7 @@ import '../../features/machine_registration/presentation/v2_registration_photo_s
 import '../../features/machine_registration/presentation/v2_registration_photo_candidates_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_position_screen.dart';
 import '../../features/osm/presentation/v2_data_licenses_screen.dart';
+import '../../features/osm/presentation/v2_osm_machine_detail_screen.dart';
 import '../../features/machine_registration/presentation/v2_registration_auth_gate.dart';
 import '../../features/ugc_terms/presentation/ugc_terms_gate.dart';
 import '../../features/product_search/application/genre_machine_search_controller.dart';
@@ -120,6 +121,17 @@ GoRouter createAppRouter({
 
           return machineDetailBuilder?.call(context, machineId) ??
               V2VendingMachineDetailScreen(machineId: machineId);
+        },
+      ),
+      GoRoute(
+        name: AppRoute.v2OsmMachineDetail.name,
+        path: AppRoute.v2OsmMachineDetail.path,
+        builder: (context, state) {
+          final sourceId = state.pathParameters['sourceId'] ?? '';
+          if (!RegExp(r'^osm:(node|way):[1-9][0-9]*$').hasMatch(sourceId)) {
+            return RouteErrorScreen(location: state.uri.toString());
+          }
+          return V2OsmMachineDetailScreen(sourceId: sourceId);
         },
       ),
       GoRoute(

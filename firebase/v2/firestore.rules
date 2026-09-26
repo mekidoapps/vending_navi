@@ -50,6 +50,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ODbL-derived, server-published OSM location projection and clusters.
+    // Clients cannot import, amend, or enumerate either collection without a
+    // bounded query. Rules are not filters: queries must constrain status.
+    match /osm_vending_seed/{sourceId} {
+      allow get: if resource.data.status == 'published';
+      allow list: if resource.data.status == 'published'
+                  && request.query.limit != null
+                  && request.query.limit <= 121;
+      allow write: if false;
+    }
+
+    match /osm_vending_aggregate/{cellId} {
+      allow get: if resource.data.status == 'published';
+      allow list: if resource.data.status == 'published'
+                  && request.query.limit != null
+                  && request.query.limit <= 81;
+      allow write: if false;
+    }
+
     // Private user profile.
     //
     // Public/community writes continue to use Callable Functions.

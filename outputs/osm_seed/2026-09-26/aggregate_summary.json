@@ -1,0 +1,37 @@
+{
+  "sourceSnapshotId": "0b51408d8cf648603d1db0eccd8f0ae06ce691ba42ddae2762456f66658c0e17",
+  "sourceTimestamp": "2026-09-25T20:24:36Z",
+  "seedRecords": 40788,
+  "license": "ODbL-1.0",
+  "licenseUrl": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "attribution": "© OpenStreetMap contributors",
+  "precisions": {
+    "2": {
+      "cells": 7,
+      "max": 31988,
+      "median": 1018,
+      "p95": 31988,
+      "p99": 31988,
+      "artifact": "osm_aggregate_p2.ndjson.gz",
+      "sha256": "39eabf4ce7785b5331a556abe8f7078e2cdce9aae9244c0600290318c9e8dcfe"
+    },
+    "4": {
+      "cells": 550,
+      "max": 5624,
+      "median": 8,
+      "p95": 204,
+      "p99": 1345,
+      "artifact": "osm_aggregate_p4.ndjson.gz",
+      "sha256": "a89a9e7371f91fbbfb2cb5c1434dcdba0a248765ee609ca0480e5a3634c2d6af"
+    },
+    "6": {
+      "cells": 8343,
+      "max": 277,
+      "median": 2,
+      "p95": 17,
+      "p99": 52,
+      "artifact": "osm_aggregate_p6.ndjson.gz",
+      "sha256": "c16fdd4f412b016880a746301f1aee91a7d8c33bc631a226d9c8f7b2176681e8"
+    }
+  }
+}

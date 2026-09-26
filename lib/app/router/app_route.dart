@@ -2,6 +2,7 @@ enum AppRoute {
   legacyRoot(name: 'legacyRoot', path: '/'),
   v2Foundation(name: 'v2Foundation', path: '/v2'),
   v2MachineDetail(name: 'v2MachineDetail', path: '/v2/machines/:machineId'),
+  v2OsmMachineDetail(name: 'v2OsmMachineDetail', path: '/v2/osm/:sourceId'),
   v2MachineUpdateMenu(
     name: 'v2MachineUpdateMenu',
     path: '/v2/machines/:machineId/update',
