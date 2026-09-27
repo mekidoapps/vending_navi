@@ -55,6 +55,10 @@ assert.equal((await request('/osm_vending_seed/osm:node:1')).status, 200);
 assert.equal((await request('/osm_vending_seed/osm:node:2')).status, 403);
 assert.equal((await request('/osm_vending_aggregate/p6_xn76ur')).status, 200);
 assert.equal((await request('/osm_vending_aggregate/p6_xn76us')).status, 403);
+assert.equal((await request('/osm_import_runs/test')).status, 403);
+assert.equal((await request('/osm_import_runs/test', {
+  method: 'PATCH', body: { fields: { status: string('IMPORTING') } },
+})).status, 403);
 
 for (const [collection, cap, aggregate] of [
   ['osm_vending_seed', 121, false],

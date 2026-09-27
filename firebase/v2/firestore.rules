@@ -69,6 +69,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Operational import manifests and rollback ownership are never public.
+    match /osm_import_runs/{runId} {
+      allow read, write: if false;
+    }
+
     // Private user profile.
     //
     // Public/community writes continue to use Callable Functions.

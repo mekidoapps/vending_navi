@@ -26,11 +26,11 @@ Aggregate artifacts are generated deterministically from the locked 40,788-recor
 
 Separation classification: **PARTIALLY_COUPLED** (source artifacts and read-only map paths are separate; native write/reference paths and ODbL-derived-data boundaries still require review). This is an engineering assessment, not a legal opinion.
 
-## Import plan (not implemented for Production)
+## Import plan and pilot-only tooling (not deployed to Production)
 
-`tool/osm_seed/plan_import.py` validates the local artifact, stable IDs, Tier A, coordinates, attribution, and absence of inferred product/user fields. It is a dry run only and contains no Firebase write client.
+`tool/osm_seed/plan_import.py` remains an offline full-seed validation/dry-run with no Firebase write client. The separate pilot-only manifest generator and guarded importer/rollback CLI are documented in [OSM_PILOT_IMPORT_RUNBOOK.md](OSM_PILOT_IMPORT_RUNBOOK.md). They use the formal aggregate collection `osm_vending_aggregate` (not `osm_vending_cells`) and server-only `osm_import_runs`. Source tooling does not authorize or imply a Production import.
 
-A later, separately approved importer must:
+Any separately approved Production pilot execution must:
 
 1. Verify SHA-256 and source metadata; compare expected count to validated records; reject schema, license, coordinate, or source-ID anomalies.
 2. Read current native and prior OSM IDs; produce manual-review overlap lists. Skip unresolved, duplicate, or rejected IDs. Never merge native and OSM documents automatically.
