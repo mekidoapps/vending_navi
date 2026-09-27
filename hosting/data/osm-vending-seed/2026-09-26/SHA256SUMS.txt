@@ -1,0 +1,1 @@
+0b51408d8cf648603d1db0eccd8f0ae06ce691ba42ddae2762456f66658c0e17  osm_vending_seed_jp.ndjson.gz

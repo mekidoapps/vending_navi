@@ -1,0 +1,12 @@
+VendingNavi initial OSM vending-machine seed
+
+© OpenStreetMap contributors
+https://www.openstreetmap.org/copyright
+
+This transformed OpenStreetMap-derived dataset is available under the
+Open Database License (ODbL) 1.0:
+https://opendatacommons.org/licenses/odbl/1-0/
+
+The snapshot contains 40,788 records. Production pre-release testing may
+display only a subset; distribution of this snapshot does not imply that
+all records are currently present in the app's live map.
