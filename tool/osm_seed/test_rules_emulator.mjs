@@ -59,6 +59,14 @@ assert.equal((await request('/osm_import_runs/test')).status, 403);
 assert.equal((await request('/osm_import_runs/test', {
   method: 'PATCH', body: { fields: { status: string('IMPORTING') } },
 })).status, 403);
+assert.equal((await request('/osm_import_runs/test/chunks/000000')).status, 403);
+assert.equal((await request('/osm_import_runs/test/chunks')).status, 403);
+assert.equal((await request('/osm_import_runs/test/chunks/000000', {
+  method: 'PATCH', body: { fields: { status: string('COMPLETED') } },
+})).status, 403);
+assert.equal((await request('/osm_import_runs/test/chunks/000000', {
+  method: 'DELETE',
+})).status, 403);
 
 for (const [collection, cap, aggregate] of [
   ['osm_vending_seed', 121, false],

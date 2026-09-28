@@ -72,6 +72,10 @@ service cloud.firestore {
     // Operational import manifests and rollback ownership are never public.
     match /osm_import_runs/{runId} {
       allow read, write: if false;
+
+      match /chunks/{chunkId} {
+        allow read, write: if false;
+      }
     }
 
     // Private user profile.
