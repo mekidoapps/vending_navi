@@ -1,0 +1,26 @@
+platform :ios, '14.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', 'Debug' => :debug, 'Profile' => :release, 'Release' => :release
+
+settings = File.expand_path('Flutter/Generated.xcconfig', __dir__)
+raise 'Run flutter pub get before pod install' unless File.file?(settings)
+root_line = File.readlines(settings).find { |line| line.start_with?('FLUTTER_ROOT=') }
+raise 'Generated.xcconfig has no FLUTTER_ROOT' unless root_line
+flutter_sdk = root_line.split('=', 2).last.strip
+require File.join(flutter_sdk, 'packages/flutter_tools/bin/podhelper')
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  flutter_install_all_ios_pods(__dir__)
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installation|
+  installation.pods_project.targets.each do |pod_target|
+    flutter_additional_ios_build_settings(pod_target)
+  end
+end
