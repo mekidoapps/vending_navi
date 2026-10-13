@@ -1,0 +1,7 @@
+// Copy to LocalServices.xcconfig (Git-ignored). Leave unset until confirmed.
+// Use the Maps key restricted to this iOS bundle and Maps SDK for iOS.
+GOOGLE_MAPS_IOS_API_KEY =
+// CLIENT_ID from the matching existing iOS OAuth/Firebase configuration.
+GOOGLE_SIGN_IN_IOS_CLIENT_ID =
+// REVERSED_CLIENT_ID from the same configuration; never an Android client ID.
+GOOGLE_SIGN_IN_REVERSED_CLIENT_ID =

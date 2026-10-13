@@ -1,0 +1,5 @@
+// Empty defaults keep compile-only builds free of real service values.
+GOOGLE_MAPS_IOS_API_KEY =
+GOOGLE_SIGN_IN_IOS_CLIENT_ID =
+GOOGLE_SIGN_IN_REVERSED_CLIENT_ID =
+#include? "LocalServices.xcconfig"

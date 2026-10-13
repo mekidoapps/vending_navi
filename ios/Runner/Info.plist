@@ -26,6 +26,21 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>GoogleMapsAPIKey</key>
+	<string>$(GOOGLE_MAPS_IOS_API_KEY)</string>
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_SIGN_IN_IOS_CLIENT_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_SIGN_IN_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -66,7 +81,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>自販機や商品の写真を撮影して登録するためにカメラを使用します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>自販機や商品の登録に使う写真を読み込むために、写真へのアクセスを使用します。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-    <string>近くの自販機を登録するために現在地を使用します。</string>
+	<string>近くの自販機を探したり、登録する自販機の位置を指定したりするために、アプリの使用中に現在地を使用します。</string>
 </dict>
 </plist>

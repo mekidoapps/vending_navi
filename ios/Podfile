@@ -22,5 +22,12 @@ end
 post_install do |installation|
   installation.pods_project.targets.each do |pod_target|
     flutter_additional_ios_build_settings(pod_target)
+    if pod_target.name == 'geolocator_apple'
+      pod_target.build_configurations.each do |configuration|
+        definitions = Array(configuration.build_settings['GCC_PREPROCESSOR_DEFINITIONS'])
+        configuration.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] =
+          (definitions + ['$(inherited)', 'BYPASS_PERMISSION_LOCATION_ALWAYS=1']).uniq
+      end
+    end
   end
 end
