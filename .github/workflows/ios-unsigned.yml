@@ -1,10 +1,10 @@
-name: iOS unsigned compile
+name: iOS dependency lock preparation
 
 on:
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: Reviewed full commit SHA of the selected branch (not old main)
+        description: Reviewed full SHA of ios/device-configuration
         required: true
         type: string
 
@@ -12,13 +12,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-unsigned-${{ github.ref }}
+  group: ios-dependency-lock-preparation
   cancel-in-progress: false
 
 jobs:
-  compile:
+  resolve:
+    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/ios/device-configuration'
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -26,15 +27,21 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Check reviewed source and native toolchain
+      - name: Validate exact reviewed source and toolchain
         shell: bash
         run: |
           set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/ios/device-configuration'
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SHA" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$GITHUB_RUN_ATTEMPT" = '1'
           grep -Eq '^version: 1\.0\.0\+21[[:space:]]*$' pubspec.yaml
           test -f ios/Podfile
+          test ! -e ios/Podfile.lock
+          test ! -e ios/Flutter/LocalServices.xcconfig
           test -d "$DEVELOPER_DIR"
           xcodebuild -version
           sdk_version="$(xcrun --sdk iphoneos --show-sdk-version)"
@@ -45,28 +52,51 @@ jobs:
           flutter-version: '3.41.2'
           channel: stable
           cache: false
-      - name: Resolve locked Flutter dependencies
-        run: |
-          flutter --version
-          flutter pub get --enforce-lockfile
-          git diff --exit-code -- pubspec.yaml pubspec.lock
-      - name: Compile release for iPhone without signing
-        run: flutter build ios --release --no-codesign --dart-define=APP_ENTRY=v2
-      - name: Verify output and record safe evidence
+      - name: Resolve Flutter and CocoaPods without signing or compilation
         shell: bash
         run: |
           set -euo pipefail
-          test -f build/ios/iphoneos/Runner.app/Runner
-          git diff --exit-code -- pubspec.yaml pubspec.lock
+          flutter --version
+          flutter pub get --enforce-lockfile
+          (cd ios && pod install)
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile
+      - name: Validate only the native lock for short artifact retention
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('ios/Podfile.lock')
+          assert p.is_file() and not p.is_symlink()
+          assert 0 < p.stat().st_size < 262144
+          text = p.read_text()
+          assert 'PODS:' in text and 'COCOAPODS:' in text
+          assert not re.search(r'(?i)(https?://[^\s/]*@|[?&](token|key|password|signature)=|-----BEGIN|AIza|gh[pousr]_|github_pat_|xox[baprs]-|authorization:|password:)', text)
+          # This project must resolve public trunk specs and local Flutter plugins.
+          # Reject new remote external sources and private spec repositories.
+          assert ':git:' not in text and ':http:' not in text
+          if 'SPEC REPOS:' in text:
+              repos = text.split('SPEC REPOS:', 1)[1].split('\n\n', 1)[0]
+              assert all(line == '  trunk:' or line.startswith('    - ') or not line.strip()
+                         for line in repos.splitlines())
+          if 'EXTERNAL SOURCES:' in text:
+              external = text.split('EXTERNAL SOURCES:', 1)[1].split('\n\n', 1)[0]
+              for line in external.splitlines():
+                  if ':path:' in line:
+                      value = line.split(':path:', 1)[1].strip().strip('"\'')
+                      assert value == 'Flutter' or re.fullmatch(r'\.symlinks/plugins/[A-Za-z0-9_]+/(ios|darwin)/?', value)
+          print('Native lock structure and credential-pattern checks passed; contents withheld.')
+          PY
           {
-            echo 'Unsigned compile succeeded; no device installation or distribution verified.'
-            echo "Source: $(git rev-parse HEAD)"
-            echo 'Entry: APP_ENTRY=v2; version: 1.0.0+21; Flutter: 3.41.2'
-            xcodebuild -version
-            echo "iPhone SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
-            echo "CocoaPods: $(pod --version)"
+            echo "Source: $EXPECTED_SHA"
+            echo 'Dependency resolution only; no compile, signing, Apple upload or runtime validation.'
+            echo 'Flutter 3.41.2; Xcode 26.3'
             shasum -a 256 ios/Podfile.lock
           } >> "$GITHUB_STEP_SUMMARY"
-          # Native dependency resolution is not reproducible until the first
-          # reviewed successful macOS run supplies a versioned Podfile.lock.
-          # Do not upload app binaries or configuration files to a public repo.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-podfile-lock-${{ github.sha }}
+          path: ios/Podfile.lock
+          if-no-files-found: error
+          retention-days: 1
