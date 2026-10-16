@@ -1,5 +1,10 @@
 # iOS unsigned compile preparation
 
+2026-10-16 signed-build preparation is documented separately in
+[IOS_TESTFLIGHT.md](IOS_TESTFLIGHT.md). The existing unsigned workflow remains
+unchanged. Historical setup/success claims below are not current signing or
+runtime verification evidence.
+
 This is a compile check, not an installable iPhone build or distribution pipeline.
 No Apple account, signing certificate, provisioning profile or GitHub Secret is
 required. The workflow never launches the app, deploys Firebase, builds Android,

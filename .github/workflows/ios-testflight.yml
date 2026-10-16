@@ -1,0 +1,163 @@
+name: iOS signed TestFlight upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Reviewed full SHA of ios/device-configuration
+        required: true
+        type: string
+      build_number:
+        description: New unused positive App Store Connect build number
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/ios/device-configuration' && github.run_attempt == 1
+    environment: ios-testflight
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      COCOAPODS_DISABLE_STATS: 'true'
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      ALLOWED_BRANCH: ${{ vars.IOS_TESTFLIGHT_BRANCH }}
+      SERVICES_CONFIRMED: ${{ vars.IOS_RUNTIME_SERVICES_CONFIRMED }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Guard reviewed source and toolchain
+        run: python3 tool/ios_testflight.py guard
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.41.2'
+          channel: stable
+          cache: false
+      - name: Resolve locked dependencies without credentials
+        run: |
+          set -euo pipefail
+          flutter pub get --enforce-lockfile
+          (cd ios && pod install --deployment)
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
+      - name: Build unsigned archive with client runtime settings only
+        env:
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.GOOGLE_MAPS_IOS_API_KEY }}
+          GOOGLE_SIGN_IN_IOS_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_IOS_CLIENT_ID }}
+          GOOGLE_SIGN_IN_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_REVERSED_CLIENT_ID }}
+        run: python3 tool/ios_testflight.py build
+      - name: Encrypt unsigned archive for a fresh signing runner
+        env:
+          IOS_CI_TRANSFER_KEY_BASE64: ${{ secrets.IOS_CI_TRANSFER_KEY_BASE64 }}
+        run: python3 tool/ios_testflight.py seal-archive
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-unsigned-encrypted-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/vendingnavi-testflight/transfer/archive.enc
+            ${{ runner.temp }}/vendingnavi-testflight/transfer/archive.mac
+          if-no-files-found: error
+          retention-days: 1
+      - name: Remove build material
+        if: always()
+        run: python3 tool/ios_testflight.py cleanup
+
+  sign:
+    needs: build
+    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/ios/device-configuration' && github.run_attempt == 1
+    environment: ios-testflight
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      ALLOWED_BRANCH: ${{ vars.IOS_TESTFLIGHT_BRANCH }}
+      SERVICES_CONFIRMED: ${{ vars.IOS_RUNTIME_SERVICES_CONFIRMED }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Guard reviewed source and toolchain
+        run: python3 tool/ios_testflight.py guard
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ios-unsigned-encrypted-${{ github.run_id }}
+          path: ${{ runner.temp }}/vendingnavi-testflight/transfer
+      - name: Verify and decrypt archive
+        env:
+          IOS_CI_TRANSFER_KEY_BASE64: ${{ secrets.IOS_CI_TRANSFER_KEY_BASE64 }}
+        run: python3 tool/ios_testflight.py open-archive
+      - name: Sign and export without project or dependency build scripts
+        env:
+          IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          IOS_APPSTORE_PROFILE_BASE64: ${{ secrets.IOS_APPSTORE_PROFILE_BASE64 }}
+        run: python3 tool/ios_testflight.py sign
+      - name: Encrypt verified IPA after signing credentials are removed
+        env:
+          IOS_CI_TRANSFER_KEY_BASE64: ${{ secrets.IOS_CI_TRANSFER_KEY_BASE64 }}
+        run: python3 tool/ios_testflight.py seal-ipa
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-signed-encrypted-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/vendingnavi-testflight/transfer/ipa.enc
+            ${{ runner.temp }}/vendingnavi-testflight/transfer/ipa.mac
+          if-no-files-found: error
+          retention-days: 1
+      - name: Remove signing material
+        if: always()
+        run: python3 tool/ios_testflight.py cleanup
+
+  upload:
+    needs: sign
+    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/ios/device-configuration' && github.run_attempt == 1
+    environment: ios-testflight
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      ALLOWED_BRANCH: ${{ vars.IOS_TESTFLIGHT_BRANCH }}
+      SERVICES_CONFIRMED: ${{ vars.IOS_RUNTIME_SERVICES_CONFIRMED }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Guard reviewed source and toolchain
+        run: python3 tool/ios_testflight.py guard
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ios-signed-encrypted-${{ github.run_id }}
+          path: ${{ runner.temp }}/vendingnavi-testflight/transfer
+      - name: Verify and decrypt signed IPA
+        env:
+          IOS_CI_TRANSFER_KEY_BASE64: ${{ secrets.IOS_CI_TRANSFER_KEY_BASE64 }}
+        run: python3 tool/ios_testflight.py open-ipa
+      - name: Upload once with Team API key only
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: python3 tool/ios_testflight.py upload
+      - name: Remove upload material
+        if: always()
+        run: python3 tool/ios_testflight.py cleanup
