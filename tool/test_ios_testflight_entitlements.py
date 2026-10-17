@@ -52,7 +52,7 @@ class AppleEntitlementTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '^Release prerequisite failed$'):
                     release.validate_profile(profile, self.now)
 
-    def verify_synthetic_ipa(self, *, signed_value=['Default'], profile_value=['Default'], expected_stage=None):
+    def verify_synthetic_ipa(self, *, signed_value=['Default'], profile_value=['Default'], expected_stage=None, signed_override=None):
         profile = copy.deepcopy(self.profile)
         if profile_value is None:
             profile['Entitlements'].pop(APPLE)
@@ -63,6 +63,8 @@ class AppleEntitlementTests(unittest.TestCase):
             signed.pop(APPLE)
         else:
             signed[APPLE] = signed_value
+        if signed_override:
+            signed.update(signed_override)
         calls = []
         with tempfile.TemporaryDirectory(prefix='synthetic-ipa-') as directory:
             target = Path(directory)
@@ -91,6 +93,7 @@ class AppleEntitlementTests(unittest.TestCase):
                         release.verify_ipa(ipa, {'services_sha256': 'synthetic-services'})
                     self.assertEqual(str(raised.exception), expected_stage)
                     self.assertEqual(raised.exception.category, 'validation')
+                    self.assertIn(expected_stage, release.DIAGNOSTIC_STAGES)
                 else:
                     release.verify_ipa(ipa, {'services_sha256': 'synthetic-services'},
                                        expected_uuid=self.profile['UUID'],
@@ -102,6 +105,8 @@ class AppleEntitlementTests(unittest.TestCase):
             self.assertNotIn(self.profile['UUID'], output.getvalue())
             self.assertNotIn('synthetic-public-certificate', output.getvalue())
             self.assertNotIn('Other', output.getvalue())
+            self.assertNotIn('synthetic-wrong-app', output.getvalue())
+            self.assertNotIn('synthetic-wrong-team', output.getvalue())
             if expected_stage:
                 self.assertFalse(any(any(argument.startswith('--extract-certificates=') for argument in args) for args in calls))
 
@@ -112,7 +117,19 @@ class AppleEntitlementTests(unittest.TestCase):
         for value in INVALID:
             with self.subTest(value=value):
                 self.verify_synthetic_ipa(signed_value=value,
-                                          expected_stage='verify-exported-ipa/entitlements-match')
+                                          expected_stage='verify-exported-ipa/entitlements-apple-signin')
+
+    def test_each_signed_identity_failure_has_a_fixed_distinct_stage(self):
+        for key, value, stage in (
+            ('application-identifier', 'synthetic-wrong-app', 'application-identifier'),
+            ('com.apple.developer.team-identifier', 'synthetic-wrong-team', 'team-identifier'),
+            ('get-task-allow', True, 'get-task-allow'),
+            ('get-task-allow', 'false', 'get-task-allow'),
+            ('get-task-allow', 0, 'get-task-allow'),
+        ):
+            with self.subTest(key=key, value=value):
+                self.verify_synthetic_ipa(signed_override={key: value},
+                                          expected_stage='verify-exported-ipa/entitlements-' + stage)
 
     def test_exported_ipa_rejects_missing_or_invalid_embedded_profile(self):
         for value in INVALID:

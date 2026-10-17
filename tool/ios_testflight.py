@@ -60,6 +60,10 @@ DIAGNOSTIC_STAGES = frozenset({
     'build/remove-runtime-settings',
     'build/runtime-inputs',
     'build/runtime-settings-check',
+    'build/seed-entitlements-source',
+    'build/seed-adhoc-signature',
+    'build/verify-seed-signature',
+    'build/verify-seed-entitlements',
     'build/workspace',
     'build/write-runtime-settings',
     'certificate-extract',
@@ -79,6 +83,10 @@ DIAGNOSTIC_STAGES = frozenset({
     'embedded-profile-validation',
     'entitlements-extract',
     'entitlements-match',
+    'entitlements-application-identifier',
+    'entitlements-team-identifier',
+    'entitlements-get-task-allow',
+    'entitlements-apple-signin',
     'entitlements-parse',
     'entry',
     'find-valid-distribution-identity',
@@ -136,6 +144,10 @@ DIAGNOSTIC_STAGES = frozenset({
     'verify-exported-ipa/embedded-profile-validation',
     'verify-exported-ipa/entitlements-extract',
     'verify-exported-ipa/entitlements-match',
+    'verify-exported-ipa/entitlements-application-identifier',
+    'verify-exported-ipa/entitlements-team-identifier',
+    'verify-exported-ipa/entitlements-get-task-allow',
+    'verify-exported-ipa/entitlements-apple-signin',
     'verify-exported-ipa/entitlements-parse',
     'xcode-export-archive',
 })
@@ -306,6 +318,24 @@ def app_info(app):
         return plistlib.load(stream)
 
 
+def seed_archive_entitlements(app):
+    # Preserve requested capabilities for export without any signing credentials.
+    # Only the main app receives this entitlement; never spread it with --deep.
+    mark('build/seed-entitlements-source')
+    source = ROOT / 'ios/Runner/Runner.entitlements'
+    requested = plistlib.loads(source.read_bytes())
+    require(requested == {'com.apple.developer.applesignin': ['Default']})
+    mark('build/seed-adhoc-signature')
+    command(['codesign', '--force', '--sign', '-', '--timestamp=none',
+             '--generate-entitlement-der', '--entitlements', str(source), str(app)], timeout=60)
+    mark('build/verify-seed-signature')
+    command(['codesign', '--verify', '--strict', str(app)], timeout=60)
+    mark('build/verify-seed-entitlements')
+    actual = plistlib.loads(command(
+        ['codesign', '-d', '--entitlements', '-', '--xml', str(app)], output=True, timeout=60))
+    require(actual == requested)
+
+
 def build():
     mark('build/guard')
     guard()
@@ -337,6 +367,7 @@ def build():
         mark('build/app-info-and-receipt')
         receipt = receipt_identity()
         receipt['services_sha256'] = validate_info(app_info(app))
+        seed_archive_entitlements(app)
         mark('build/package-archive')
         payload = target / 'payload'
         payload.mkdir()
@@ -570,9 +601,18 @@ def verify_ipa(ipa, receipt, expected_uuid=None, expected_fingerprint=None):
         ent = plistlib.loads(ent_data)
         phase = 'entitlements-match'
         mark(phase)
+        require(isinstance(ent, dict))
+        phase = 'entitlements-application-identifier'
+        mark(phase)
         require(ent.get('application-identifier') == TEAM + '.' + BUNDLE)
+        phase = 'entitlements-team-identifier'
+        mark(phase)
         require(ent.get('com.apple.developer.team-identifier') == TEAM)
+        phase = 'entitlements-get-task-allow'
+        mark(phase)
         require(ent.get('get-task-allow', False) is False)
+        phase = 'entitlements-apple-signin'
+        mark(phase)
         require(ent.get('com.apple.developer.applesignin') == ['Default'])
         prefix = target / 'signer-cert'
         try:

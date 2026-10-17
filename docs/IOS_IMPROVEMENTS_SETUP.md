@@ -31,6 +31,8 @@ Firebase 公式: [Flutter の Apple 認証・再認証・取消](https://firebas
 
 ## 次の実機確認（未実行）
 
+署名なし archive からの権限伝播対策として、build ジョブは正規 `Runner.entitlements` の Apple `Default` だけを許可し、主アプリへ秘密不要の ad-hoc seed 署名を付け、署名と権限の一致を検証してから暗号化転送します。profile 全権限コピーや `--deep` 一括付与はせず、sign ジョブの分離 export と最終 IPA 検証は維持します。最終検証の application identifier / Team / get-task-allow / Apple は個別の固定診断になり、具体値は出しません。`python -B -m unittest discover -s tool -p 'test_ios_testflight*.py' -v` は合成テストです。Windows 環境では実 codesign と Xcode 26.3 export の互換性を確認できておらず、成功を保証しません。新規 CI・push・外部設定変更はこの修正準備に含みません。
+
 - 新規 Apple ログイン（メール共有 / 非公開）、キャンセル、再ログイン、認証エラー、連打・戻る操作。
 - 既存 Google / メール利用者のログインと投稿・お気に入りが同じ UID のまま復元されること。メール競合時に自動統合されないこと。
 - Apple 退会の確認キャンセル、再認証キャンセル、取消失敗、取消後のサーバ失敗・再試行、確認中のUID変更。公開データは既存の削除仕様を維持します。
