@@ -31,6 +31,10 @@ def require(ok):
         raise ValueError('Release prerequisite failed')
 
 
+class SigningStageError(ValueError):
+    """Contains a fixed stage label, never tool output or credential data."""
+
+
 def work():
     require(sys.platform == 'darwin' and os.environ.get('GITHUB_ACTIONS') == 'true')
     temp = Path(os.environ['RUNNER_TEMP']).resolve()
@@ -350,18 +354,25 @@ def verify_ipa(ipa, receipt, expected_uuid=None, expected_fingerprint=None):
 
 
 def sign():
-    guard()
-    target = work()
-    payload = target / 'payload'
-    archive = payload / 'Runner.xcarchive'
-    receipt = json.loads((payload / 'receipt.json').read_text())
-    require(validate_info(app_info(archive / 'Products/Applications/Runner.app')) == receipt['services_sha256'])
+    phase = 'guard-source-and-toolchain'
     try:
+        guard()
+        target = work()
+        phase = 'validate-unsigned-archive'
+        payload = target / 'payload'
+        archive = payload / 'Runner.xcarchive'
+        receipt = json.loads((payload / 'receipt.json').read_text())
+        require(validate_info(app_info(archive / 'Products/Applications/Runner.app')) == receipt['services_sha256'])
+        phase = 'decode-p12'
         decode('IOS_DISTRIBUTION_P12_BASE64', target / 'certificate.p12')
+        phase = 'decode-profile'
         decode('IOS_APPSTORE_PROFILE_BASE64', target / 'profile.mobileprovision')
+        phase = 'decode-profile-cms'
         profile = plistlib.loads(command(['security', 'cms', '-D', '-i',
                                          str(target / 'profile.mobileprovision')], output=True))
+        phase = 'validate-appstore-profile'
         validate_profile(profile, datetime.datetime.utcnow())
+        phase = 'prepare-temporary-keychain'
         keychain = target / 'signing.keychain-db'
         require(not keychain.exists() and not (target / 'keychains.json').exists())
         old = shlex.split(command(['security', 'list-keychains', '-d', 'user'], output=True).decode())
@@ -370,16 +381,21 @@ def sign():
         command(['security', 'create-keychain', '-p', password, str(keychain)])
         command(['security', 'set-keychain-settings', '-lut', '900', str(keychain)])
         command(['security', 'unlock-keychain', '-p', password, str(keychain)])
+        phase = 'import-distribution-p12'
         command(['security', 'import', str(target / 'certificate.p12'), '-P',
                  os.environ['IOS_DISTRIBUTION_P12_PASSWORD'], '-k', str(keychain),
                  '-T', '/usr/bin/codesign'])
         (target / 'certificate.p12').unlink()
+        phase = 'configure-keychain-access'
         command(['security', 'set-key-partition-list', '-S', 'apple-tool:,apple:',
                  '-s', '-k', password, str(keychain)])
         command(['security', 'list-keychains', '-d', 'user', '-s', str(keychain), *old])
+        phase = 'find-valid-distribution-identity'
         identities = command(['security', 'find-identity', '-v', '-p', 'codesigning',
                               str(keychain)], output=True).decode()
+        phase = 'match-profile-certificate'
         fingerprint = distribution_identity(profile, identities)
+        phase = 'install-appstore-profile'
         uuid = profile['UUID']
         require(all(not (directory / (uuid + '.mobileprovision')).exists()
                     for directory in profile_directories()))
@@ -387,6 +403,7 @@ def sign():
         for directory in profile_directories():
             directory.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(target / 'profile.mobileprovision', directory / (uuid + '.mobileprovision'))
+        phase = 'prepare-export-options'
         options = {'method': 'app-store-connect', 'destination': 'export', 'teamID': TEAM,
                    'signingStyle': 'manual', 'signingCertificate': fingerprint,
                    'provisioningProfiles': {BUNDLE: PROFILE_NAME},
@@ -394,21 +411,30 @@ def sign():
         with (target / 'ExportOptions.plist').open('wb') as stream:
             plistlib.dump(options, stream)
         # No Flutter, pod, Ruby, project build or provisioning update in this job.
+        phase = 'xcode-export-archive'
         command(['xcodebuild', '-exportArchive', '-archivePath', str(archive),
                  '-exportPath', str(target / 'export'),
                  '-exportOptionsPlist', str(target / 'ExportOptions.plist')], timeout=600)
+        phase = 'locate-exported-ipa'
         ipas = list((target / 'export').glob('*.ipa'))
         require(len(ipas) == 1)
+        phase = 'verify-exported-ipa'
         verify_ipa(ipas[0], receipt, uuid, fingerprint)
+        phase = 'record-verified-ipa'
         shutil.rmtree(archive)
         shutil.move(str(ipas[0]), str(payload / 'Runner.ipa'))
         receipt['ipa_sha256'] = sha256(payload / 'Runner.ipa')
         receipt['profile_uuid'] = uuid
         receipt['signing_sha1'] = fingerprint
         (payload / 'receipt.json').write_text(json.dumps(receipt))
+    except Exception:
+        raise SigningStageError(phase) from None
     finally:
         # Must succeed before any encrypted IPA artifact or upload job can proceed.
-        cleanup_signing()
+        try:
+            cleanup_signing()
+        except Exception:
+            raise SigningStageError('cleanup-signing-material') from None
 
 
 def upload():
@@ -472,6 +498,9 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except SigningStageError as error:
+        print('TestFlight signing failed at fixed stage: ' + str(error) + '. Values and tool output withheld.', file=sys.stderr)
+        sys.exit(1)
     except BaseException:
         print('TestFlight stage failed or was interrupted; tool output and values withheld.', file=sys.stderr)
         sys.exit(1)
