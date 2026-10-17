@@ -57,6 +57,7 @@ void main() {
       'suntory_boss_black',
     );
     expect(result.valueOrNull?.products.first.genres, isEmpty);
+    expect(result.valueOrNull?.productCatalogFailure, isA<NetworkFailure>());
   });
 
   test('自販機取得Failureはそのまま返す', () async {
@@ -71,42 +72,57 @@ void main() {
     expect(result.failureOrNull, isA<NotFoundFailure>());
   });
 
-  test('active photos are included without changing manufacturer or product loading', () async {
-    final loader = VendingMachineDetailLoader(
-      machineRepository: _MachineRepository(_machine()),
-      productRepository: _ProductRepository(),
-      manufacturerRepository: _ManufacturerRepository(),
-      machinePhotoRepository: _PhotoRepository(<PublicMachinePhoto>[
-        const PublicMachinePhoto(photoId: 'p_a', status: 'active'),
-        const PublicMachinePhoto(photoId: 'p_b', status: 'active'),
-      ]),
-    );
+  test(
+    'active photos are included without changing manufacturer or product loading',
+    () async {
+      final loader = VendingMachineDetailLoader(
+        machineRepository: _MachineRepository(_machine()),
+        productRepository: _ProductRepository(),
+        manufacturerRepository: _ManufacturerRepository(),
+        machinePhotoRepository: _PhotoRepository(<PublicMachinePhoto>[
+          const PublicMachinePhoto(photoId: 'p_a', status: 'active'),
+          const PublicMachinePhoto(photoId: 'p_b', status: 'active'),
+        ]),
+      );
 
-    final result = await loader.load(_machine().id);
+      final result = await loader.load(_machine().id);
 
-    expect(result.failureOrNull, isNull);
-    expect(result.valueOrNull?.photos.map((photo) => photo.photoId), <String>['p_a', 'p_b']);
-    expect(result.valueOrNull?.manufacturerName, 'サントリー');
-    expect(result.valueOrNull?.products, hasLength(2));
-  });
+      expect(result.failureOrNull, isNull);
+      expect(result.valueOrNull?.photos.map((photo) => photo.photoId), <String>[
+        'p_a',
+        'p_b',
+      ]);
+      expect(result.valueOrNull?.manufacturerName, 'サントリー');
+      expect(result.valueOrNull?.products, hasLength(2));
+    },
+  );
 
-  test('photo repository failure is returned and zero photos keeps legacy detail data', () async {
-    final withFailure = VendingMachineDetailLoader(
-      machineRepository: _MachineRepository(_machine()),
-      productRepository: _ProductRepository(),
-      manufacturerRepository: _ManufacturerRepository(),
-      machinePhotoRepository: _FailingPhotoRepository(),
-    );
-    final withoutPhotos = VendingMachineDetailLoader(
-      machineRepository: _MachineRepository(_machine()),
-      productRepository: _ProductRepository(),
-      manufacturerRepository: _ManufacturerRepository(),
-      machinePhotoRepository: _PhotoRepository(const <PublicMachinePhoto>[]),
-    );
+  test(
+    'photo repository failure is returned and zero photos keeps legacy detail data',
+    () async {
+      final withFailure = VendingMachineDetailLoader(
+        machineRepository: _MachineRepository(_machine()),
+        productRepository: _ProductRepository(),
+        manufacturerRepository: _ManufacturerRepository(),
+        machinePhotoRepository: _FailingPhotoRepository(),
+      );
+      final withoutPhotos = VendingMachineDetailLoader(
+        machineRepository: _MachineRepository(_machine()),
+        productRepository: _ProductRepository(),
+        manufacturerRepository: _ManufacturerRepository(),
+        machinePhotoRepository: _PhotoRepository(const <PublicMachinePhoto>[]),
+      );
 
-    expect((await withFailure.load(_machine().id)).failureOrNull, isA<NetworkFailure>());
-    expect((await withoutPhotos.load(_machine().id)).valueOrNull?.photos, isEmpty);
-  });
+      expect(
+        (await withFailure.load(_machine().id)).failureOrNull,
+        isA<NetworkFailure>(),
+      );
+      expect(
+        (await withoutPhotos.load(_machine().id)).valueOrNull?.photos,
+        isEmpty,
+      );
+    },
+  );
 }
 
 VendingMachine _machine() {
@@ -177,12 +193,17 @@ final class _PhotoRepository implements MachinePhotoRepository {
   final List<PublicMachinePhoto> photos;
 
   @override
-  Future<AppResult<List<PublicMachinePhoto>>> getActivePhotos(VendingMachineId machineId) async => AppResult<List<PublicMachinePhoto>>.success(photos);
+  Future<AppResult<List<PublicMachinePhoto>>> getActivePhotos(
+    VendingMachineId machineId,
+  ) async => AppResult<List<PublicMachinePhoto>>.success(photos);
 }
 
 final class _FailingPhotoRepository implements MachinePhotoRepository {
   @override
-  Future<AppResult<List<PublicMachinePhoto>>> getActivePhotos(VendingMachineId machineId) async => const AppResult<List<PublicMachinePhoto>>.failure(NetworkFailure());
+  Future<AppResult<List<PublicMachinePhoto>>> getActivePhotos(
+    VendingMachineId machineId,
+  ) async =>
+      const AppResult<List<PublicMachinePhoto>>.failure(NetworkFailure());
 }
 
 final class _ProductRepository implements ProductRepository {

@@ -63,6 +63,7 @@ final class RegistrationPhotoController
       state = RegistrationPhotoState(
         stage: RegistrationPhotoStage.failed,
         failureMessage: error.userMessage,
+        failureCode: error.code,
       );
       return null;
     } catch (_) {

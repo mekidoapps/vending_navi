@@ -80,6 +80,9 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
                         },
                       ),
                       onBlockPressed: () => _blockMachine(context, ref),
+                      onRetry: () => ref.invalidate(
+                        vendingMachineDetailProvider(machineId),
+                      ),
                     ),
               onFailure: (failure) => _FailureBody(
                 failure: failure,
@@ -159,8 +162,47 @@ class V2VendingMachineDetailScreen extends ConsumerWidget {
     VendingMachineDetailData data,
   ) async {
     final location = data.machine.location;
+    var useAppleMaps = false;
+    if (ref.read(appleMapsAvailableProvider)) {
+      final choice = await showModalBottomSheet<bool>(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('徒歩経路を開くアプリ'),
+              ),
+              ListTile(
+                key: const Key('chooseAppleMaps'),
+                leading: const Icon(Icons.map_outlined),
+                title: const Text('Appleマップ'),
+                onTap: () => Navigator.pop(sheetContext, true),
+              ),
+              ListTile(
+                key: const Key('chooseGoogleMaps'),
+                leading: const Icon(Icons.map_outlined),
+                title: const Text('Google Maps'),
+                onTap: () => Navigator.pop(sheetContext, false),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('キャンセル'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (choice == null || !context.mounted) return;
+      useAppleMaps = choice;
+    }
     final opened = await ref
-        .read(externalMapServiceProvider)
+        .read(
+          useAppleMaps
+              ? appleExternalMapServiceProvider
+              : externalMapServiceProvider,
+        )
         .openWalkingDirections(
           latitude: location.latitude,
           longitude: location.longitude,
@@ -306,6 +348,7 @@ class _DetailBody extends StatelessWidget {
     required this.onUpdatePressed,
     required this.onReportPressed,
     required this.onBlockPressed,
+    required this.onRetry,
   });
 
   final VendingMachineDetailData data;
@@ -317,6 +360,7 @@ class _DetailBody extends StatelessWidget {
   final VoidCallback? onUpdatePressed;
   final VoidCallback onReportPressed;
   final VoidCallback onBlockPressed;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +437,7 @@ class _DetailBody extends StatelessWidget {
         _SectionCard(
           title: 'ドリンク',
           child: visibleProducts.isEmpty
-              ? const _NoProducts()
+              ? _NoProducts(areProductsHidden: orderedProducts.isNotEmpty)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -422,6 +466,15 @@ class _DetailBody extends StatelessWidget {
                   ],
                 ),
         ),
+        if (data.productCatalogFailure != null) ...[
+          const SizedBox(height: V2Spacing.sm),
+          const Text('商品名とジャンルを読み込めませんでした。商品情報がないという意味ではありません。'),
+          TextButton(
+            key: const Key('retryProductCatalog'),
+            onPressed: onRetry,
+            child: const Text('商品情報を再読み込み'),
+          ),
+        ],
         if (onUpdatePressed != null) ...<Widget>[
           const SizedBox(height: V2Spacing.md),
           SizedBox(
@@ -853,7 +906,8 @@ class _PlainStatusChip extends StatelessWidget {
 }
 
 class _NoProducts extends StatelessWidget {
-  const _NoProducts();
+  const _NoProducts({required this.areProductsHidden});
+  final bool areProductsHidden;
 
   @override
   Widget build(BuildContext context) {
@@ -866,7 +920,9 @@ class _NoProducts extends StatelessWidget {
         const SizedBox(width: V2Spacing.sm),
         Expanded(
           child: Text(
-            '登録されたドリンク情報はまだありません。',
+            areProductsHidden
+                ? '非表示設定により、表示できるドリンク情報はありません。'
+                : 'この自販機の商品情報はまだ確認できていません。実際の販売状況は現地でご確認ください。',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),

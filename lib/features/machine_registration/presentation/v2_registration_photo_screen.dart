@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../app/theme/v2_radius.dart';
 import '../../../app/theme/v2_spacing.dart';
 import '../application/machine_registration_controller.dart';
 import '../application/registration_photo_controller.dart';
 import '../application/registration_photo_state.dart';
+import '../domain/services/registration_photo_exception.dart';
 import 'v2_registration_auth_gate.dart';
 import 'v2_registration_home_action.dart';
+
+final registrationCameraSettingsProvider = Provider<Future<bool> Function()>(
+  (_) => Geolocator.openAppSettings,
+);
 
 class V2RegistrationPhotoScreen extends ConsumerWidget {
   const V2RegistrationPhotoScreen({super.key, this.onPhotoPrepared});
@@ -57,6 +63,32 @@ class V2RegistrationPhotoScreen extends ConsumerWidget {
             ],
             if (photoState.failureMessage != null) ...<Widget>[
               _FailureCard(message: photoState.failureMessage!),
+              if (photoState.failureCode ==
+                  RegistrationPhotoErrorCode.cameraPermissionDenied)
+                TextButton.icon(
+                  key: const Key('registrationCameraSettingsButton'),
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('端末の設定を開く'),
+                  onPressed: () async {
+                    var opened = false;
+                    try {
+                      opened = await ref.read(
+                        registrationCameraSettingsProvider,
+                      )();
+                    } catch (_) {
+                      /* Keep settings errors separate from a new capture. */
+                    }
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            '設定を開けませんでした。端末の設定アプリからカメラの許可をご確認ください。',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
               const SizedBox(height: V2Spacing.md),
             ],
             FilledButton.icon(

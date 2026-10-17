@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../domain/services/registration_photo_exception.dart';
 
 enum RegistrationPhotoStage {
   idle,
@@ -15,12 +16,14 @@ final class RegistrationPhotoState {
     this.previewBytes,
     this.uploadId,
     this.failureMessage,
+    this.failureCode,
   });
 
   final RegistrationPhotoStage stage;
   final Uint8List? previewBytes;
   final String? uploadId;
   final String? failureMessage;
+  final RegistrationPhotoErrorCode? failureCode;
 
   bool get isBusy =>
       stage == RegistrationPhotoStage.capturing ||
@@ -34,6 +37,7 @@ final class RegistrationPhotoState {
     String? uploadId,
     bool clearUploadId = false,
     String? failureMessage,
+    RegistrationPhotoErrorCode? failureCode,
     bool clearFailureMessage = false,
   }) {
     return RegistrationPhotoState(
@@ -45,6 +49,9 @@ final class RegistrationPhotoState {
       failureMessage: clearFailureMessage
           ? null
           : (failureMessage ?? this.failureMessage),
+      failureCode: clearFailureMessage
+          ? null
+          : (failureCode ?? this.failureCode),
     );
   }
 }

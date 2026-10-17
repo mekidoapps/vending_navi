@@ -1594,7 +1594,7 @@ class _MapDataStatusOverlay extends StatelessWidget {
       return const _MapDataCard(
         key: Key('mapMachineEmpty'),
         icon: Icons.location_off_outlined,
-        message: 'この範囲には登録された自販機がありません',
+        message: 'この範囲で表示できる自販機情報が見つかりませんでした。地図を動かしてお試しください。',
       );
     }
 

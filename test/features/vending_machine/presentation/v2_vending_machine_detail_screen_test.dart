@@ -11,8 +11,54 @@ import 'package:vending_app/features/vending_machine/domain/entities/vending_mac
 import 'package:vending_app/features/vending_machine/domain/value_objects/geo_coordinate.dart';
 import 'package:vending_app/features/vending_machine/domain/value_objects/vending_machine_id.dart';
 import 'package:vending_app/features/vending_machine/presentation/v2_vending_machine_detail_screen.dart';
+import 'package:vending_app/features/vending_machine/application/providers/external_map_service_provider.dart';
+import 'package:vending_app/features/vending_machine/domain/services/external_map_service.dart';
 
 void main() {
+  for (final choice in [
+    'chooseAppleMaps',
+    'chooseGoogleMaps',
+    'cancel',
+    'android',
+  ]) {
+    testWidgets('walking directions selection: $choice', (tester) async {
+      final data = _detailData();
+      final apple = _Maps();
+      final google = _Maps();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            vendingMachineDetailProvider(
+              data.machine.id,
+            ).overrideWithValue(AsyncValue.data(AppResult.success(data))),
+            appleMapsAvailableProvider.overrideWithValue(choice != 'android'),
+            appleExternalMapServiceProvider.overrideWithValue(apple),
+            externalMapServiceProvider.overrideWithValue(google),
+          ],
+          child: MaterialApp(
+            home: V2VendingMachineDetailScreen(machineId: data.machine.id),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('openDirectionsButton')));
+      await tester.tap(find.byKey(const Key('openDirectionsButton')));
+      await tester.pumpAndSettle();
+      if (choice != 'android') {
+        if (choice == 'cancel') {
+          await tester.tap(find.text('キャンセル'));
+        } else {
+          await tester.tap(find.byKey(Key(choice)));
+        }
+        await tester.pumpAndSettle();
+      }
+      expect(apple.calls, choice == 'chooseAppleMaps' ? 1 : 0);
+      expect(
+        google.calls,
+        choice == 'chooseGoogleMaps' || choice == 'android' ? 1 : 0,
+      );
+    });
+  }
   testWidgets('自販機詳細にメーカー・場所・確認状態・在庫状態を表示する', (WidgetTester tester) async {
     final data = _detailData();
 
@@ -67,6 +113,20 @@ void main() {
     expect(find.byKey(const Key('osmMachineSourceLink')), findsOneWidget);
     expect(find.text('位置データ: OpenStreetMap'), findsOneWidget);
   });
+}
+
+final class _Maps implements ExternalMapService {
+  int calls = 0;
+  @override
+  Future<bool> openWalkingDirections({
+    required double latitude,
+    required double longitude,
+  }) async {
+    calls++;
+    expect(latitude, 35.681236);
+    expect(longitude, 139.767125);
+    return true;
+  }
 }
 
 VendingMachineDetailData _detailData({String sourceId = 'machine_detail'}) {

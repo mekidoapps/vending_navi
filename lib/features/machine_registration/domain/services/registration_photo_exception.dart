@@ -1,4 +1,6 @@
 enum RegistrationPhotoErrorCode {
+  cameraPermissionDenied,
+  cameraRestricted,
   captureFailed,
   decodeFailed,
   tooLarge,

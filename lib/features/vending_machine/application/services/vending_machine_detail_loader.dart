@@ -42,10 +42,16 @@ final class VendingMachineDetailLoader {
     }
 
     final manufacturerName = await _manufacturerName(machine.manufacturerId);
-    final productCatalog = await _productCatalog();
+    final catalogResult = await _productRepository.getProducts(
+      activeOnly: false,
+    );
+    final productCatalog = <ProductId, Product>{
+      for (final product in catalogResult.valueOrNull ?? const <Product>[])
+        product.id: product,
+    };
     final photoResult = _machinePhotoRepository == null
         ? null
-        : await _machinePhotoRepository!.getActivePhotos(machineId);
+        : await _machinePhotoRepository.getActivePhotos(machineId);
     final photoFailure = photoResult?.failureOrNull;
     if (photoFailure != null) {
       return AppResult<VendingMachineDetailData>.failure(photoFailure);
@@ -75,6 +81,7 @@ final class VendingMachineDetailLoader {
         manufacturerName: manufacturerName,
         products: List<VendingMachineProductDetailItem>.unmodifiable(products),
         photos: List.unmodifiable(photoResult?.valueOrNull ?? const []),
+        productCatalogFailure: catalogResult.failureOrNull,
       ),
     );
   }
@@ -98,15 +105,6 @@ final class VendingMachineDetailLoader {
 
     final name = manufacturer.name.trim();
     return name.isEmpty ? id.value : name;
-  }
-
-  Future<Map<ProductId, Product>> _productCatalog() async {
-    final result = await _productRepository.getProducts(activeOnly: false);
-    final products = result.valueOrNull ?? const <Product>[];
-
-    return <ProductId, Product>{
-      for (final product in products) product.id: product,
-    };
   }
 
   static int _compareProducts(

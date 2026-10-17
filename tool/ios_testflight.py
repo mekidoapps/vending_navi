@@ -484,6 +484,7 @@ def validate_profile(profile, now):
     require(profile.get('CreationDate') <= now)
     require(not profile.get('ProvisionedDevices') and not profile.get('ProvisionsAllDevices'))
     ent = profile['Entitlements']
+    require(ent.get('com.apple.developer.applesignin') == ['Default'])
     require(ent.get('application-identifier') == TEAM + '.' + BUNDLE)
     require(ent.get('com.apple.developer.team-identifier') == TEAM)
     require(ent.get('get-task-allow') is False and ent.get('beta-reports-active') is True)
@@ -572,6 +573,7 @@ def verify_ipa(ipa, receipt, expected_uuid=None, expected_fingerprint=None):
         require(ent.get('application-identifier') == TEAM + '.' + BUNDLE)
         require(ent.get('com.apple.developer.team-identifier') == TEAM)
         require(ent.get('get-task-allow', False) is False)
+        require(ent.get('com.apple.developer.applesignin') == ['Default'])
         prefix = target / 'signer-cert'
         try:
             phase = 'certificate-extract'

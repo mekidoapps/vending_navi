@@ -1,3 +1,4 @@
+import '../../../../core/errors/app_failure.dart';
 import '../../../product_master/domain/entities/product_genre.dart';
 import '../../../product_master/domain/value_objects/master_id.dart';
 import '../../domain/entities/vending_machine.dart';
@@ -10,12 +11,14 @@ final class VendingMachineDetailData {
     required this.manufacturerName,
     required this.products,
     this.photos = const <PublicMachinePhoto>[],
+    this.productCatalogFailure,
   });
 
   final VendingMachine machine;
   final String manufacturerName;
   final List<VendingMachineProductDetailItem> products;
   final List<PublicMachinePhoto> photos;
+  final AppFailure? productCatalogFailure;
 
   bool get hasConfirmedProducts =>
       products.any((product) => product.isConfirmed);
