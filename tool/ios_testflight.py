@@ -286,7 +286,7 @@ def receipt_identity():
 
 def validate_info(info):
     require(info.get('CFBundleIdentifier') == BUNDLE)
-    require(info.get('CFBundleDisplayName') == '���̋@�i�r')
+    require(info.get('CFBundleDisplayName') == '\u81ea\u8ca9\u6a5f\u30ca\u30d3')
     require(info.get('CFBundleShortVersionString') == '1.0.0')
     require(info.get('CFBundleVersion') == os.environ['BUILD_NUMBER'])
     key = info.get('GoogleMapsAPIKey', '')
