@@ -95,7 +95,7 @@ def receipt_identity():
 
 def validate_info(info):
     require(info.get('CFBundleIdentifier') == BUNDLE)
-    require(info.get('CFBundleDisplayName') == '自販機ナビ')
+    require(info.get('CFBundleDisplayName') == '���̋@�i�r')
     require(info.get('CFBundleShortVersionString') == '1.0.0')
     require(info.get('CFBundleVersion') == os.environ['BUILD_NUMBER'])
     key = info.get('GoogleMapsAPIKey', '')
@@ -325,23 +325,33 @@ def verify_ipa(ipa, receipt, expected_uuid=None, expected_fingerprint=None):
     # Xcode-generated IPA is never executed; only native signature/plist checks.
     with zipfile.ZipFile(ipa) as archive:
         extract_zip(archive, unpacked, ('Payload', 'SwiftSupport', 'Symbols', 'BCSymbolMaps'))
+    phase = 'app-and-signature'
     try:
         apps = list((unpacked / 'Payload').glob('*.app'))
         require(len(apps) == 1)
         app = apps[0]
         require(validate_info(app_info(app)) == receipt['services_sha256'])
         command(['codesign', '--verify', '--deep', '--strict', str(app)])
+        phase = 'embedded-profile-decode'
         profile = plistlib.loads(command(['security', 'cms', '-D', '-i',
                                          str(app / 'embedded.mobileprovision')], output=True))
+        phase = 'embedded-profile-validation'
         validate_profile(profile, datetime.datetime.utcnow())
+        phase = 'embedded-profile-uuid'
         require(expected_uuid is None or profile['UUID'] == expected_uuid)
-        ent = plistlib.loads(command(['codesign', '-d', '--entitlements', ':-', str(app)], output=True))
+        phase = 'entitlements-extract'
+        ent_data = command(['codesign', '-d', '--entitlements', '-', '--xml', str(app)], output=True)
+        phase = 'entitlements-parse'
+        ent = plistlib.loads(ent_data)
+        phase = 'entitlements-match'
         require(ent.get('application-identifier') == TEAM + '.' + BUNDLE)
         require(ent.get('com.apple.developer.team-identifier') == TEAM)
         require(ent.get('get-task-allow', False) is False)
         prefix = target / 'signer-cert'
         try:
-            command(['codesign', '-d', '--extract-certificates', str(prefix), str(app)])
+            phase = 'certificate-extract'
+            command(['codesign', '-d', '--extract-certificates=' + str(prefix), str(app)])
+            phase = 'certificate-match'
             fingerprint = hashlib.sha1(Path(str(prefix) + '0').read_bytes()).hexdigest().upper()
             require(fingerprint in [hashlib.sha1(cert).hexdigest().upper()
                                     for cert in profile['DeveloperCertificates']])
@@ -349,6 +359,8 @@ def verify_ipa(ipa, receipt, expected_uuid=None, expected_fingerprint=None):
         finally:
             for certificate in target.glob('signer-cert*'):
                 certificate.unlink()
+    except Exception:
+        raise SigningStageError('verify-exported-ipa/' + phase) from None
     finally:
         shutil.rmtree(unpacked)
 
@@ -427,6 +439,8 @@ def sign():
         receipt['profile_uuid'] = uuid
         receipt['signing_sha1'] = fingerprint
         (payload / 'receipt.json').write_text(json.dumps(receipt))
+    except SigningStageError:
+        raise
     except Exception:
         raise SigningStageError(phase) from None
     finally:
