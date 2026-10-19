@@ -15,13 +15,93 @@ final registrationCameraSettingsProvider = Provider<Future<bool> Function()>(
   (_) => Geolocator.openAppSettings,
 );
 
-class V2RegistrationPhotoScreen extends ConsumerWidget {
+class V2RegistrationPhotoScreen extends ConsumerStatefulWidget {
   const V2RegistrationPhotoScreen({super.key, this.onPhotoPrepared});
 
   final VoidCallback? onPhotoPrepared;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<V2RegistrationPhotoScreen> createState() =>
+      _V2RegistrationPhotoScreenState();
+}
+
+class _V2RegistrationPhotoScreenState
+    extends ConsumerState<V2RegistrationPhotoScreen> {
+  bool _capturePending = false;
+
+  Future<void> _requestCapture() async {
+    if (_capturePending ||
+        ref.read(registrationPhotoControllerProvider).isBusy) {
+      return;
+    }
+    setState(() => _capturePending = true);
+    try {
+      var decisionMade = false;
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          void decide(bool agreed) {
+            if (decisionMade) return;
+            decisionMade = true;
+            Navigator.pop(dialogContext, agreed);
+          }
+
+          return AlertDialog(
+            title: const Text('写真の送信と画像認識について'),
+            content: const SingleChildScrollView(
+              child: Text(
+                '撮影した写真は、GoogleのFirebase Storageにアップロードされ、'
+                'サーバーを通じてGoogle CloudのVertex AIへ送信されます。'
+                '自販機の商品・メーカー候補を画像認識で見つけるために使います。\n\n'
+                '同意して進むとカメラが開き、撮影した写真が送信されます。'
+                '人の顔や個人情報が写らないようにしてください。'
+                '認識結果は確認・修正でき、正式登録は別の確認で行います。'
+                'キャンセルすると撮影・送信は行いません。',
+              ),
+            ),
+            actions: [
+              TextButton(
+                key: const Key('registrationPhotoConsentCancel'),
+                onPressed: () => decide(false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                key: const Key('registrationPhotoConsentAgree'),
+                onPressed: () => decide(true),
+                child: const Text('同意して進む'),
+              ),
+            ],
+          );
+        },
+      );
+      if (agreed != true || !mounted) return;
+      bool canContinue() =>
+          mounted && ModalRoute.of(context)?.isCurrent == true;
+      String? uploadId;
+      await V2RegistrationAuthGate.run(
+        context,
+        ref,
+        actionLabel: '写真からの自販機登録',
+        action: () async {
+          if (!canContinue()) return;
+          uploadId = await ref
+              .read(registrationPhotoControllerProvider.notifier)
+              .captureNormalizeAndUpload(canContinue: canContinue);
+        },
+      );
+      final preparedUploadId = uploadId;
+      if (preparedUploadId == null || !canContinue()) return;
+      ref
+          .read(machineRegistrationControllerProvider.notifier)
+          .setTemporaryPhotoUploadId(preparedUploadId);
+      widget.onPhotoPrepared?.call();
+    } finally {
+      if (mounted) setState(() => _capturePending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final photoState = ref.watch(registrationPhotoControllerProvider);
 
     return Scaffold(
@@ -93,33 +173,9 @@ class V2RegistrationPhotoScreen extends ConsumerWidget {
             ],
             FilledButton.icon(
               key: const Key('registrationPhotoCaptureButton'),
-              onPressed: photoState.isBusy
+              onPressed: photoState.isBusy || _capturePending
                   ? null
-                  : () async {
-                      String? uploadId;
-                      await V2RegistrationAuthGate.run(
-                        context,
-                        ref,
-                        actionLabel: '写真からの自販機登録',
-                        action: () async {
-                          uploadId = await ref
-                              .read(
-                                registrationPhotoControllerProvider.notifier,
-                              )
-                              .captureNormalizeAndUpload();
-                        },
-                      );
-                      final preparedUploadId = uploadId;
-                      if (preparedUploadId == null || !context.mounted) {
-                        return;
-                      }
-
-                      ref
-                          .read(machineRegistrationControllerProvider.notifier)
-                          .setTemporaryPhotoUploadId(preparedUploadId);
-
-                      onPhotoPrepared?.call();
-                    },
+                  : _requestCapture,
               icon: photoState.isBusy
                   ? const SizedBox.square(
                       dimension: 18,

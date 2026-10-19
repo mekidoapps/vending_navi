@@ -96,6 +96,10 @@ void main() {
     await tester.tap(find.byKey(const Key('registrationPhotoCaptureButton')));
     await tester.pumpAndSettle();
 
+    expect(recognitionRepository.callCount, 0);
+    await tester.tap(find.byKey(const Key('registrationPhotoConsentAgree')));
+    await tester.pumpAndSettle();
+
     expect(recognitionRepository.callCount, 1);
 
     final draftAfterUpload = container
@@ -198,6 +202,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('registrationPhotoCaptureButton')));
+    await tester.pumpAndSettle();
+
+    expect(recognitionRepository.callCount, 0);
+    await tester.tap(find.byKey(const Key('registrationPhotoConsentAgree')));
     await tester.pumpAndSettle();
 
     expect(recognitionRepository.callCount, 1);

@@ -64,6 +64,27 @@ void main() {
     expect(find.byKey(const Key('appleAuthFailure')), findsNothing);
     expect(find.byType(V2EmailAuthScreen), findsOneWidget);
   });
+  testWidgets('disposing during native sign-in does not call a dead screen', (
+    tester,
+  ) async {
+    final pending = Completer<AppResult<bool>>();
+    final repository = _Repository()..pending = pending.future;
+    var callbacks = 0;
+    await pump(tester, repository, authenticated: () => callbacks++);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('appleAuthButton')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('appleAuthButton')));
+    await tester.pump();
+    expect(repository.calls, 1);
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    pending.complete(const AppResult.success(true));
+    await tester.pumpAndSettle();
+    expect(callbacks, 0);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('errors are visible and repeated taps cannot start two logins', (
     tester,
   ) async {

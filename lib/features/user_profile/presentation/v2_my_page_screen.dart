@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/app_route.dart';
 import '../../../app/theme/v2_radius.dart';
@@ -11,6 +12,14 @@ import '../../content_blocking/application/blocked_content_state.dart';
 import '../../auth/application/providers/auth_providers.dart';
 import '../application/v2_my_page_controller.dart';
 import '../application/v2_my_page_state.dart';
+
+final myPageOpenPrivacyPolicyProvider = Provider<Future<bool> Function()>(
+  (_) =>
+      () => launchUrl(
+        Uri.parse('https://vendingnavi.web.app/privacy'),
+        mode: LaunchMode.externalApplication,
+      ),
+);
 
 class V2MyPageScreen extends ConsumerStatefulWidget {
   const V2MyPageScreen({super.key, this.enableFavoriteProducts = false});
@@ -82,6 +91,27 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
                 title: const Text('データ・ライセンス'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.pushNamed(AppRoute.v2DataLicenses.name),
+              ),
+              ListTile(
+                key: const Key('myPagePrivacyPolicyLink'),
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: const Text('プライバシーポリシー'),
+                trailing: const Icon(Icons.open_in_new),
+                onTap: () async {
+                  var opened = false;
+                  try {
+                    opened = await ref.read(myPageOpenPrivacyPolicyProvider)();
+                  } catch (_) {
+                    // A failed external launch must not expose platform errors.
+                  }
+                  if (!opened && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('リンクを開けませんでした。時間をおいて再度お試しください。'),
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ),

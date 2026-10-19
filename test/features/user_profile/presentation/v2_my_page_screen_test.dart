@@ -17,6 +17,56 @@ import 'package:vending_app/features/user_profile/domain/repositories/user_profi
 import 'package:vending_app/features/user_profile/presentation/v2_my_page_screen.dart';
 
 void main() {
+  for (final authenticated in [false, true]) {
+    for (final outcome in ['opened', 'refused', 'exception']) {
+      testWidgets(
+        'privacy link is available authenticated=$authenticated outcome=$outcome',
+        (tester) async {
+          var calls = 0;
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                authRepositoryProvider.overrideWithValue(
+                  _FakeAuthRepository(
+                    session: authenticated
+                        ? _authenticatedSession()
+                        : const GuestAuthSession(),
+                  ),
+                ),
+                userProfileRepositoryProvider.overrideWithValue(
+                  _FakeUserProfileRepository(),
+                ),
+                myPageOpenPrivacyPolicyProvider.overrideWithValue(() async {
+                  calls++;
+                  if (outcome == 'exception') {
+                    throw StateError('synthetic-private-platform-error');
+                  }
+                  return outcome == 'opened';
+                }),
+              ],
+              child: MaterialApp(
+                theme: V2Theme.light(),
+                home: const V2MyPageScreen(),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final link = find.byKey(const Key('myPagePrivacyPolicyLink'));
+          await tester.scrollUntilVisible(link, 180);
+          await tester.tap(link);
+          await tester.pumpAndSettle();
+          expect(calls, 1);
+          expect(
+            find.text('リンクを開けませんでした。時間をおいて再度お試しください。'),
+            outcome == 'opened' ? findsNothing : findsOneWidget,
+          );
+          expect(find.textContaining('synthetic-private'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('未ログインではゲスト表示とログイン導線を出す', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(

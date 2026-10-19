@@ -15,7 +15,9 @@ final class RegistrationPhotoController
   @override
   RegistrationPhotoState build() => const RegistrationPhotoState();
 
-  Future<String?> captureNormalizeAndUpload() async {
+  Future<String?> captureNormalizeAndUpload({
+    bool Function()? canContinue,
+  }) async {
     if (state.isBusy) {
       return null;
     }
@@ -29,7 +31,7 @@ final class RegistrationPhotoController
           .read(registrationPhotoCaptureSourceProvider)
           .capture();
 
-      if (sourceBytes == null) {
+      if (sourceBytes == null || canContinue?.call() == false) {
         state = const RegistrationPhotoState();
         return null;
       }
@@ -41,6 +43,11 @@ final class RegistrationPhotoController
       final normalized = await ref
           .read(registrationPhotoNormalizerProvider)
           .normalize(sourceBytes);
+
+      if (canContinue?.call() == false) {
+        state = const RegistrationPhotoState();
+        return null;
+      }
 
       final uploadId = ref.read(photoUploadIdGeneratorProvider).generate();
 
