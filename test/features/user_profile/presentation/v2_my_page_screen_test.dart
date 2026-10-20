@@ -51,8 +51,20 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
+          final notice = find.byKey(
+            const Key('myPageRegistrationContributionNotice'),
+          );
+          await tester.scrollUntilVisible(notice, 180);
+          expect(
+            find.text('現在自販機データ収集中。自販機の登録にご協力いただけますと助かります。'),
+            findsOneWidget,
+          );
+          expect(tester.widget<ListTile>(notice).onTap, isNull);
           final link = find.byKey(const Key('myPagePrivacyPolicyLink'));
           await tester.scrollUntilVisible(link, 180);
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(link);
+          await tester.pumpAndSettle();
           await tester.tap(link);
           await tester.pumpAndSettle();
           expect(calls, 1);

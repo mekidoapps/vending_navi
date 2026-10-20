@@ -85,6 +85,11 @@ class _V2MyPageScreenState extends ConsumerState<V2MyPageScreen> {
               else
                 _GuestMyPage(onLogin: _openAuthentication),
               const SizedBox(height: V2Spacing.md),
+              const ListTile(
+                key: Key('myPageRegistrationContributionNotice'),
+                leading: Icon(Icons.info_outline),
+                title: Text('現在自販機データ収集中。自販機の登録にご協力いただけますと助かります。'),
+              ),
               ListTile(
                 key: const Key('myPageDataLicensesLink'),
                 leading: const Icon(Icons.info_outline),
