@@ -1,0 +1,62 @@
+name: iOS screenshot environment preflight
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/ios-screenshot-preflight.yml]
+permissions: {}
+concurrency:
+  group: vending-ios-screenshot-preflight
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: >-
+      github.repository == 'mekidoapps/vending_navi' &&
+      github.event.repository.private == false &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'ci: run approved one-time iOS screenshot environment preflight'
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - name: Inventory existing Xcode and Simulator environments only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$DEVELOPER_DIR"
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          python3 - <<'PY'
+          import json, subprocess
+          def read(kind):
+              return json.loads(subprocess.check_output(['xcrun','simctl','list',kind,'-j']))
+          runtimes=read('runtimes')['runtimes']
+          print('AVAILABLE_IOS_RUNTIMES')
+          for r in runtimes:
+              if r.get('isAvailable') and '.iOS-' in r['identifier']:
+                  print(json.dumps({k:r.get(k) for k in ['name','version','identifier']},ensure_ascii=False))
+          types=read('devicetypes')['devicetypes']
+          print('TARGET_DEVICE_TYPES')
+          for d in types:
+              if ('iPad' in d['name'] and ('13-inch' in d['name'] or '12.9-inch' in d['name'])) or d['name'] in ['iPhone 16','iPhone 16 Pro','iPhone 15','iPhone 15 Pro']:
+                  print(json.dumps({k:d.get(k) for k in ['name','identifier']},ensure_ascii=False))
+          devices=read('devices')['devices']
+          ipad=iphone=False
+          print('AVAILABLE_TARGET_SIMULATORS')
+          for runtime, items in devices.items():
+              if '.iOS-' not in runtime:
+                  continue
+              for d in items:
+                  if not d.get('isAvailable'):
+                      continue
+                  is_ipad='iPad' in d['name'] and ('13-inch' in d['name'] or '12.9-inch' in d['name'])
+                  is_iphone=d['name'] in ['iPhone 16','iPhone 16 Pro','iPhone 15','iPhone 15 Pro']
+                  if is_ipad or is_iphone:
+                      print(json.dumps({'runtime':runtime,**{k:d.get(k) for k in ['name','udid','state']}},ensure_ascii=False))
+                  ipad=ipad or is_ipad
+                  iphone=iphone or is_iphone
+          print(json.dumps({'ipad13_available':ipad,'iphone_target_available':iphone}))
+          if not ipad or not iphone:
+              raise SystemExit('Missing target device: stop; no downloads or device creation')
+          PY
