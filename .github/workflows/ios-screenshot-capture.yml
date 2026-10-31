@@ -1,0 +1,98 @@
+# LOCAL DRAFT ONLY. Do not register Secrets or dispatch until BLOCKING.txt is resolved.
+name: iOS genuine screenshot capture
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_workflow_sha:
+        description: Reviewed full SHA of capture workflow and helpers on ios/device-configuration
+        required: true
+        type: string
+      prerequisites_confirmed:
+        description: All BLOCKING items reviewed; one capture and manual cleanup arranged
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: vending-ios-capture
+  cancel-in-progress: false
+jobs:
+  capture:
+    if: >-
+      github.repository == 'mekidoapps/vending_navi' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.repository.private == false &&
+      github.ref == 'refs/heads/ios/device-configuration' &&
+      github.run_attempt == 1 && inputs.prerequisites_confirmed &&
+      inputs.reviewed_workflow_sha == github.sha
+    environment: ios-testflight
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      COCOAPODS_DISABLE_STATS: 'true'
+      APP_SOURCE_SHA: b8abf91740eec97a260794b5e6923acd688502ed
+    steps:
+      - name: Fetch reviewed helper files without persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: capture-tools
+          persist-credentials: false
+          sparse-checkout: tool/ios_capture
+          sparse-checkout-cone-mode: false
+      - name: Fetch exact build25 application source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: b8abf91740eec97a260794b5e6923acd688502ed
+          path: app-source
+          persist-credentials: false
+      - name: Validate fixed source and baseline prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C app-source rev-parse HEAD)" = "$APP_SOURCE_SHA"
+          test -d "$DEVELOPER_DIR"
+          xcodebuild -version | grep -q 'Xcode 26.3'
+          python3 capture-tools/tool/ios_capture/capture_driver.py preflight
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.41.2'
+          channel: stable
+          cache: false
+      - name: Resolve fixed dependencies without runtime credentials
+        shell: bash
+        working-directory: app-source
+        run: |
+          set -euo pipefail
+          flutter pub get --enforce-lockfile >/dev/null 2>&1
+          (cd ios && pod install --deployment >/dev/null 2>&1)
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
+      - name: Build Simulator app using existing runtime settings only
+        shell: bash
+        env:
+          GOOGLE_MAPS_IOS_API_KEY: ${{ secrets.GOOGLE_MAPS_IOS_API_KEY }}
+          GOOGLE_SIGN_IN_IOS_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_IOS_CLIENT_ID }}
+          GOOGLE_SIGN_IN_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_REVERSED_CLIENT_ID }}
+        run: python3 capture-tools/tool/ios_capture/capture_driver.py build
+      - name: Capture original guest screens sequentially
+        shell: bash
+        env:
+          APP_CHECK_DEBUG_TOKEN: ${{ secrets.IOS_SCREENSHOT_APP_CHECK_DEBUG_TOKEN }}
+        run: python3 capture-tools/tool/ios_capture/capture_driver.py capture
+      - name: Stop disposable app and simulators on success failure or cancellation
+        if: ${{ always() }}
+        shell: bash
+        run: python3 capture-tools/tool/ios_capture/capture_driver.py cleanup
+      - name: Save only original PNGs and nonsecret receipts for one day
+        if: ${{ success() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vending-ios-capture-${{ github.run_id }}
+          path: ${{ runner.temp }}/vending-ios-capture/output/
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+# EXTERNAL CLEANUP IS MANUAL: this job has no Firebase admin or GitHub secret-management credentials.
+# Cancellation/runner loss can prevent local cleanup; owner must still revoke ONLY the dedicated token and Secret.
