@@ -34,7 +34,18 @@ jobs:
       COCOAPODS_DISABLE_STATS: 'true'
       APP_SOURCE_SHA: b8abf91740eec97a260794b5e6923acd688502ed
     steps:
+      - name: Start shared monotonic budget before checkout
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, time
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'vending-ios-capture'
+          root.mkdir(mode=0o700)
+          (root / 'budget-start').write_text(str(time.monotonic()))
+          PY
       - name: Fetch reviewed helper files without persisted credentials
+        timeout-minutes: 1
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
@@ -43,12 +54,14 @@ jobs:
           sparse-checkout: tool/ios_capture
           sparse-checkout-cone-mode: false
       - name: Fetch exact build25 application source
+        timeout-minutes: 1
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: b8abf91740eec97a260794b5e6923acd688502ed
           path: app-source
           persist-credentials: false
       - name: Validate fixed source and baseline prerequisites
+        timeout-minutes: 2
         shell: bash
         run: |
           set -euo pipefail
@@ -57,12 +70,18 @@ jobs:
           xcodebuild -version > "$RUNNER_TEMP/vending-xcode-version.txt"
           grep -Fxq 'Xcode 26.3' "$RUNNER_TEMP/vending-xcode-version.txt"
           python3 capture-tools/tool/ios_capture/capture_driver.py preflight
+      - name: Probe both Simulators without app or runtime credentials before build
+        timeout-minutes: 7
+        shell: bash
+        run: python3 capture-tools/tool/ios_capture/capture_driver.py boot_probe
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        timeout-minutes: 3
         with:
           flutter-version: '3.41.2'
           channel: stable
           cache: false
       - name: Resolve fixed dependencies without runtime credentials
+        timeout-minutes: 6
         shell: bash
         working-directory: app-source
         run: |
@@ -83,10 +102,22 @@ jobs:
           APP_CHECK_DEBUG_TOKEN: ${{ secrets.IOS_SCREENSHOT_APP_CHECK_DEBUG_TOKEN }}
         run: python3 capture-tools/tool/ios_capture/capture_driver.py capture
       - name: Stop disposable app and simulators on success failure or cancellation
+        timeout-minutes: 4
         if: ${{ always() }}
         shell: bash
         run: python3 capture-tools/tool/ios_capture/capture_driver.py cleanup
+      - name: Save allowlisted nonsecret stage diagnostics even after failure
+        timeout-minutes: 1
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vending-ios-diagnostics-${{ github.run_id }}
+          path: ${{ runner.temp }}/vending-ios-capture/diagnostics/stages.json
+          retention-days: 1
+          if-no-files-found: warn
+          include-hidden-files: false
       - name: Save only original PNGs and nonsecret receipts for one day
+        timeout-minutes: 1
         if: ${{ success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
