@@ -12,6 +12,14 @@ on:
         required: true
         default: false
         type: boolean
+      reviewed_app_source_sha:
+        description: Reviewed iPhone-only revision with map header fix, based on build25
+        required: true
+        type: string
+      capture_build_number:
+        description: Reviewed unused build number greater than 25, matching planned review build
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -32,7 +40,9 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       COCOAPODS_DISABLE_STATS: 'true'
-      APP_SOURCE_SHA: b8abf91740eec97a260794b5e6923acd688502ed
+      # Baseline: b8abf91740eec97a260794b5e6923acd688502ed. Revised source must be reviewed separately.
+      APP_SOURCE_SHA: ${{ inputs.reviewed_app_source_sha }}
+      CAPTURE_BUILD_NUMBER: ${{ inputs.capture_build_number }}
     steps:
       - name: Start shared monotonic budget before checkout
         shell: bash
@@ -53,11 +63,11 @@ jobs:
           persist-credentials: false
           sparse-checkout: tool/ios_capture
           sparse-checkout-cone-mode: false
-      - name: Fetch exact build25 application source
+      - name: Fetch exact reviewed revised application source
         timeout-minutes: 1
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: b8abf91740eec97a260794b5e6923acd688502ed
+          ref: ${{ inputs.reviewed_app_source_sha }}
           path: app-source
           persist-credentials: false
       - name: Validate fixed source and baseline prerequisites
@@ -70,10 +80,16 @@ jobs:
           xcodebuild -version > "$RUNNER_TEMP/vending-xcode-version.txt"
           grep -Fxq 'Xcode 26.3' "$RUNNER_TEMP/vending-xcode-version.txt"
           python3 capture-tools/tool/ios_capture/capture_driver.py preflight
-      - name: Probe both Simulators without app or runtime credentials before build
+      - name: Probe iPhone Simulator without app or runtime credentials before build
         timeout-minutes: 7
         shell: bash
         run: python3 capture-tools/tool/ios_capture/capture_driver.py boot_probe
+      - name: Validate capture token exchange once before expensive build
+        timeout-minutes: 1
+        shell: bash
+        env:
+          APP_CHECK_DEBUG_TOKEN: ${{ secrets.IOS_SCREENSHOT_APP_CHECK_DEBUG_TOKEN }}
+        run: python3 capture-tools/tool/ios_capture/capture_driver.py token_gate
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         timeout-minutes: 3
         with:
@@ -96,7 +112,7 @@ jobs:
           GOOGLE_SIGN_IN_IOS_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_IOS_CLIENT_ID }}
           GOOGLE_SIGN_IN_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_SIGN_IN_REVERSED_CLIENT_ID }}
         run: python3 capture-tools/tool/ios_capture/capture_driver.py build
-      - name: Capture original guest screens sequentially
+      - name: Capture original iPhone guest screen
         shell: bash
         env:
           APP_CHECK_DEBUG_TOKEN: ${{ secrets.IOS_SCREENSHOT_APP_CHECK_DEBUG_TOKEN }}
@@ -112,7 +128,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: vending-ios-diagnostics-${{ github.run_id }}
-          path: ${{ runner.temp }}/vending-ios-capture/diagnostics/stages.json
+          path: |
+            ${{ runner.temp }}/vending-ios-capture/diagnostics/stages.json
+            ${{ runner.temp }}/vending-ios-capture/diagnostics/exchange.json
           retention-days: 1
           if-no-files-found: warn
           include-hidden-files: false
