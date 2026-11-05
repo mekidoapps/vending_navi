@@ -49,6 +49,7 @@ import 'genre_search_marker_kind_resolver.dart';
 import 'product_search_marker_kind_resolver.dart';
 import 'vending_machine_map_block_filter.dart';
 import 'vending_machine_marker_kind.dart';
+import 'v2_map_header.dart';
 
 typedef V2HomeMapBuilder = Widget Function(BuildContext context);
 typedef V2AuthenticationRequester = Future<bool> Function();
@@ -190,8 +191,10 @@ class _V2HomeMapScreenState extends ConsumerState<V2HomeMapScreen> {
                   genreMachineSearchState,
                   blockedContent,
                 ),
-                const _AppLabel(),
-                const _OsmAttributionOverlay(),
+                const V2MapHeader(
+                  title: _AppLabel(),
+                  attribution: _OsmAttributionOverlay(),
+                ),
                 if (osmState.result.dense &&
                     selectedProduct == null &&
                     selectedGenre == null)
@@ -843,43 +846,35 @@ class _AppLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = V2ColorTokens.of(context);
 
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(V2Spacing.sm),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.surfaceElevated.withValues(alpha: 0.96),
-              borderRadius: V2Radius.control,
-              border: Border.all(color: colors.border),
-              boxShadow: V2Shadows.mapFloating,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceElevated.withValues(alpha: 0.96),
+        borderRadius: V2Radius.control,
+        border: Border.all(color: colors.border),
+        boxShadow: V2Shadows.mapFloating,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: V2Spacing.sm,
+          vertical: V2Spacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              Icons.local_drink_rounded,
+              size: 18,
+              color: colors.primaryStrong,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: V2Spacing.sm,
-                vertical: V2Spacing.xs,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    Icons.local_drink_rounded,
-                    size: 18,
-                    color: colors.primaryStrong,
-                  ),
-                  const SizedBox(width: V2Spacing.xs),
-                  Text(
-                    '自販機ナビ',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+            const SizedBox(width: V2Spacing.xs),
+            Text(
+              '自販機ナビ',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colors.textPrimary,
+                fontSize: 13,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -891,24 +886,18 @@ class _OsmAttributionOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      minimum: const EdgeInsets.only(top: 64, left: V2Spacing.sm, right: 80),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Material(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-          borderRadius: V2Radius.control,
-          child: InkWell(
-            key: const Key('osmMapAttributionLink'),
-            borderRadius: V2Radius.control,
-            onTap: () => openOsmLicenseLink(context, osmCopyrightUrl),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Text(
-                '自販機位置データの一部 © OpenStreetMap contributors',
-                style: TextStyle(fontSize: 11, height: 1.25),
-              ),
-            ),
+    return Material(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
+      borderRadius: V2Radius.control,
+      child: InkWell(
+        key: const Key('osmMapAttributionLink'),
+        borderRadius: V2Radius.control,
+        onTap: () => openOsmLicenseLink(context, osmCopyrightUrl),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Text(
+            '自販機位置データの一部 © OpenStreetMap contributors',
+            style: TextStyle(fontSize: 11, height: 1.25),
           ),
         ),
       ),
