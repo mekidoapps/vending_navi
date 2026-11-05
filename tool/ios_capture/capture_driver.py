@@ -12,6 +12,9 @@ import struct
 import subprocess
 import sys
 import time
+import socket
+import urllib.error
+import urllib.request
 from contextlib import contextmanager
 
 DIAGNOSTIC_ROOT = None
@@ -22,7 +25,7 @@ PHASE_LIMIT = {'preflight': 9 * 60, 'build': 31 * 60,
                'capture': 39 * 60, 'cleanup': 42 * 60}
 OPERATIONS = {'start', 'boot', 'bootstatus', 'install', 'permission', 'location',
               'launch', 'wait', 'screenshot', 'dimensions', 'terminate', 'shutdown',
-              'inventory', 'clear', 'settings', 'prepare'}
+              'inventory', 'clear', 'settings', 'prepare', 'token_exchange'}
 
 
 def safe_print(value):
@@ -47,7 +50,7 @@ def restore_diagnostics():
         validated = []
         for e in saved['events']:
             need(set(e) <= {'target', 'stage', 'status', 'kind', 'exit_code', 'timeout_seconds', 'elapsed_seconds'})
-            need(e.get('target') in {'capture', 'cleanup', 'ipad13', 'iphone-dynamic-medium'})
+            need(e.get('target') in {'capture', 'cleanup', 'iphone-dynamic-medium'})
             need(e.get('stage') in OPERATIONS)
             need(e.get('status') in {'started', 'complete', 'failed'})
             need(e.get('kind', 'exit') in {'exit', 'timeout', 'check_or_interrupt'})
@@ -69,7 +72,7 @@ class CommandFailure(RuntimeError):
 @contextmanager
 def stage(target, operation):
     # Closed vocabulary only: never serialize commands, exceptions, env or SDK output.
-    need(target in {'capture', 'cleanup', 'ipad13', 'iphone-dynamic-medium'})
+    need(target in {'capture', 'cleanup', 'iphone-dynamic-medium'})
     need(operation in OPERATIONS)
     started = time.monotonic()
     event = {'target': target, 'stage': operation, 'status': 'started'}
@@ -103,13 +106,78 @@ def stage(target, operation):
         safe_print(json.dumps(event))
 
 SOURCE = 'b8abf91740eec97a260794b5e6923acd688502ed'
+BUILD_NUMBER = '25'  # main requires an explicitly reviewed new build number.
 LOCK = '3d9233f72b9f70f73f4f6482bf50510049ad37d94cf24f80ccaf8859331a7b96'
 BUNDLE = 'com.mekidoapps.vendingnavi'
 APP_ID = '1:589528386744:ios:e6afb2ac27e7a1e552784d'
 RUNTIME = 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'
 SERVICES = ('GOOGLE_MAPS_IOS_API_KEY', 'GOOGLE_SIGN_IN_IOS_CLIENT_ID', 'GOOGLE_SIGN_IN_REVERSED_CLIENT_ID')
-TARGETS = [('ipad13', 'iPad Pro 13-inch (M4)', {(2064, 2752), (2048, 2732)}),
-           ('iphone-dynamic-medium', 'iPhone 16', {(1179, 2556), (1206, 2622)})]
+TARGETS = [('iphone-dynamic-medium', 'iPhone 16', {(1179, 2556)})]
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None  # Never forward a debug token or key to a redirect target.
+
+
+def exchange_debug_token(token, api_key, *, opener=None):
+    """One request only. Never return/print response bodies or token material."""
+    endpoint = ('https://firebaseappcheck.googleapis.com/v1/projects/589528386744/'
+                f'apps/{APP_ID}:exchangeDebugToken')
+    status = None
+    try:
+        request = urllib.request.Request(
+            endpoint, method='POST',
+            data=json.dumps({'debugToken': token, 'limitedUse': False}).encode(),
+            headers={'Content-Type': 'application/json', 'X-Goog-Api-Key': api_key,
+                     'X-Ios-Bundle-Identifier': BUNDLE})
+        client = opener or urllib.request.build_opener(NoRedirect())
+        with client.open(request, timeout=bounded_timeout(20)) as response:
+            status = int(response.status)
+            if status != 200:
+                return 'http_failure', status
+            body = response.read(65537)
+            if len(body) > 65536:
+                return 'invalid_response', status
+            parsed = json.loads(body)
+            valid = isinstance(parsed, dict) and isinstance(parsed.get('token'), str) and bool(parsed['token'])
+            return ('accepted' if valid else 'invalid_response'), status
+    except urllib.error.HTTPError as error:
+        status = int(error.code)
+        error.close()  # Do not read/serialize server error text.
+        return ('rejected' if status in {400, 401, 403} else 'http_failure'), status
+    except (TimeoutError, socket.timeout, subprocess.TimeoutExpired):
+        return 'timeout', status
+    except urllib.error.URLError as error:
+        return ('timeout' if isinstance(error.reason, TimeoutError) else 'network_failure'), status
+    except OSError:
+        return 'network_failure', status
+    except (ValueError, TypeError):
+        return 'invalid_response', status
+
+
+def token_gate(app, root):
+    token = os.environ.get('APP_CHECK_DEBUG_TOKEN', '')
+    need(re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', token))
+    config = (app / 'lib/firebase_options.dart').read_text()
+    ios = re.search(r'static const FirebaseOptions ios\s*=\s*FirebaseOptions\((.*?)\);', config, re.S)
+    need(ios is not None and APP_ID in ios.group(1))
+    key = re.search(r"apiKey:\s*'([^']+)'", ios.group(1))
+    need(key is not None and re.fullmatch(r'AIza[A-Za-z0-9_-]{35}', key.group(1)))
+    with stage('capture', 'token_exchange'):
+        result, status = exchange_debug_token(token, key.group(1))
+        # Closed output vocabulary; never include exception/message/URL/body/key/token.
+        record = {'gate': 'appcheck_exchange', 'result': result, 'http_status': status}
+        safe_print(json.dumps(record))
+        try:
+            directory = root / 'diagnostics'
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            temporary = directory / 'exchange.tmp'
+            temporary.write_text(json.dumps(record))
+            temporary.replace(directory / 'exchange.json')
+        except Exception:
+            safe_print('exchange_diagnostic_save_unavailable')
+        need(result == 'accepted')
 
 
 def need(condition):
@@ -170,7 +238,7 @@ def cleanup(app, root):
     try:
         state = load_state(root)
         devices = state.get('devices', [])
-        need(isinstance(devices, list) and len(devices) <= 2)
+        need(isinstance(devices, list) and len(devices) <= len(TARGETS))
         for index, device in enumerate(devices):
             target = TARGETS[index][0]
             try:
@@ -222,7 +290,7 @@ def boot_probe(app, root):
             command(['xcrun', 'simctl', 'bootstatus', device, '-b'], timeout=120)
         with stage(label, 'shutdown'):
             command(['xcrun', 'simctl', 'shutdown', device], timeout=30)
-    # Re-read confirms both were stopped before expensive build.
+    # Re-read confirms the iPhone was stopped before expensive build.
     preflight(app, root)
 
 
@@ -230,6 +298,9 @@ def preflight(app, root):
     need(sys.platform == 'darwin')
     need(command(['git', 'rev-parse', 'HEAD'], cwd=app).decode().strip() == SOURCE)
     need(hashlib.sha256((app / 'ios/Podfile.lock').read_bytes()).hexdigest() == LOCK)
+    project = (app / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
+    families = re.findall(r'TARGETED_DEVICE_FAMILY\s*=\s*([^;]+);', project)
+    need(len(families) == 3 and all(value.strip().strip('"') == '1' for value in families))
     need(re.search(r'^version: 1\.0\.0\+21\s*$', (app / 'pubspec.yaml').read_text(), re.M))
     # Do not assume client config exists in the fixed public checkout.
     client = app / 'lib/firebase_options.dart'
@@ -263,7 +334,7 @@ def build(app, root):
         command(['node', 'tool/check_ios_runtime_config.cjs'], cwd=app)
         # No signing/export/upload. Build environment has only existing runtime client settings.
         command(['flutter', 'build', 'ios', '--simulator', '--debug', '--no-pub',
-                 '--dart-define=APP_ENTRY=v2', '--build-name=1.0.0', '--build-number=25'],
+                 '--dart-define=APP_ENTRY=v2', '--build-name=1.0.0', f'--build-number={BUILD_NUMBER}'],
                 cwd=app, timeout=1320)
         product = app / 'build/ios/iphonesimulator/Runner.app'
         command(['node', 'tool/check_ios_runtime_config.cjs', '--built-plist',
@@ -279,18 +350,23 @@ def build(app, root):
                 raise RuntimeError('Owned settings cleanup failed') from None
 
 
+def validate_product_info(info):
+    need(info.get('CFBundleIdentifier') == BUNDLE)
+    need(info.get('CFBundleShortVersionString') == '1.0.0' and info.get('CFBundleVersion') == BUILD_NUMBER)
+    need('iPhoneSimulator' in info.get('CFBundleSupportedPlatforms', []))
+    need(info.get('UIDeviceFamily') == [1])
+
+
 def capture(app, root):
-    need(bounded_timeout(480) >= 479)  # Reserve eight minutes before starting either device.
+    need(bounded_timeout(240) >= 239)  # Reserve four minutes before starting the iPhone.
     token = os.environ.get('APP_CHECK_DEBUG_TOKEN', '')
     need(re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', token))
     product = app / 'build/ios/iphonesimulator/Runner.app'
     with (product / 'Info.plist').open('rb') as f:
         info = plistlib.load(f)
-    need(info.get('CFBundleIdentifier') == BUNDLE)
-    need(info.get('CFBundleShortVersionString') == '1.0.0' and info.get('CFBundleVersion') == '25')
-    need('iPhoneSimulator' in info.get('CFBundleSupportedPlatforms', []))
+    validate_product_info(info)
     state = load_state(root)
-    need(len(state.get('devices', [])) == 2)
+    need(len(state.get('devices', [])) == len(TARGETS))
     output = root / 'output'
     output.mkdir(mode=0o700, exist_ok=False)
     receipts = []
@@ -330,7 +406,7 @@ def capture(app, root):
             receipts.append({'file': png.name, 'device': name, 'runtime': RUNTIME,
                              'width': width, 'height': height,
                              'sha256': hashlib.sha256(data).hexdigest(),
-                             'app_source': SOURCE, 'build': '1.0.0 (25) Simulator debug',
+                             'app_source': SOURCE, 'build': f'1.0.0 ({BUILD_NUMBER}) Simulator debug',
                              'location': 'simulated public Tokyo area; not owner location',
                              'visual_review': 'PENDING: genuine loaded guest UI, no error/popup or personal data; not ASC-approved'})
             with stage(label, 'terminate'):
@@ -338,7 +414,7 @@ def capture(app, root):
             with stage(label, 'shutdown'):
                 command(['xcrun', 'simctl', 'shutdown', device])
         (output / 'receipt.json').write_text(json.dumps(receipts, indent=2))
-        need({p.name for p in output.iterdir()} == {'ipad13.png', 'iphone-dynamic-medium.png', 'receipt.json'})
+        need({p.name for p in output.iterdir()} == {'iphone-dynamic-medium.png', 'receipt.json'})
     finally:
         token = ''
         # main's failure path and the workflow always-step own cleanup; do not
@@ -350,18 +426,23 @@ def interrupted(*_):
 
 
 def main():
-    global DIAGNOSTIC_ROOT, DEADLINE_START, ACTIVE_PHASE
-    need(len(sys.argv) == 2 and sys.argv[1] in {'preflight', 'boot_probe', 'build', 'capture', 'cleanup'})
+    global DIAGNOSTIC_ROOT, DEADLINE_START, ACTIVE_PHASE, SOURCE, BUILD_NUMBER
+    need(len(sys.argv) == 2 and sys.argv[1] in {'preflight', 'boot_probe', 'token_gate', 'build', 'capture', 'cleanup'})
     action = sys.argv[1]
     app, root = paths()
     DIAGNOSTIC_ROOT = root / 'diagnostics'
     restore_diagnostics()
-    ACTIVE_PHASE = 'preflight' if action == 'boot_probe' else action
+    ACTIVE_PHASE = 'preflight' if action in {'boot_probe', 'token_gate'} else action
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, interrupted)
     try:
         DEADLINE_START = float((root / 'budget-start').read_text())
         need(0 <= time.monotonic() - DEADLINE_START < 45 * 60)
+        if action != 'cleanup':
+            SOURCE = os.environ.get('APP_SOURCE_SHA', '')
+            BUILD_NUMBER = os.environ.get('CAPTURE_BUILD_NUMBER', '')
+            need(re.fullmatch(r'[0-9a-f]{40}', SOURCE) and SOURCE != 'b8abf91740eec97a260794b5e6923acd688502ed')
+            need(re.fullmatch(r'[1-9][0-9]{0,8}', BUILD_NUMBER) and int(BUILD_NUMBER) > 25)
         if action == 'capture':
             with stage('capture', 'start'):
                 capture(app, root)
