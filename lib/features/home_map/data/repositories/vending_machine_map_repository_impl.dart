@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/errors/app_failure.dart';
+import '../../../../core/errors/capture_diagnostics.dart';
 import '../../../../core/errors/failure_mapper.dart';
 import '../../../../core/result/app_result.dart';
 import '../../../vending_machine/data/sources/vending_machine_document.dart';
@@ -32,8 +33,8 @@ final class VendingMachineMapRepositoryImpl
       final prefixes = GeoHashQueryPlanner.prefixesForBounds(bounds);
 
       final results = await Future.wait(<Future<List<VendingMachineDocument>>>[
-        _viewportSource.fetchV2ByGeohashPrefixes(prefixes),
-        _viewportSource.fetchLegacyDocuments(),
+        CaptureDiagnostics.trace('viewport_v2', () => _viewportSource.fetchV2ByGeohashPrefixes(prefixes)),
+        CaptureDiagnostics.trace('viewport_legacy', () => _viewportSource.fetchLegacyDocuments()),
       ]);
 
       final candidates = <String, VendingMachineDocument>{};
@@ -61,9 +62,10 @@ final class VendingMachineMapRepositoryImpl
           );
         }
 
-        final result = await _machineRepository.getMachine(id);
+        final result = await CaptureDiagnostics.trace('machine_detail', () => _machineRepository.getMachine(id));
         final failure = result.failureOrNull;
         if (failure != null) {
+          CaptureDiagnostics.emit('machine_detail', CaptureDiagnostics.classify(failure));
           return AppResult<List<VendingMachine>>.failure(failure);
         }
 
