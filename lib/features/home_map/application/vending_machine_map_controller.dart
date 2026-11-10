@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/failure_mapper.dart';
+import '../../../core/errors/capture_diagnostics.dart';
 import '../../vending_machine/domain/value_objects/vending_machine_id.dart';
 import '../domain/repositories/vending_machine_map_repository.dart';
 import '../domain/value_objects/map_viewport_bounds.dart';
@@ -46,6 +47,7 @@ final class VendingMachineMapController
       clearFailure: true,
     );
 
+    CaptureDiagnostics.emit('viewport_state', 'loading');
     try {
       final result = await _repository.getMachinesInViewport(bounds);
 
@@ -55,6 +57,7 @@ final class VendingMachineMapController
 
       final failure = result.failureOrNull;
       if (failure != null) {
+        CaptureDiagnostics.emit('viewport_state', CaptureDiagnostics.classify(failure));
         state = state.copyWith(
           failure: failure,
           isLoading: false,
@@ -69,6 +72,7 @@ final class VendingMachineMapController
           selectedId != null &&
           machines.any((machine) => machine.id == selectedId);
 
+      CaptureDiagnostics.emit('viewport_state', machines.isEmpty ? 'empty' : 'ready');
       state = state.copyWith(
         machines: machines,
         clearSelection: !selectionStillVisible,
@@ -81,6 +85,7 @@ final class VendingMachineMapController
         return;
       }
 
+      CaptureDiagnostics.emit('viewport_state', CaptureDiagnostics.classify(error));
       state = state.copyWith(
         failure: FailureMapper.map(error),
         isLoading: false,
