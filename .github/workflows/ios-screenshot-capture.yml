@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       capture_build_number:
-        description: Reviewed unused build number greater than 25, matching planned review build
+        description: Simulator capture identifier greater than 25; ASC submission number is separate
         required: true
         type: string
 permissions:
@@ -131,6 +131,7 @@ jobs:
           path: |
             ${{ runner.temp }}/vending-ios-capture/diagnostics/stages.json
             ${{ runner.temp }}/vending-ios-capture/diagnostics/exchange.json
+            ${{ runner.temp }}/vending-ios-capture/diagnostics/app.json
           retention-days: 1
           if-no-files-found: warn
           include-hidden-files: false
