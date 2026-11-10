@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/firebase/firebase_emulator_config.dart';
 import '../../core/firebase/firebase_emulator_connector.dart';
 import '../../firebase_options.dart';
+import '../../core/errors/capture_diagnostics.dart';
 
 typedef BootstrapStep = Future<void> Function();
 
@@ -44,6 +45,15 @@ class BootstrapConfig {
               ? AppleProvider.debug
               : AppleProvider.deviceCheck,
         );
+        if (CaptureDiagnostics.enabled) {
+          final token = await CaptureDiagnostics.trace(
+            'appcheck', () => FirebaseAppCheck.instance.getToken(true));
+          if (token == null || token.isEmpty) {
+            CaptureDiagnostics.emit('appcheck', 'unknown');
+            throw StateError('Capture App Check probe failed');
+          }
+          CaptureDiagnostics.emit('appcheck', 'accepted');
+        }
       },
     );
   }
