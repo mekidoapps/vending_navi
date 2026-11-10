@@ -16,6 +16,7 @@ import socket
 import urllib.error
 import urllib.request
 from contextlib import contextmanager
+from safe_app_diagnostics import AppDiagnostics
 
 DIAGNOSTIC_ROOT = None
 EVENTS = []
@@ -297,6 +298,8 @@ def boot_probe(app, root):
 def preflight(app, root):
     need(sys.platform == 'darwin')
     need(command(['git', 'rev-parse', 'HEAD'], cwd=app).decode().strip() == SOURCE)
+    diagnostics = app / 'lib/core/errors/capture_diagnostics.dart'
+    need(diagnostics.exists() and '[CAPTURE_DIAGNOSTIC]' in diagnostics.read_text())
     need(hashlib.sha256((app / 'ios/Podfile.lock').read_bytes()).hexdigest() == LOCK)
     project = (app / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
     families = re.findall(r'TARGETED_DEVICE_FAMILY\s*=\s*([^;]+);', project)
@@ -334,7 +337,8 @@ def build(app, root):
         command(['node', 'tool/check_ios_runtime_config.cjs'], cwd=app)
         # No signing/export/upload. Build environment has only existing runtime client settings.
         command(['flutter', 'build', 'ios', '--simulator', '--debug', '--no-pub',
-                 '--dart-define=APP_ENTRY=v2', '--build-name=1.0.0', f'--build-number={BUILD_NUMBER}'],
+                 '--dart-define=APP_ENTRY=v2', '--dart-define=CAPTURE_DIAGNOSTICS=true',
+                 '--build-name=1.0.0', f'--build-number={BUILD_NUMBER}'],
                 cwd=app, timeout=1320)
         product = app / 'build/ios/iphonesimulator/Runner.app'
         command(['node', 'tool/check_ios_runtime_config.cjs', '--built-plist',
@@ -370,6 +374,7 @@ def capture(app, root):
     output = root / 'output'
     output.mkdir(mode=0o700, exist_ok=False)
     receipts = []
+    app_diagnostics = AppDiagnostics(root / 'diagnostics')
     try:
         for (label, name, allowed), device in zip(TARGETS, state['devices']):
             need(bounded_timeout(180) >= 179)
@@ -389,15 +394,16 @@ def capture(app, root):
             child['SIMCTL_CHILD_AppCheckDebugToken'] = token
             try:
                 with stage(label, 'launch'):
-                    command(['xcrun', 'simctl', 'launch', '--terminate-running-process', device, BUNDLE], env=child)
+                    app_diagnostics.start(['xcrun', 'simctl', 'launch', '--console',
+                                           '--terminate-running-process', device, BUNDLE], child)
             finally:
                 child.pop('SIMCTL_CHILD_AppCheckDebugToken', None)
             with stage(label, 'wait'):
-                need(bounded_timeout(30) >= 29)
-                time.sleep(30)  # Not proof that guest UI/maps have loaded.
+                need(app_diagnostics.wait_ready(bounded_timeout(90)))
             png = output / f'{label}.png'
             with stage(label, 'screenshot'):
                 command(['xcrun', 'simctl', 'io', device, 'screenshot', str(png)])
+                need(app_diagnostics.healthy())  # Reject a failure observed during capture too.
             with stage(label, 'dimensions'):
                 data = png.read_bytes()
                 need(data[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10]))
@@ -411,12 +417,14 @@ def capture(app, root):
                              'visual_review': 'PENDING: genuine loaded guest UI, no error/popup or personal data; not ASC-approved'})
             with stage(label, 'terminate'):
                 command(['xcrun', 'simctl', 'terminate', device, BUNDLE])
+                need(app_diagnostics.stop())
             with stage(label, 'shutdown'):
                 command(['xcrun', 'simctl', 'shutdown', device])
         (output / 'receipt.json').write_text(json.dumps(receipts, indent=2))
         need({p.name for p in output.iterdir()} == {'iphone-dynamic-medium.png', 'receipt.json'})
     finally:
         token = ''
+        app_diagnostics.stop()
         # main's failure path and the workflow always-step own cleanup; do not
         # overwrite a primary capture exception with a secondary cleanup error.
 
