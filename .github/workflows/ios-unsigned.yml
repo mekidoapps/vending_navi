@@ -1,12 +1,9 @@
 name: iOS PR2 unsigned compile verification
 run-name: iOS PR2 unsigned compile verification
 on:
-  workflow_dispatch:
-    inputs:
-      expected_sha:
-        description: Full reviewed app commit SHA for PR #2
-        required: true
-        type: string
+  push:
+    branches: ['qa/ios-pr2-unsigned-20261119']
+    paths: ['.github/workflows/ios-unsigned.yml']
 permissions:
   contents: read
 concurrency:
@@ -14,12 +11,17 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile:
-    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/qa/ios-pr2-unsigned-20261119' && github.run_attempt == 1
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'mekidoapps/vending_navi' &&
+      github.ref == 'refs/heads/qa/ios-pr2-unsigned-20261119' &&
+      github.event.before == '040a74f437eb972d3ebbbf47652e828ce21d0abc' &&
+      github.event.head_commit.message == 'ci: run one-time unsigned verification of PR 2' &&
+      github.run_attempt == 1
     runs-on: macos-15
     timeout-minutes: 45
     env:
       SOURCE_SHA: 6a213a0a39ec8db6bb6c2e709d81b62e8b834a55
-      EXPECTED_SHA: ${{ inputs.expected_sha }}
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       COCOAPODS_DISABLE_STATS: 'true'
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
@@ -33,7 +35,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$EXPECTED_SHA" = "$SOURCE_SHA"
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -d "$DEVELOPER_DIR"
           test -f ios/Podfile.lock
