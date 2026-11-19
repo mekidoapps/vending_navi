@@ -1,5 +1,5 @@
-name: iOS PR2 unsigned compile verification
-run-name: iOS PR2 unsigned verification with reviewed podspec metadata
+name: iOS PR3 exact-source unsigned verification
+run-name: iOS PR3 exact-source unsigned verification
 on:
   push:
     branches: ['qa/ios-pr2-unsigned-20261119']
@@ -15,13 +15,13 @@ jobs:
       github.event_name == 'push' &&
       github.repository == 'mekidoapps/vending_navi' &&
       github.ref == 'refs/heads/qa/ios-pr2-unsigned-20261119' &&
-      github.event.before == '7dbd567595cf5f869f60068d99fa2deb4497582f' &&
-      github.event.head_commit.message == 'ci: run one-time unsigned verification with reviewed CocoaPods metadata' &&
+      github.event.before == '3614326598fd032eac111b1216877bb6eaff258b' &&
+      github.event.head_commit.message == 'ci: run one-time unsigned verification of exact PR 3 source' &&
       github.run_attempt == 1
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      SOURCE_SHA: 6a213a0a39ec8db6bb6c2e709d81b62e8b834a55
+      SOURCE_SHA: 08fb38ae5df9f4b8ddf2e08b3dcfa56cfdec5253
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       COCOAPODS_DISABLE_STATS: 'true'
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: 6a213a0a39ec8db6bb6c2e709d81b62e8b834a55
+          ref: 08fb38ae5df9f4b8ddf2e08b3dcfa56cfdec5253
           persist-credentials: false
       - name: Validate fixed source and installed Xcode
         shell: bash
@@ -46,27 +46,6 @@ jobs:
           flutter-version: '3.41.2'
           channel: stable
           cache: false
-      - name: Apply independently reviewed podspec checksums to the QA runner only
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-          p = Path('ios/Podfile.lock')
-          data = p.read_bytes()
-          assert hashlib.sha256(data).hexdigest() == '3d9233f72b9f70f73f4f6482bf50510049ad37d94cf24f80ccaf8859331a7b96'
-          for name, old, new in [
-              ('AppAuth', 'd4f13a8fe0baf391b2108511793e4b479691fb73', '58e37c546bb9bf2073c1392ccba8cef35ff283cb'),
-              ('GoogleSignIn', 'ce8c89bb9b37fb624b92e7514cc67335d1e277e4', 'e6b83a7093495f8ba4b7547460485f1e308c8df5'),
-              ('GTMAppAuth', 'f69bd07d68cd3b766125f7e072c45d7340dea0de', '4a3fbbb34098b327feaa51cfbf98b0b12f6892e7'),
-          ]:
-              key = f'  {name}: {old}\n'.encode()
-              assert data.count(key) == 1
-              data = data.replace(key, f'  {name}: {new}\n'.encode())
-          assert hashlib.sha256(data).hexdigest() == 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9'
-          p.write_bytes(data)
-          PY
       - name: Resolve locked public dependencies
         shell: bash
         run: |
@@ -75,14 +54,14 @@ jobs:
           dart --disable-analytics
           flutter pub get --enforce-lockfile
           (cd ios && pod install --deployment)
-          git diff --exit-code -- pubspec.yaml pubspec.lock
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
           echo 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9  ios/Podfile.lock' | shasum -a 256 -c -
       - name: Compile only without signing or application launch
         shell: bash
         run: |
           set -euo pipefail
           flutter build ios --release --no-codesign --no-pub --dart-define=APP_ENTRY=v2
-          git diff --exit-code -- pubspec.yaml pubspec.lock
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
           echo 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9  ios/Podfile.lock' | shasum -a 256 -c -
           test ! -e ios/Flutter/LocalServices.xcconfig
       - name: Validate unsigned product without runtime credentials
