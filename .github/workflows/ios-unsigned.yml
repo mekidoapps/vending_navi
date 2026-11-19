@@ -1,72 +1,85 @@
-name: iOS unsigned compile
-
+name: iOS PR2 unsigned compile verification
+run-name: iOS PR2 unsigned compile verification
 on:
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: Reviewed full commit SHA of the selected branch (not old main)
+        description: Full reviewed app commit SHA for PR #2
         required: true
         type: string
-
 permissions:
   contents: read
-
 concurrency:
-  group: ios-unsigned-${{ github.ref }}
+  group: vending-pr2-unsigned-verification
   cancel-in-progress: false
-
 jobs:
   compile:
+    if: github.repository == 'mekidoapps/vending_navi' && github.ref == 'refs/heads/qa/ios-pr2-unsigned-20261119' && github.run_attempt == 1
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      SOURCE_SHA: 6a213a0a39ec8db6bb6c2e709d81b62e8b834a55
       EXPECTED_SHA: ${{ inputs.expected_sha }}
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      CI: 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: 6a213a0a39ec8db6bb6c2e709d81b62e8b834a55
           persist-credentials: false
-      - name: Check reviewed source and native toolchain
+      - name: Validate fixed source and installed Xcode
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          grep -Eq '^version: 1\.0\.0\+21[[:space:]]*$' pubspec.yaml
-          test -f ios/Podfile
+          test "$EXPECTED_SHA" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -d "$DEVELOPER_DIR"
-          xcodebuild -version
-          sdk_version="$(xcrun --sdk iphoneos --show-sdk-version)"
-          test "${sdk_version%%.*}" -ge 26
-          pod --version
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+          test -f ios/Podfile.lock
+          test ! -e ios/Flutter/LocalServices.xcconfig
+          xcodebuild -version | grep -Fx 'Xcode 26.3'
+          python3 -B -m unittest discover -s tool -p 'test_ios_testflight*.py'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.41.2'
           channel: stable
           cache: false
-      - name: Resolve locked Flutter dependencies
-        run: |
-          flutter --version
-          flutter pub get --enforce-lockfile
-          git diff --exit-code -- pubspec.yaml pubspec.lock
-      - name: Compile release for iPhone without signing
-        run: flutter build ios --release --no-codesign --dart-define=APP_ENTRY=v2
-      - name: Verify output and record safe evidence
+      - name: Resolve locked public dependencies
         shell: bash
         run: |
           set -euo pipefail
-          test -f build/ios/iphoneos/Runner.app/Runner
-          git diff --exit-code -- pubspec.yaml pubspec.lock
-          {
-            echo 'Unsigned compile succeeded; no device installation or distribution verified.'
-            echo "Source: $(git rev-parse HEAD)"
-            echo 'Entry: APP_ENTRY=v2; version: 1.0.0+21; Flutter: 3.41.2'
-            xcodebuild -version
-            echo "iPhone SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
-            echo "CocoaPods: $(pod --version)"
-            shasum -a 256 ios/Podfile.lock
-          } >> "$GITHUB_STEP_SUMMARY"
-          # Native dependency resolution is not reproducible until the first
-          # reviewed successful macOS run supplies a versioned Podfile.lock.
-          # Do not upload app binaries or configuration files to a public repo.
+          flutter config --no-analytics
+          dart --disable-analytics
+          flutter pub get --enforce-lockfile
+          (cd ios && pod install --deployment)
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
+      - name: Compile only without signing or application launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign --no-pub --dart-define=APP_ENTRY=v2
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile.lock
+          test ! -e ios/Flutter/LocalServices.xcconfig
+      - name: Validate unsigned product without runtime credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, os, plistlib
+          from pathlib import Path
+          app = Path('build/ios/iphoneos/Runner.app')
+          executable = app / 'Runner'
+          assert executable.is_file()
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          family = info.get('UIDeviceFamily')
+          assert type(family) is list and len(family) == 1
+          assert type(family[0]) is int and family[0] == 1
+          assert info.get('CFBundleIdentifier') == 'com.mekidoapps.vendingnavi'
+          assert not (app / '_CodeSignature').exists()
+          assert not (app / 'embedded.mobileprovision').exists()
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('Unsigned compile only; no runtime/signing/upload verified.\n')
+              out.write('Source: ' + os.environ['SOURCE_SHA'] + '\n')
+              out.write('Binary SHA256: ' + hashlib.sha256(executable.read_bytes()).hexdigest() + '\n')
+          PY
