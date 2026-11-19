@@ -297,6 +297,9 @@ def receipt_identity():
 
 
 def validate_info(info):
+    family = info.get('UIDeviceFamily')
+    require(type(family) is list and len(family) == 1
+            and type(family[0]) is int and family[0] == 1)
     require(info.get('CFBundleIdentifier') == BUNDLE)
     require(info.get('CFBundleDisplayName') == '\u81ea\u8ca9\u6a5f\u30ca\u30d3')
     require(info.get('CFBundleShortVersionString') == '1.0.0')
