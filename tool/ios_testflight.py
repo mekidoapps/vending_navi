@@ -21,7 +21,7 @@ import zipfile
 TEAM = 'HBD765T7G9'
 BUNDLE = 'com.mekidoapps.vendingnavi'
 PROFILE_NAME = 'VendingNavi AppStore'
-LOCK_SHA256 = '3d9233f72b9f70f73f4f6482bf50510049ad37d94cf24f80ccaf8859331a7b96'
+LOCK_SHA256 = 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9'
 SERVICES = ('GOOGLE_MAPS_IOS_API_KEY', 'GOOGLE_SIGN_IN_IOS_CLIENT_ID',
             'GOOGLE_SIGN_IN_REVERSED_CLIENT_ID')
 ROOT = Path(__file__).resolve().parent.parent
@@ -297,6 +297,9 @@ def receipt_identity():
 
 
 def validate_info(info):
+    family = info.get('UIDeviceFamily')
+    require(type(family) is list and len(family) == 1
+            and type(family[0]) is int and family[0] == 1)
     require(info.get('CFBundleIdentifier') == BUNDLE)
     require(info.get('CFBundleDisplayName') == '\u81ea\u8ca9\u6a5f\u30ca\u30d3')
     require(info.get('CFBundleShortVersionString') == '1.0.0')

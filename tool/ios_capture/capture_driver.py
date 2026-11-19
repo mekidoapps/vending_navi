@@ -108,7 +108,7 @@ def stage(target, operation):
 
 SOURCE = 'b8abf91740eec97a260794b5e6923acd688502ed'
 BUILD_NUMBER = '25'  # main requires an explicitly reviewed new build number.
-LOCK = '3d9233f72b9f70f73f4f6482bf50510049ad37d94cf24f80ccaf8859331a7b96'
+LOCK = 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9'
 BUNDLE = 'com.mekidoapps.vendingnavi'
 APP_ID = '1:589528386744:ios:e6afb2ac27e7a1e552784d'
 RUNTIME = 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'
