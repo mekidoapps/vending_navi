@@ -6,7 +6,7 @@ on:
 permissions: {}
 jobs:
   simulator:
-    if: github.event.head_commit.message == 'ci: probe large iPhone simulator once'
+    if: github.event.head_commit.message == 'qa large iPhone simulator smoke'
     runs-on: macos-15
     timeout-minutes: 8
     env:
