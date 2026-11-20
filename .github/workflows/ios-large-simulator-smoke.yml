@@ -1,0 +1,45 @@
+name: iOS large simulator smoke (no app)
+on:
+  push:
+    branches: [qa/ios-large-simulator-smoke-20261120]
+    paths: [.github/workflows/ios-large-simulator-smoke.yml]
+permissions: {}
+jobs:
+  simulator:
+    if: github.event.head_commit.message == 'ci: probe large iPhone simulator once'
+    runs-on: macos-15
+    timeout-minutes: 8
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - name: Boot iPhone 16 Pro Max and measure a disposable OS screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          device=""
+          scratch="$(mktemp -d "$RUNNER_TEMP/ios-large-smoke.XXXXXX")"
+          cleanup() {
+            if [ -n "$device" ]; then xcrun simctl shutdown "$device" >/dev/null 2>&1 || true; fi
+            rm -f "$scratch/devices.json" "$scratch/screen.png"
+            rmdir "$scratch"
+          }
+          trap cleanup EXIT
+          printf 'Runner: %s / %s\n' "$ImageOS" "$ImageVersion"
+          xcodebuild -version
+          xcrun simctl list devices available --json >"$scratch/devices.json"
+          device="$(python3 - "$scratch/devices.json" <<'PY'
+          import json, sys
+          names = json.load(open(sys.argv[1]))["devices"]
+          matches = [d["udid"] for d in names.get("com.apple.CoreSimulator.SimRuntime.iOS-26-2", [])
+                     if d["name"] == "iPhone 16 Pro Max" and d["isAvailable"]]
+          if len(matches) != 1:
+              sys.exit("Expected exactly one available iPhone 16 Pro Max on iOS 26.2")
+          print(matches[0])
+          PY
+          )"
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl io "$device" screenshot --type=png "$scratch/screen.png"
+          readout="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$scratch/screen.png")"
+          printf '%s\n' "$readout" | sed -n '2,$p'
+          test "$(printf '%s\n' "$readout" | awk '/pixelWidth:/ {print $2}')" = 1320
+          test "$(printf '%s\n' "$readout" | awk '/pixelHeight:/ {print $2}')" = 2868
