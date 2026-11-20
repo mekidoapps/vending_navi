@@ -51,7 +51,7 @@ def restore_diagnostics():
         validated = []
         for e in saved['events']:
             need(set(e) <= {'target', 'stage', 'status', 'kind', 'exit_code', 'timeout_seconds', 'elapsed_seconds'})
-            need(e.get('target') in {'capture', 'cleanup', 'iphone-dynamic-medium'})
+            need(e.get('target') in {'capture', 'cleanup', 'iphone-dynamic-large'})
             need(e.get('stage') in OPERATIONS)
             need(e.get('status') in {'started', 'complete', 'failed'})
             need(e.get('kind', 'exit') in {'exit', 'timeout', 'check_or_interrupt'})
@@ -73,7 +73,7 @@ class CommandFailure(RuntimeError):
 @contextmanager
 def stage(target, operation):
     # Closed vocabulary only: never serialize commands, exceptions, env or SDK output.
-    need(target in {'capture', 'cleanup', 'iphone-dynamic-medium'})
+    need(target in {'capture', 'cleanup', 'iphone-dynamic-large'})
     need(operation in OPERATIONS)
     started = time.monotonic()
     event = {'target': target, 'stage': operation, 'status': 'started'}
@@ -113,7 +113,7 @@ BUNDLE = 'com.mekidoapps.vendingnavi'
 APP_ID = '1:589528386744:ios:e6afb2ac27e7a1e552784d'
 RUNTIME = 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'
 SERVICES = ('GOOGLE_MAPS_IOS_API_KEY', 'GOOGLE_SIGN_IN_IOS_CLIENT_ID', 'GOOGLE_SIGN_IN_REVERSED_CLIENT_ID')
-TARGETS = [('iphone-dynamic-medium', 'iPhone 16', {(1179, 2556)})]
+TARGETS = [('iphone-dynamic-large', 'iPhone 16 Pro Max', {(1320, 2868)})]
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -421,7 +421,7 @@ def capture(app, root):
             with stage(label, 'shutdown'):
                 command(['xcrun', 'simctl', 'shutdown', device])
         (output / 'receipt.json').write_text(json.dumps(receipts, indent=2))
-        need({p.name for p in output.iterdir()} == {'iphone-dynamic-medium.png', 'receipt.json'})
+        need({p.name for p in output.iterdir()} == {'iphone-dynamic-large.png', 'receipt.json'})
     finally:
         token = ''
         app_diagnostics.stop()
