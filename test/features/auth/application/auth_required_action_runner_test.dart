@@ -104,6 +104,31 @@ void main() {
     expect(result, AuthRequiredActionResult.authenticationNotEstablished);
     expect(actionCount, 0);
   });
+
+  test('認証画面成功後も同期キャッシュではなくセッション通知を確認する', () async {
+    final repository = _FakeAuthRepository(session: const GuestAuthSession());
+    final runner = AuthRequiredActionRunner(repository);
+    var authRequestCount = 0;
+    var actionCount = 0;
+
+    final result = await runner.run(
+      requestAuthentication: () async {
+        authRequestCount += 1;
+        repository.sessionStream = Stream<AuthSession>.value(
+          _authenticatedSession(),
+        );
+        return true;
+      },
+      action: () async {
+        actionCount += 1;
+      },
+    );
+
+    expect(repository.currentSession, isA<GuestAuthSession>());
+    expect(result, AuthRequiredActionResult.completed);
+    expect(authRequestCount, 1);
+    expect(actionCount, 1);
+  });
 }
 
 AuthSession _authenticatedSession() {
