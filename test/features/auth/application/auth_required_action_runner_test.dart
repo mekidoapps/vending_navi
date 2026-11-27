@@ -6,10 +6,6 @@ import 'package:vending_app/features/auth/domain/entities/auth_user.dart';
 import 'package:vending_app/features/auth/domain/repositories/auth_repository.dart';
 
 void main() {
-  test('C2-03B intentional exit-proof', () {
-    expect(1, 2);
-  });
-
   test('ログイン済みなら認証要求せず元Actionを実行する', () async {
     final repository = _FakeAuthRepository(session: _authenticatedSession());
     final runner = AuthRequiredActionRunner(repository);
