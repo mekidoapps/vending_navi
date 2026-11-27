@@ -106,6 +106,37 @@ void main() {
     expect(service.openLocationSettingsCalls, 1);
   });
 
+  testWidgets('位置情報を拒否しても地図と検索を利用できる', (tester) async {
+    final service = _FakeLocationService(
+      permission: AppLocationPermission.denied,
+    );
+    var searches = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [locationServiceProvider.overrideWithValue(service)],
+        child: MaterialApp(
+          home: V2HomeMapScreen(
+            mapBuilder: (_) =>
+                const ColoredBox(key: Key('fakeMap'), color: Colors.white),
+            onSearchPressed: () => searches += 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('fakeMap')), findsOneWidget);
+    expect(find.text('現在地の利用が許可されていません'), findsOneWidget);
+    expect(service.requestPermissionCalls, 1);
+    expect(service.getLocationCalls, 0);
+
+    await tester.tap(find.byKey(const Key('searchMapAction')));
+    await tester.pumpAndSettle();
+    expect(searches, 1);
+    expect(find.byKey(const Key('fakeMap')), findsOneWidget);
+  });
+
   testWidgets('現在地取得成功後は位置案内カードを表示し続けない', (WidgetTester tester) async {
     final service = _FakeLocationService(
       permission: AppLocationPermission.whileInUse,
@@ -179,6 +210,7 @@ final class _FakeLocationService implements LocationService {
   final bool serviceEnabled;
   final AppLocationPermission permission;
 
+  int requestPermissionCalls = 0;
   int getLocationCalls = 0;
   int openLocationSettingsCalls = 0;
 
@@ -189,7 +221,10 @@ final class _FakeLocationService implements LocationService {
   Future<AppLocationPermission> checkPermission() async => permission;
 
   @override
-  Future<AppLocationPermission> requestPermission() async => permission;
+  Future<AppLocationPermission> requestPermission() async {
+    requestPermissionCalls += 1;
+    return permission;
+  }
 
   @override
   Future<AppResult<CurrentLocation>> getCurrentLocation() async {

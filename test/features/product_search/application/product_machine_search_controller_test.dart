@@ -138,6 +138,42 @@ void main() {
       isA<NetworkFailure>(),
     );
   });
+
+  test('検索条件を解除した後に進行中だった検索結果を復活させない', () async {
+    final repository = _DeferredIndexRepository();
+    final container = ProviderContainer(
+      overrides: [
+        machineProductIndexRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(
+      productMachineSearchControllerProvider.notifier,
+    );
+    final productId = ProductId.parse('suntory_boss_black');
+
+    final inFlight = controller.search(
+      productId: productId,
+      viewport: _viewport(),
+    );
+    expect(
+      container.read(productMachineSearchControllerProvider).isLoading,
+      isTrue,
+    );
+
+    controller.clear();
+    repository.complete(productId.value, [_entry('machine_boss')]);
+    await inFlight;
+
+    final state = container.read(productMachineSearchControllerProvider);
+    expect(state.productId, isNull);
+    expect(state.viewport, isNull);
+    expect(state.entries, isEmpty);
+    expect(state.failure, isNull);
+    expect(state.hasSearched, isFalse);
+    expect(state.isLoading, isFalse);
+  });
 }
 
 MapViewportBounds _viewport() {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vending_app/core/errors/app_failure.dart';
@@ -86,6 +88,77 @@ void main() {
     expect(state.hasLoaded, isTrue);
     expect(state.isLoading, isFalse);
   });
+
+  test('同じ表示範囲を再読込すると保持中の一覧を更新する', () async {
+    final before = _machine('before_update');
+    final after = _machine('after_update');
+    final repository = _SequenceMapRepository([
+      AppResult<List<VendingMachine>>.success([before]),
+      AppResult<List<VendingMachine>>.success([after]),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        vendingMachineMapRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(
+      vendingMachineMapControllerProvider.notifier,
+    );
+    final viewport = _bounds();
+
+    await controller.loadViewport(viewport);
+    await controller.loadViewport(viewport);
+    final cached = container.read(vendingMachineMapControllerProvider);
+    expect(cached.machines.single.id, before.id);
+
+    await controller.retry();
+    final refreshed = container.read(vendingMachineMapControllerProvider);
+    expect(refreshed.lastViewport, same(viewport));
+    expect(refreshed.machines.single.id, after.id);
+    expect(refreshed.failure, isNull);
+  });
+
+  test('表示範囲を続けて移動したとき古い応答で新しい選択を消さない', () async {
+    final repository = _DeferredMapRepository();
+    final container = ProviderContainer(
+      overrides: [
+        vendingMachineMapRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(
+      vendingMachineMapControllerProvider.notifier,
+    );
+    final previousBounds = _bounds();
+    final latestBounds = MapViewportBounds(
+      south: 35.65,
+      west: 139.70,
+      north: 35.90,
+      east: 139.90,
+    );
+    final previousMachine = _machine('previous_machine');
+    final latestMachine = _machine('latest_machine');
+
+    final previous = controller.loadViewport(previousBounds);
+    final latest = controller.loadViewport(latestBounds);
+
+    repository.complete(latestBounds, [latestMachine]);
+    await latest;
+    controller.selectMachine(latestMachine.id);
+
+    repository.complete(previousBounds, [previousMachine]);
+    await previous;
+
+    final state = container.read(vendingMachineMapControllerProvider);
+    expect(state.lastViewport, same(latestBounds));
+    expect(state.machines.map((machine) => machine.id), [latestMachine.id]);
+    expect(state.selectedMachineId, latestMachine.id);
+    expect(state.failure, isNull);
+    expect(state.isLoading, isFalse);
+  });
 }
 
 MapViewportBounds _bounds() {
@@ -135,5 +208,25 @@ final class _SequenceMapRepository implements VendingMachineMapRepository {
       index += 1;
     }
     return current;
+  }
+}
+
+final class _DeferredMapRepository implements VendingMachineMapRepository {
+  final _pending =
+      <MapViewportBounds, Completer<AppResult<List<VendingMachine>>>>{};
+
+  @override
+  Future<AppResult<List<VendingMachine>>> getMachinesInViewport(
+    MapViewportBounds bounds,
+  ) {
+    final response = Completer<AppResult<List<VendingMachine>>>();
+    _pending[bounds] = response;
+    return response.future;
+  }
+
+  void complete(MapViewportBounds bounds, List<VendingMachine> machines) {
+    _pending
+        .remove(bounds)!
+        .complete(AppResult<List<VendingMachine>>.success(machines));
   }
 }

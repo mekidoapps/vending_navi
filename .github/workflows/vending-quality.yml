@@ -1,0 +1,51 @@
+name: VendingNavi focused quality
+
+'on':
+  pull_request:
+    branches: ['ios/device-configuration']
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.metadata'
+      - 'tool/vending_quality_gate.py'
+      - '.github/workflows/vending-quality.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-quality:
+    name: Focused Flutter regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - name: Check out the pull request merge result
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch and verify official Flutter SDK
+        shell: bash
+        run: |
+          sdk_archive="$RUNNER_TEMP/flutter_linux_3.41.2-stable.tar.xz"
+          curl --disable --fail --silent --show-error \
+            --proto '=https' --retry 2 --max-time 300 \
+            'https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.41.2-stable.tar.xz' \
+            --output "$sdk_archive"
+          printf '%s  %s\n' \
+            '4a04f8a6152986d14fc137ffaf98106ca743c0f9ab66f1bc2f20ee84eb573e5c' \
+            "$sdk_archive" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/vending-quality"
+          tar -xJf "$sdk_archive" -C "$RUNNER_TEMP/vending-quality"
+      - name: Resolve locked dependencies, analyze, and test
+        shell: bash
+        run: python3 tool/vending_quality_gate.py --flutter-sdk "$RUNNER_TEMP/vending-quality/flutter"

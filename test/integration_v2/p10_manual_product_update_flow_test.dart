@@ -11,6 +11,7 @@ import 'package:vending_app/features/auth/domain/repositories/auth_repository.da
 import 'package:vending_app/features/content_blocking/application/blocked_content_state.dart';
 import 'package:vending_app/features/machine_update/application/providers/machine_product_update_providers.dart';
 import 'package:vending_app/features/machine_update/domain/models/machine_product_update_draft.dart';
+import 'package:vending_app/features/machine_update/domain/models/machine_product_update_operation.dart';
 import 'package:vending_app/features/machine_update/domain/models/machine_product_update_result.dart';
 import 'package:vending_app/features/machine_update/domain/repositories/machine_product_update_repository.dart';
 import 'package:vending_app/features/machine_update/domain/services/machine_product_update_request_id_generator.dart';
@@ -25,9 +26,7 @@ import 'package:vending_app/features/vending_machine/domain/value_objects/geo_co
 import 'package:vending_app/features/vending_machine/domain/value_objects/vending_machine_id.dart';
 
 void main() {
-  testWidgets('P10-I04 詳細から手動商品更新で売り切れに変更しsubmit後に詳細へ戻る', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('P10-I04 手動商品更新後に詳細を再読込し売り切れを表示する', (WidgetTester tester) async {
     final data = _detailData();
     final machineId = data.machine.id;
     final updateRepository = _FakeProductUpdateRepository(machineId);
@@ -38,11 +37,9 @@ void main() {
         blockedContentGatewayProvider.overrideWithValue(
           _EmptyBlockedContentGateway(),
         ),
-        vendingMachineDetailProvider(machineId).overrideWithValue(
-          AsyncValue<AppResult<VendingMachineDetailData>>.data(
-            AppResult<VendingMachineDetailData>.success(data),
-          ),
-        ),
+        vendingMachineDetailProvider(
+          machineId,
+        ).overrideWith((_) => updateRepository.readDetail()),
         machineProductUpdateRepositoryProvider.overrideWithValue(
           updateRepository,
         ),
@@ -77,6 +74,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('駅前の自販機'), findsOneWidget);
+    expect(updateRepository.readCount, 1);
+    expect(find.text('売り切れ'), findsNothing);
     expect(find.text('BOSS ブラック'), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -143,6 +142,7 @@ void main() {
     //
     // Confirmation -> fake Callable repository -> detail.
     //
+    final readsBeforeSubmit = updateRepository.readCount;
     await tester.tap(find.byKey(const Key('submitMachineProductUpdateButton')));
     await tester.pumpAndSettle();
 
@@ -162,6 +162,8 @@ void main() {
     // Production router returns to detail and invalidates detail state.
     //
     expect(find.text('自販機詳細'), findsOneWidget);
+    expect(updateRepository.readCount, greaterThan(readsBeforeSubmit));
+    expect(find.text('売り切れ'), findsOneWidget);
     expect(
       find.byKey(const Key('productUpdateConfirmationScreen')),
       findsNothing,
@@ -199,7 +201,9 @@ final class _EmptyBlockedContentGateway implements BlockedContentGateway {
   }) async {}
 }
 
-VendingMachineDetailData _detailData() {
+VendingMachineDetailData _detailData({
+  ProductAvailability bossAvailability = ProductAvailability.available,
+}) {
   final machine = VendingMachine(
     id: VendingMachineId.parse('machine_p10_update'),
     schemaVersion: 2,
@@ -217,7 +221,7 @@ VendingMachineDetailData _detailData() {
       VendingMachineProduct(
         productId: ProductId.parse('suntory_boss_black'),
         evidenceType: ProductEvidenceType.manualConfirmed,
-        availability: ProductAvailability.available,
+        availability: bossAvailability,
       ),
       VendingMachineProduct(
         productId: ProductId.parse('suntory_tennensui'),
@@ -235,7 +239,7 @@ VendingMachineDetailData _detailData() {
         productId: ProductId.parse('suntory_boss_black'),
         productName: 'BOSS ブラック',
         evidenceType: ProductEvidenceType.manualConfirmed,
-        availability: ProductAvailability.available,
+        availability: bossAvailability,
       ),
       VendingMachineProductDetailItem(
         productId: ProductId.parse('suntory_tennensui'),
@@ -256,6 +260,15 @@ final class _FakeProductUpdateRepository
   int callCount = 0;
   String? lastRequestId;
   MachineProductUpdateDraft? lastDraft;
+  int readCount = 0;
+  ProductAvailability _bossAvailability = ProductAvailability.available;
+
+  Future<AppResult<VendingMachineDetailData>> readDetail() async {
+    readCount += 1;
+    return AppResult<VendingMachineDetailData>.success(
+      _detailData(bossAvailability: _bossAvailability),
+    );
+  }
 
   @override
   Future<AppResult<MachineProductUpdateResult>> updateProducts({
@@ -265,6 +278,11 @@ final class _FakeProductUpdateRepository
     callCount += 1;
     lastRequestId = requestId;
     lastDraft = draft;
+    final operation = draft.operations.single;
+    expect(operation.type, MachineProductUpdateOperationType.setSoldOut);
+    expect(operation.productId, 'suntory_boss_black');
+    expect(operation.soldOut, isTrue);
+    _bossAvailability = ProductAvailability.soldOut;
 
     return AppResult<MachineProductUpdateResult>.success(
       MachineProductUpdateResult(
