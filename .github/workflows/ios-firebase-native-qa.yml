@@ -1,7 +1,8 @@
-name: VendingNavi one-time unsigned Firebase QA
+name: VendingNavi one-time unsigned Firebase QA (locked retry)
 on:
   push:
     branches: ['qa/ios-firestore-12-19-3-20261128']
+    paths: ['.github/workflows/ios-firebase-native-qa.yml']
 permissions:
   contents: read
 concurrency:
@@ -13,14 +14,18 @@ jobs:
       github.repository == 'mekidoapps/vending_navi' &&
       github.event_name == 'push' &&
       github.event.repository.private == false &&
-      github.event.created == true &&
+      github.event.before == '293c220d8da3d4ebaa151f5ff60f3de5274f54a3' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'ci: run one-time unsigned Firestore 12.19.3 QA'
+      github.event.head_commit.message == 'ci: run one locked unsigned Firestore 12.19.3 QA retry'
     runs-on: macos-15
     timeout-minutes: 45
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      BASE: 0e7c6b063ff2c75c339ec571857621123f9df6a7
+      BASE: 293c220d8da3d4ebaa151f5ff60f3de5274f54a3
+      LOCK_SHA256: 432db3e9c79592bb94cdd2f7a8480187d4eee5b9d2937fa5d7c670da76bbf50b
+      PBX_BEFORE_BLOB: 6e5a808a48b277db7c78d93be088760bf6f8155d
+      PBX_REVIEWED_BLOB: ead4ad43cce738536c76095832177788f427d0b8
+      PBX_REVIEWED_SHA256: b1bb01da25f2309458271cde0927baf549b3c67031f0d231a745c8fae4a6ae52
       COCOAPODS_DISABLE_STATS: 'true'
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
       CI: 'true'
@@ -35,37 +40,282 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git show -s --format=%P HEAD)" = "$BASE"
-          diff -u <(printf '%s\n' .github/workflows/ios-firebase-native-qa.yml ios/Podfile ios/Runner.xcodeproj/project.pbxproj pubspec.lock pubspec.yaml) <(git diff --name-only "$BASE" HEAD)
+          diff -u <(printf '%s\n' .github/workflows/ios-firebase-native-qa.yml ios/Podfile.lock) <(git diff --name-only "$BASE" HEAD)
           shasum -a 256 -c <<'EOF'
           735eb089361d582d4fa18aa377cadcf85afd4a1adf95f31e00c9ecc193acb953  ios/Podfile
           8a25c22a01fb1a478a7361ddf357679ae9e9996397b45126eb8756a4bd73121d  ios/Runner.xcodeproj/project.pbxproj
           eb860729ceb91ca52433c57d4ba9f9706295be92e201b56fa44fdae4a44715cb  pubspec.lock
           8d896f31d11d7602cbdf0d0b41e0d4f886890920ae2adbbb868eee347d46b0e3  pubspec.yaml
           EOF
-          test ! -e ios/Flutter/LocalServices.xcconfig
+          test "$(git hash-object --no-filters ios/Runner.xcodeproj/project.pbxproj)" = "$PBX_BEFORE_BLOB"
+          test -f ios/Podfile.lock && test ! -L ios/Podfile.lock
+          printf '%s  %s\n' "$LOCK_SHA256" ios/Podfile.lock | shasum -a 256 -c -
+          test ! -e ios/Flutter/LocalServices.xcconfig && test ! -L ios/Flutter/LocalServices.xcconfig
           xcodebuild -version | grep -Fx 'Xcode 26.3'
-          pod --version
+          test "$(pod --version)" = '1.17.0'
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.41.2'
           channel: stable
           cache: false
-      - name: Resolve public Pods and verify candidate lock
+      - name: Install exact public Pods and verify reviewed integration
         shell: bash
         run: |
           set -euo pipefail
           flutter config --no-analytics --no-enable-swift-package-manager
           dart --disable-analytics
           flutter pub get --enforce-lockfile
-          echo 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9  ios/Podfile.lock' | shasum -a 256 -c -
-          mv ios/Podfile.lock "$RUNNER_TEMP/Podfile.baseline.lock"
           if ! pod repo list | grep -Fxq trunk; then
             pod repo add-cdn trunk https://cdn.cocoapods.org/
           fi
-          (cd ios && pod repo update trunk)
+          # Seed the exact reviewed Runner integration to preserve its object IDs.
+          # This affects only the disposable runner worktree, never the committed candidate.
+          base64 -D <<'QA_REVIEWED_DIFF' > "$RUNNER_TEMP/qa-reviewed-runner.diff"
+          ZGlmZiAtLWdpdCBhL2lvcy9SdW5uZXIueGNvZGVwcm9qL3Byb2plY3QucGJ4cHJvaiBiL2lvcy9SdW5uZXIueGNvZGVwcm9q
+          L3Byb2plY3QucGJ4cHJvagppbmRleCA2ZTVhODA4Li5lYWQ0YWQ0IDEwMDY0NAotLS0gYS9pb3MvUnVubmVyLnhjb2RlcHJv
+          ai9wcm9qZWN0LnBieHByb2oKKysrIGIvaW9zL1J1bm5lci54Y29kZXByb2ovcHJvamVjdC5wYnhwcm9qCkBAIC0xNSw2ICsx
+          NSw4IEBACiAJCTk3QzE0NkZDMUNGOTAwMEYwMDdDMTE3RCAvKiBNYWluLnN0b3J5Ym9hcmQgaW4gUmVzb3VyY2VzICovID0g
+          e2lzYSA9IFBCWEJ1aWxkRmlsZTsgZmlsZVJlZiA9IDk3QzE0NkZBMUNGOTAwMEYwMDdDMTE3RCAvKiBNYWluLnN0b3J5Ym9h
+          cmQgKi87IH07CiAJCTk3QzE0NkZFMUNGOTAwMEYwMDdDMTE3RCAvKiBBc3NldHMueGNhc3NldHMgaW4gUmVzb3VyY2VzICov
+          ID0ge2lzYSA9IFBCWEJ1aWxkRmlsZTsgZmlsZVJlZiA9IDk3QzE0NkZEMUNGOTAwMEYwMDdDMTE3RCAvKiBBc3NldHMueGNh
+          c3NldHMgKi87IH07CiAJCTk3QzE0NzAxMUNGOTAwMEYwMDdDMTE3RCAvKiBMYXVuY2hTY3JlZW4uc3Rvcnlib2FyZCBpbiBS
+          ZXNvdXJjZXMgKi8gPSB7aXNhID0gUEJYQnVpbGRGaWxlOyBmaWxlUmVmID0gOTdDMTQ2RkYxQ0Y5MDAwRjAwN0MxMTdEIC8q
+          IExhdW5jaFNjcmVlbi5zdG9yeWJvYXJkICovOyB9OworCQk5QzgwMTE5NEM4NDRFNEFCNEFGNERGMUMgLyogUG9kc19SdW5u
+          ZXJUZXN0cy5mcmFtZXdvcmsgaW4gRnJhbWV3b3JrcyAqLyA9IHtpc2EgPSBQQlhCdWlsZEZpbGU7IGZpbGVSZWYgPSAxQzdC
+          QUE3RjdCNTI5QTVFRUYxRUQ0RjUgLyogUG9kc19SdW5uZXJUZXN0cy5mcmFtZXdvcmsgKi87IH07CisJCUVBOUU4MUM5NTNB
+          MzNFNTM5Qzk4RkEyMyAvKiBQb2RzX1J1bm5lci5mcmFtZXdvcmsgaW4gRnJhbWV3b3JrcyAqLyA9IHtpc2EgPSBQQlhCdWls
+          ZEZpbGU7IGZpbGVSZWYgPSBFMTNGNzE3NkY0REYyOTU4OTA3RUE4RjcgLyogUG9kc19SdW5uZXIuZnJhbWV3b3JrICovOyB9
+          OwogLyogRW5kIFBCWEJ1aWxkRmlsZSBzZWN0aW9uICovCiAKIC8qIEJlZ2luIFBCWENvbnRhaW5lckl0ZW1Qcm94eSBzZWN0
+          aW9uICovCkBAIC00MSwxNiArNDMsMjEgQEAKIC8qIEVuZCBQQlhDb3B5RmlsZXNCdWlsZFBoYXNlIHNlY3Rpb24gKi8KIAog
+          LyogQmVnaW4gUEJYRmlsZVJlZmVyZW5jZSBzZWN0aW9uICovCi0JCUE3MUY1QjAxMjAyNjEwMTYwMDAwMDAwMSAvKiBQcm9m
+          aWxlLnhjY29uZmlnICovID0ge2lzYSA9IFBCWEZpbGVSZWZlcmVuY2U7IGxhc3RLbm93bkZpbGVUeXBlID0gdGV4dC54Y2Nv
+          bmZpZzsgbmFtZSA9IFByb2ZpbGUueGNjb25maWc7IHBhdGggPSBGbHV0dGVyL1Byb2ZpbGUueGNjb25maWc7IHNvdXJjZVRy
+          ZWUgPSAiPGdyb3VwPiI7IH07CisJCTEyMUU5NEE3NkQ4NzgyRTg3RTA5OTE1NiAvKiBQb2RzLVJ1bm5lclRlc3RzLnJlbGVh
+          c2UueGNjb25maWcgKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5jZTsgaW5jbHVkZUluSW5kZXggPSAxOyBsYXN0S25vd25G
+          aWxlVHlwZSA9IHRleHQueGNjb25maWc7IG5hbWUgPSAiUG9kcy1SdW5uZXJUZXN0cy5yZWxlYXNlLnhjY29uZmlnIjsgcGF0
+          aCA9ICJUYXJnZXQgU3VwcG9ydCBGaWxlcy9Qb2RzLVJ1bm5lclRlc3RzL1BvZHMtUnVubmVyVGVzdHMucmVsZWFzZS54Y2Nv
+          bmZpZyI7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CiAJCTE0OThEMjMyMUU4RTg2MjMwMDQwRjRDMiAvKiBHZW5lcmF0
+          ZWRQbHVnaW5SZWdpc3RyYW50LmggKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5jZTsgbGFzdEtub3duRmlsZVR5cGUgPSBz
+          b3VyY2Vjb2RlLmMuaDsgcGF0aCA9IEdlbmVyYXRlZFBsdWdpblJlZ2lzdHJhbnQuaDsgc291cmNlVHJlZSA9ICI8Z3JvdXA+
+          IjsgfTsKIAkJMTQ5OEQyMzMxRThFODkyMjAwNDBGNEMyIC8qIEdlbmVyYXRlZFBsdWdpblJlZ2lzdHJhbnQubSAqLyA9IHtp
+          c2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBmaWxlRW5jb2RpbmcgPSA0OyBsYXN0S25vd25GaWxlVHlwZSA9IHNvdXJjZWNvZGUu
+          Yy5vYmpjOyBwYXRoID0gR2VuZXJhdGVkUGx1Z2luUmVnaXN0cmFudC5tOyBzb3VyY2VUcmVlID0gIjxncm91cD4iOyB9Owor
+          CQkxQTQ4RDAzMURDQUFCMUQzMUI1MDYwMTMgLyogUG9kcy1SdW5uZXIucmVsZWFzZS54Y2NvbmZpZyAqLyA9IHtpc2EgPSBQ
+          QlhGaWxlUmVmZXJlbmNlOyBpbmNsdWRlSW5JbmRleCA9IDE7IGxhc3RLbm93bkZpbGVUeXBlID0gdGV4dC54Y2NvbmZpZzsg
+          bmFtZSA9ICJQb2RzLVJ1bm5lci5yZWxlYXNlLnhjY29uZmlnIjsgcGF0aCA9ICJUYXJnZXQgU3VwcG9ydCBGaWxlcy9Qb2Rz
+          LVJ1bm5lci9Qb2RzLVJ1bm5lci5yZWxlYXNlLnhjY29uZmlnIjsgc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKKwkJMUM3
+          QkFBN0Y3QjUyOUE1RUVGMUVENEY1IC8qIFBvZHNfUnVubmVyVGVzdHMuZnJhbWV3b3JrICovID0ge2lzYSA9IFBCWEZpbGVS
+          ZWZlcmVuY2U7IGV4cGxpY2l0RmlsZVR5cGUgPSB3cmFwcGVyLmZyYW1ld29yazsgaW5jbHVkZUluSW5kZXggPSAwOyBwYXRo
+          ID0gUG9kc19SdW5uZXJUZXN0cy5mcmFtZXdvcms7IHNvdXJjZVRyZWUgPSBCVUlMVF9QUk9EVUNUU19ESVI7IH07CiAJCTMz
+          MUM4MDdCMjk0QTYxODcwMDI2M0JFNSAvKiBSdW5uZXJUZXN0cy5zd2lmdCAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNl
+          OyBsYXN0S25vd25GaWxlVHlwZSA9IHNvdXJjZWNvZGUuc3dpZnQ7IHBhdGggPSBSdW5uZXJUZXN0cy5zd2lmdDsgc291cmNl
+          VHJlZSA9ICI8Z3JvdXA+IjsgfTsKIAkJMzMxQzgwODEyOTRBNjNBNDAwMjYzQkU1IC8qIFJ1bm5lclRlc3RzLnhjdGVzdCAq
+          LyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBleHBsaWNpdEZpbGVUeXBlID0gd3JhcHBlci5jZmJ1bmRsZTsgaW5jbHVk
+          ZUluSW5kZXggPSAwOyBwYXRoID0gUnVubmVyVGVzdHMueGN0ZXN0OyBzb3VyY2VUcmVlID0gQlVJTFRfUFJPRFVDVFNfRElS
+          OyB9OwogCQkzQjM5NjcxNTFFODMzQ0FBMDA0RjU5NzAgLyogQXBwRnJhbWV3b3JrSW5mby5wbGlzdCAqLyA9IHtpc2EgPSBQ
+          QlhGaWxlUmVmZXJlbmNlOyBmaWxlRW5jb2RpbmcgPSA0OyBsYXN0S25vd25GaWxlVHlwZSA9IHRleHQucGxpc3QueG1sOyBu
+          YW1lID0gQXBwRnJhbWV3b3JrSW5mby5wbGlzdDsgcGF0aCA9IEZsdXR0ZXIvQXBwRnJhbWV3b3JrSW5mby5wbGlzdDsgc291
+          cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKKwkJM0U4QjRFOTM1OEI1RDQwODE2QUYyQTdGIC8qIFBvZHMtUnVubmVyVGVzdHMu
+          cHJvZmlsZS54Y2NvbmZpZyAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBpbmNsdWRlSW5JbmRleCA9IDE7IGxhc3RL
+          bm93bkZpbGVUeXBlID0gdGV4dC54Y2NvbmZpZzsgbmFtZSA9ICJQb2RzLVJ1bm5lclRlc3RzLnByb2ZpbGUueGNjb25maWci
+          OyBwYXRoID0gIlRhcmdldCBTdXBwb3J0IEZpbGVzL1BvZHMtUnVubmVyVGVzdHMvUG9kcy1SdW5uZXJUZXN0cy5wcm9maWxl
+          LnhjY29uZmlnIjsgc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKIAkJNzQ4NThGQUQxRUQyREM1NjAwNTE1ODEwIC8qIFJ1
+          bm5lci1CcmlkZ2luZy1IZWFkZXIuaCAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBsYXN0S25vd25GaWxlVHlwZSA9
+          IHNvdXJjZWNvZGUuYy5oOyBwYXRoID0gIlJ1bm5lci1CcmlkZ2luZy1IZWFkZXIuaCI7IHNvdXJjZVRyZWUgPSAiPGdyb3Vw
+          PiI7IH07CiAJCTc0ODU4RkFFMUVEMkRDNTYwMDUxNTgxMCAvKiBBcHBEZWxlZ2F0ZS5zd2lmdCAqLyA9IHtpc2EgPSBQQlhG
+          aWxlUmVmZXJlbmNlOyBmaWxlRW5jb2RpbmcgPSA0OyBsYXN0S25vd25GaWxlVHlwZSA9IHNvdXJjZWNvZGUuc3dpZnQ7IHBh
+          dGggPSBBcHBEZWxlZ2F0ZS5zd2lmdDsgc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKIAkJNzg4NEU4NjcyRUMzQ0MwNDAw
+          QzYzNkYyIC8qIFNjZW5lRGVsZWdhdGUuc3dpZnQgKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5jZTsgbGFzdEtub3duRmls
+          ZVR5cGUgPSBzb3VyY2Vjb2RlLnN3aWZ0OyBwYXRoID0gU2NlbmVEZWxlZ2F0ZS5zd2lmdDsgc291cmNlVHJlZSA9ICI8Z3Jv
+          dXA+IjsgfTsKIAkJN0FGQTNDOEUxRDM1MzYwQzAwODMwODJFIC8qIFJlbGVhc2UueGNjb25maWcgKi8gPSB7aXNhID0gUEJY
+          RmlsZVJlZmVyZW5jZTsgbGFzdEtub3duRmlsZVR5cGUgPSB0ZXh0LnhjY29uZmlnOyBuYW1lID0gUmVsZWFzZS54Y2NvbmZp
+          ZzsgcGF0aCA9IEZsdXR0ZXIvUmVsZWFzZS54Y2NvbmZpZzsgc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKKwkJOEFBM0FE
+          MzhFMkNDODE4N0Y0QjMyM0U0IC8qIFBvZHMtUnVubmVyLnByb2ZpbGUueGNjb25maWcgKi8gPSB7aXNhID0gUEJYRmlsZVJl
+          ZmVyZW5jZTsgaW5jbHVkZUluSW5kZXggPSAxOyBsYXN0S25vd25GaWxlVHlwZSA9IHRleHQueGNjb25maWc7IG5hbWUgPSAi
+          UG9kcy1SdW5uZXIucHJvZmlsZS54Y2NvbmZpZyI7IHBhdGggPSAiVGFyZ2V0IFN1cHBvcnQgRmlsZXMvUG9kcy1SdW5uZXIv
+          UG9kcy1SdW5uZXIucHJvZmlsZS54Y2NvbmZpZyI7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CisJCThDODQyMjRGQzcy
+          NzNCOTBBNzMzQkYzMSAvKiBQb2RzLVJ1bm5lclRlc3RzLmRlYnVnLnhjY29uZmlnICovID0ge2lzYSA9IFBCWEZpbGVSZWZl
+          cmVuY2U7IGluY2x1ZGVJbkluZGV4ID0gMTsgbGFzdEtub3duRmlsZVR5cGUgPSB0ZXh0LnhjY29uZmlnOyBuYW1lID0gIlBv
+          ZHMtUnVubmVyVGVzdHMuZGVidWcueGNjb25maWciOyBwYXRoID0gIlRhcmdldCBTdXBwb3J0IEZpbGVzL1BvZHMtUnVubmVy
+          VGVzdHMvUG9kcy1SdW5uZXJUZXN0cy5kZWJ1Zy54Y2NvbmZpZyI7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CiAJCTk3
+          NDBFRUIyMUNGOTAxOTUwMDQzODRGQyAvKiBEZWJ1Zy54Y2NvbmZpZyAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBm
+          aWxlRW5jb2RpbmcgPSA0OyBsYXN0S25vd25GaWxlVHlwZSA9IHRleHQueGNjb25maWc7IG5hbWUgPSBEZWJ1Zy54Y2NvbmZp
+          ZzsgcGF0aCA9IEZsdXR0ZXIvRGVidWcueGNjb25maWc7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CiAJCTk3NDBFRUIz
+          MUNGOTAxOTUwMDQzODRGQyAvKiBHZW5lcmF0ZWQueGNjb25maWcgKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5jZTsgZmls
+          ZUVuY29kaW5nID0gNDsgbGFzdEtub3duRmlsZVR5cGUgPSB0ZXh0LnhjY29uZmlnOyBuYW1lID0gR2VuZXJhdGVkLnhjY29u
+          ZmlnOyBwYXRoID0gRmx1dHRlci9HZW5lcmF0ZWQueGNjb25maWc7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CiAJCTk3
+          QzE0NkVFMUNGOTAwMEYwMDdDMTE3RCAvKiBSdW5uZXIuYXBwICovID0ge2lzYSA9IFBCWEZpbGVSZWZlcmVuY2U7IGV4cGxp
+          Y2l0RmlsZVR5cGUgPSB3cmFwcGVyLmFwcGxpY2F0aW9uOyBpbmNsdWRlSW5JbmRleCA9IDA7IHBhdGggPSBSdW5uZXIuYXBw
+          OyBzb3VyY2VUcmVlID0gQlVJTFRfUFJPRFVDVFNfRElSOyB9OwpAQCAtNTgsNiArNjUsOSBAQAogCQk5N0MxNDZGRDFDRjkw
+          MDBGMDA3QzExN0QgLyogQXNzZXRzLnhjYXNzZXRzICovID0ge2lzYSA9IFBCWEZpbGVSZWZlcmVuY2U7IGxhc3RLbm93bkZp
+          bGVUeXBlID0gZm9sZGVyLmFzc2V0Y2F0YWxvZzsgcGF0aCA9IEFzc2V0cy54Y2Fzc2V0czsgc291cmNlVHJlZSA9ICI8Z3Jv
+          dXA+IjsgfTsKIAkJOTdDMTQ3MDAxQ0Y5MDAwRjAwN0MxMTdEIC8qIEJhc2UgKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5j
+          ZTsgbGFzdEtub3duRmlsZVR5cGUgPSBmaWxlLnN0b3J5Ym9hcmQ7IG5hbWUgPSBCYXNlOyBwYXRoID0gQmFzZS5scHJvai9M
+          YXVuY2hTY3JlZW4uc3Rvcnlib2FyZDsgc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsgfTsKIAkJOTdDMTQ3MDIxQ0Y5MDAwRjAw
+          N0MxMTdEIC8qIEluZm8ucGxpc3QgKi8gPSB7aXNhID0gUEJYRmlsZVJlZmVyZW5jZTsgbGFzdEtub3duRmlsZVR5cGUgPSB0
+          ZXh0LnBsaXN0LnhtbDsgcGF0aCA9IEluZm8ucGxpc3Q7IHNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7IH07CisJCUE1MkIxNjUw
+          ODFCMDQyMTZDMUYxRThCNSAvKiBQb2RzLVJ1bm5lci5kZWJ1Zy54Y2NvbmZpZyAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJl
+          bmNlOyBpbmNsdWRlSW5JbmRleCA9IDE7IGxhc3RLbm93bkZpbGVUeXBlID0gdGV4dC54Y2NvbmZpZzsgbmFtZSA9ICJQb2Rz
+          LVJ1bm5lci5kZWJ1Zy54Y2NvbmZpZyI7IHBhdGggPSAiVGFyZ2V0IFN1cHBvcnQgRmlsZXMvUG9kcy1SdW5uZXIvUG9kcy1S
+          dW5uZXIuZGVidWcueGNjb25maWciOyBzb3VyY2VUcmVlID0gIjxncm91cD4iOyB9OworCQlBNzFGNUIwMTIwMjYxMDE2MDAw
+          MDAwMDEgLyogUHJvZmlsZS54Y2NvbmZpZyAqLyA9IHtpc2EgPSBQQlhGaWxlUmVmZXJlbmNlOyBsYXN0S25vd25GaWxlVHlw
+          ZSA9IHRleHQueGNjb25maWc7IG5hbWUgPSBQcm9maWxlLnhjY29uZmlnOyBwYXRoID0gRmx1dHRlci9Qcm9maWxlLnhjY29u
+          ZmlnOyBzb3VyY2VUcmVlID0gIjxncm91cD4iOyB9OworCQlFMTNGNzE3NkY0REYyOTU4OTA3RUE4RjcgLyogUG9kc19SdW5u
+          ZXIuZnJhbWV3b3JrICovID0ge2lzYSA9IFBCWEZpbGVSZWZlcmVuY2U7IGV4cGxpY2l0RmlsZVR5cGUgPSB3cmFwcGVyLmZy
+          YW1ld29yazsgaW5jbHVkZUluSW5kZXggPSAwOyBwYXRoID0gUG9kc19SdW5uZXIuZnJhbWV3b3JrOyBzb3VyY2VUcmVlID0g
+          QlVJTFRfUFJPRFVDVFNfRElSOyB9OwogLyogRW5kIFBCWEZpbGVSZWZlcmVuY2Ugc2VjdGlvbiAqLwogCiAvKiBCZWdpbiBQ
+          QlhGcmFtZXdvcmtzQnVpbGRQaGFzZSBzZWN0aW9uICovCkBAIC02NSw2ICs3NSwxNSBAQAogCQkJaXNhID0gUEJYRnJhbWV3
+          b3Jrc0J1aWxkUGhhc2U7CiAJCQlidWlsZEFjdGlvbk1hc2sgPSAyMTQ3NDgzNjQ3OwogCQkJZmlsZXMgPSAoCisJCQkJRUE5
+          RTgxQzk1M0EzM0U1MzlDOThGQTIzIC8qIFBvZHNfUnVubmVyLmZyYW1ld29yayBpbiBGcmFtZXdvcmtzICovLAorCQkJKTsK
+          KwkJCXJ1bk9ubHlGb3JEZXBsb3ltZW50UG9zdHByb2Nlc3NpbmcgPSAwOworCQl9OworCQlGQkMyMDQ5MjcyN0RFMzk3RDhG
+          MzZDNjUgLyogRnJhbWV3b3JrcyAqLyA9IHsKKwkJCWlzYSA9IFBCWEZyYW1ld29ya3NCdWlsZFBoYXNlOworCQkJYnVpbGRB
+          Y3Rpb25NYXNrID0gMjE0NzQ4MzY0NzsKKwkJCWZpbGVzID0gKAorCQkJCTlDODAxMTk0Qzg0NEU0QUI0QUY0REYxQyAvKiBQ
+          b2RzX1J1bm5lclRlc3RzLmZyYW1ld29yayBpbiBGcmFtZXdvcmtzICovLAogCQkJKTsKIAkJCXJ1bk9ubHlGb3JEZXBsb3lt
+          ZW50UG9zdHByb2Nlc3NpbmcgPSAwOwogCQl9OwpAQCAtNzksNiArOTgsMTUgQEAKIAkJCXBhdGggPSBSdW5uZXJUZXN0czsK
+          IAkJCXNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7CiAJCX07CisJCTQwQjQzODY2NzAzRkZGMUVFRTE5RENFNiAvKiBGcmFtZXdv
+          cmtzICovID0geworCQkJaXNhID0gUEJYR3JvdXA7CisJCQljaGlsZHJlbiA9ICgKKwkJCQlFMTNGNzE3NkY0REYyOTU4OTA3
+          RUE4RjcgLyogUG9kc19SdW5uZXIuZnJhbWV3b3JrICovLAorCQkJCTFDN0JBQTdGN0I1MjlBNUVFRjFFRDRGNSAvKiBQb2Rz
+          X1J1bm5lclRlc3RzLmZyYW1ld29yayAqLywKKwkJCSk7CisJCQluYW1lID0gRnJhbWV3b3JrczsKKwkJCXNvdXJjZVRyZWUg
+          PSAiPGdyb3VwPiI7CisJCX07CiAJCTk3NDBFRUIxMUNGOTAxODYwMDQzODRGQyAvKiBGbHV0dGVyICovID0gewogCQkJaXNh
+          ID0gUEJYR3JvdXA7CiAJCQljaGlsZHJlbiA9ICgKQEAgLTk4LDYgKzEyNiw4IEBACiAJCQkJOTdDMTQ2RjAxQ0Y5MDAwRjAw
+          N0MxMTdEIC8qIFJ1bm5lciAqLywKIAkJCQk5N0MxNDZFRjFDRjkwMDBGMDA3QzExN0QgLyogUHJvZHVjdHMgKi8sCiAJCQkJ
+          MzMxQzgwODIyOTRBNjNBNDAwMjYzQkU1IC8qIFJ1bm5lclRlc3RzICovLAorCQkJCUQ5NkE3M0ZBOEU4MzE3RUEzQkI0MTIy
+          MiAvKiBQb2RzICovLAorCQkJCTQwQjQzODY2NzAzRkZGMUVFRTE5RENFNiAvKiBGcmFtZXdvcmtzICovLAogCQkJKTsKIAkJ
+          CXNvdXJjZVRyZWUgPSAiPGdyb3VwPiI7CiAJCX07CkBAIC0xMjYsNiArMTU2LDIwIEBACiAJCQlwYXRoID0gUnVubmVyOwog
+          CQkJc291cmNlVHJlZSA9ICI8Z3JvdXA+IjsKIAkJfTsKKwkJRDk2QTczRkE4RTgzMTdFQTNCQjQxMjIyIC8qIFBvZHMgKi8g
+          PSB7CisJCQlpc2EgPSBQQlhHcm91cDsKKwkJCWNoaWxkcmVuID0gKAorCQkJCUE1MkIxNjUwODFCMDQyMTZDMUYxRThCNSAv
+          KiBQb2RzLVJ1bm5lci5kZWJ1Zy54Y2NvbmZpZyAqLywKKwkJCQkxQTQ4RDAzMURDQUFCMUQzMUI1MDYwMTMgLyogUG9kcy1S
+          dW5uZXIucmVsZWFzZS54Y2NvbmZpZyAqLywKKwkJCQk4QUEzQUQzOEUyQ0M4MTg3RjRCMzIzRTQgLyogUG9kcy1SdW5uZXIu
+          cHJvZmlsZS54Y2NvbmZpZyAqLywKKwkJCQk4Qzg0MjI0RkM3MjczQjkwQTczM0JGMzEgLyogUG9kcy1SdW5uZXJUZXN0cy5k
+          ZWJ1Zy54Y2NvbmZpZyAqLywKKwkJCQkxMjFFOTRBNzZEODc4MkU4N0UwOTkxNTYgLyogUG9kcy1SdW5uZXJUZXN0cy5yZWxl
+          YXNlLnhjY29uZmlnICovLAorCQkJCTNFOEI0RTkzNThCNUQ0MDgxNkFGMkE3RiAvKiBQb2RzLVJ1bm5lclRlc3RzLnByb2Zp
+          bGUueGNjb25maWcgKi8sCisJCQkpOworCQkJbmFtZSA9IFBvZHM7CisJCQlwYXRoID0gUG9kczsKKwkJCXNvdXJjZVRyZWUg
+          PSAiPGdyb3VwPiI7CisJCX07CiAvKiBFbmQgUEJYR3JvdXAgc2VjdGlvbiAqLwogCiAvKiBCZWdpbiBQQlhOYXRpdmVUYXJn
+          ZXQgc2VjdGlvbiAqLwpAQCAtMTMzLDggKzE3NywxMCBAQAogCQkJaXNhID0gUEJYTmF0aXZlVGFyZ2V0OwogCQkJYnVpbGRD
+          b25maWd1cmF0aW9uTGlzdCA9IDMzMUM4MDg3Mjk0QTYzQTQwMDI2M0JFNSAvKiBCdWlsZCBjb25maWd1cmF0aW9uIGxpc3Qg
+          Zm9yIFBCWE5hdGl2ZVRhcmdldCAiUnVubmVyVGVzdHMiICovOwogCQkJYnVpbGRQaGFzZXMgPSAoCisJCQkJNTlGRDE1MjJF
+          M0EwMkJBMjg5MjFBQTI3IC8qIFtDUF0gQ2hlY2sgUG9kcyBNYW5pZmVzdC5sb2NrICovLAogCQkJCTMzMUM4MDdEMjk0QTYz
+          QTQwMDI2M0JFNSAvKiBTb3VyY2VzICovLAogCQkJCTMzMUM4MDdGMjk0QTYzQTQwMDI2M0JFNSAvKiBSZXNvdXJjZXMgKi8s
+          CisJCQkJRkJDMjA0OTI3MjdERTM5N0Q4RjM2QzY1IC8qIEZyYW1ld29ya3MgKi8sCiAJCQkpOwogCQkJYnVpbGRSdWxlcyA9
+          ICgKIAkJCSk7CkBAIC0xNTAsMTIgKzE5NiwxNSBAQAogCQkJaXNhID0gUEJYTmF0aXZlVGFyZ2V0OwogCQkJYnVpbGRDb25m
+          aWd1cmF0aW9uTGlzdCA9IDk3QzE0NzA1MUNGOTAwMEYwMDdDMTE3RCAvKiBCdWlsZCBjb25maWd1cmF0aW9uIGxpc3QgZm9y
+          IFBCWE5hdGl2ZVRhcmdldCAiUnVubmVyIiAqLzsKIAkJCWJ1aWxkUGhhc2VzID0gKAorCQkJCTlCOTQ1RDI0Mjc3QzI4REM0
+          QkZFQzc0MCAvKiBbQ1BdIENoZWNrIFBvZHMgTWFuaWZlc3QubG9jayAqLywKIAkJCQk5NzQwRUVCNjFDRjkwMUY2MDA0Mzg0
+          RkMgLyogUnVuIFNjcmlwdCAqLywKIAkJCQk5N0MxNDZFQTFDRjkwMDBGMDA3QzExN0QgLyogU291cmNlcyAqLywKIAkJCQk5
+          N0MxNDZFQjFDRjkwMDBGMDA3QzExN0QgLyogRnJhbWV3b3JrcyAqLywKIAkJCQk5N0MxNDZFQzFDRjkwMDBGMDA3QzExN0Qg
+          LyogUmVzb3VyY2VzICovLAogCQkJCTk3MDVBMUM0MUNGOTA0ODUwMDUzODQ4OSAvKiBFbWJlZCBGcmFtZXdvcmtzICovLAog
+          CQkJCTNCMDZBRDFFMUU0OTIzRjUwMDREMjYwOCAvKiBUaGluIEJpbmFyeSAqLywKKwkJCQk4MTRGODI1MDdEREQwMkIwNjhF
+          MzgwMTQgLyogW0NQXSBFbWJlZCBQb2RzIEZyYW1ld29ya3MgKi8sCisJCQkJMzY5MTlFRDFCRDYxMzlGREY2MUIxNzY5IC8q
+          IFtDUF0gQ29weSBQb2RzIFJlc291cmNlcyAqLywKIAkJCSk7CiAJCQlidWlsZFJ1bGVzID0gKAogCQkJKTsKQEAgLTIyNyw2
+          ICsyNzYsMjMgQEAKIC8qIEVuZCBQQlhSZXNvdXJjZXNCdWlsZFBoYXNlIHNlY3Rpb24gKi8KIAogLyogQmVnaW4gUEJYU2hl
+          bGxTY3JpcHRCdWlsZFBoYXNlIHNlY3Rpb24gKi8KKwkJMzY5MTlFRDFCRDYxMzlGREY2MUIxNzY5IC8qIFtDUF0gQ29weSBQ
+          b2RzIFJlc291cmNlcyAqLyA9IHsKKwkJCWlzYSA9IFBCWFNoZWxsU2NyaXB0QnVpbGRQaGFzZTsKKwkJCWJ1aWxkQWN0aW9u
+          TWFzayA9IDIxNDc0ODM2NDc7CisJCQlmaWxlcyA9ICgKKwkJCSk7CisJCQlpbnB1dEZpbGVMaXN0UGF0aHMgPSAoCisJCQkJ
+          IiR7UE9EU19ST09UfS9UYXJnZXQgU3VwcG9ydCBGaWxlcy9Qb2RzLVJ1bm5lci9Qb2RzLVJ1bm5lci1yZXNvdXJjZXMtJHtD
+          T05GSUdVUkFUSU9OfS1pbnB1dC1maWxlcy54Y2ZpbGVsaXN0IiwKKwkJCSk7CisJCQluYW1lID0gIltDUF0gQ29weSBQb2Rz
+          IFJlc291cmNlcyI7CisJCQlvdXRwdXRGaWxlTGlzdFBhdGhzID0gKAorCQkJCSIke1BPRFNfUk9PVH0vVGFyZ2V0IFN1cHBv
+          cnQgRmlsZXMvUG9kcy1SdW5uZXIvUG9kcy1SdW5uZXItcmVzb3VyY2VzLSR7Q09ORklHVVJBVElPTn0tb3V0cHV0LWZpbGVz
+          LnhjZmlsZWxpc3QiLAorCQkJKTsKKwkJCXJ1bk9ubHlGb3JEZXBsb3ltZW50UG9zdHByb2Nlc3NpbmcgPSAwOworCQkJc2hl
+          bGxQYXRoID0gL2Jpbi9zaDsKKwkJCXNoZWxsU2NyaXB0ID0gIlwiJHtQT0RTX1JPT1R9L1RhcmdldCBTdXBwb3J0IEZpbGVz
+          L1BvZHMtUnVubmVyL1BvZHMtUnVubmVyLXJlc291cmNlcy5zaFwiXG4iOworCQkJc2hvd0VudlZhcnNJbkxvZyA9IDA7CisJ
+          CX07CiAJCTNCMDZBRDFFMUU0OTIzRjUwMDREMjYwOCAvKiBUaGluIEJpbmFyeSAqLyA9IHsKIAkJCWlzYSA9IFBCWFNoZWxs
+          U2NyaXB0QnVpbGRQaGFzZTsKIAkJCWFsd2F5c091dE9mRGF0ZSA9IDE7CkBAIC0yNDMsNiArMzA5LDQ1IEBACiAJCQlzaGVs
+          bFBhdGggPSAvYmluL3NoOwogCQkJc2hlbGxTY3JpcHQgPSAiL2Jpbi9zaCBcIiRGTFVUVEVSX1JPT1QvcGFja2FnZXMvZmx1
+          dHRlcl90b29scy9iaW4veGNvZGVfYmFja2VuZC5zaFwiIGVtYmVkX2FuZF90aGluIjsKIAkJfTsKKwkJNTlGRDE1MjJFM0Ew
+          MkJBMjg5MjFBQTI3IC8qIFtDUF0gQ2hlY2sgUG9kcyBNYW5pZmVzdC5sb2NrICovID0geworCQkJaXNhID0gUEJYU2hlbGxT
+          Y3JpcHRCdWlsZFBoYXNlOworCQkJYnVpbGRBY3Rpb25NYXNrID0gMjE0NzQ4MzY0NzsKKwkJCWZpbGVzID0gKAorCQkJKTsK
+          KwkJCWlucHV0RmlsZUxpc3RQYXRocyA9ICgKKwkJCSk7CisJCQlpbnB1dFBhdGhzID0gKAorCQkJCSIke1BPRFNfUE9ERklM
+          RV9ESVJfUEFUSH0vUG9kZmlsZS5sb2NrIiwKKwkJCQkiJHtQT0RTX1JPT1R9L01hbmlmZXN0LmxvY2siLAorCQkJKTsKKwkJ
+          CW5hbWUgPSAiW0NQXSBDaGVjayBQb2RzIE1hbmlmZXN0LmxvY2siOworCQkJb3V0cHV0RmlsZUxpc3RQYXRocyA9ICgKKwkJ
+          CSk7CisJCQlvdXRwdXRQYXRocyA9ICgKKwkJCQkiJChERVJJVkVEX0ZJTEVfRElSKS9Qb2RzLVJ1bm5lclRlc3RzLWNoZWNr
+          TWFuaWZlc3RMb2NrUmVzdWx0LnR4dCIsCisJCQkpOworCQkJcnVuT25seUZvckRlcGxveW1lbnRQb3N0cHJvY2Vzc2luZyA9
+          IDA7CisJCQlzaGVsbFBhdGggPSAvYmluL3NoOworCQkJc2hlbGxTY3JpcHQgPSAiZGlmZiBcIiR7UE9EU19QT0RGSUxFX0RJ
+          Ul9QQVRIfS9Qb2RmaWxlLmxvY2tcIiBcIiR7UE9EU19ST09UfS9NYW5pZmVzdC5sb2NrXCIgPiAvZGV2L251bGxcbmlmIFsg
+          JD8gIT0gMCBdIDsgdGhlblxuICAgICMgcHJpbnQgZXJyb3IgdG8gU1RERVJSXG4gICAgZWNobyBcImVycm9yOiBUaGUgc2Fu
+          ZGJveCBpcyBub3QgaW4gc3luYyB3aXRoIHRoZSBQb2RmaWxlLmxvY2suIFJ1biAncG9kIGluc3RhbGwnIG9yIHVwZGF0ZSB5
+          b3VyIENvY29hUG9kcyBpbnN0YWxsYXRpb24uXCIgPiYyXG4gICAgZXhpdCAxXG5maVxuIyBUaGlzIG91dHB1dCBpcyB1c2Vk
+          IGJ5IFhjb2RlICdvdXRwdXRzJyB0byBhdm9pZCByZS1ydW5uaW5nIHRoaXMgc2NyaXB0IHBoYXNlLlxuZWNobyBcIlNVQ0NF
+          U1NcIiA+IFwiJHtTQ1JJUFRfT1VUUFVUX0ZJTEVfMH1cIlxuIjsKKwkJCXNob3dFbnZWYXJzSW5Mb2cgPSAwOworCQl9Owor
+          CQk4MTRGODI1MDdEREQwMkIwNjhFMzgwMTQgLyogW0NQXSBFbWJlZCBQb2RzIEZyYW1ld29ya3MgKi8gPSB7CisJCQlpc2Eg
+          PSBQQlhTaGVsbFNjcmlwdEJ1aWxkUGhhc2U7CisJCQlidWlsZEFjdGlvbk1hc2sgPSAyMTQ3NDgzNjQ3OworCQkJZmlsZXMg
+          PSAoCisJCQkpOworCQkJaW5wdXRGaWxlTGlzdFBhdGhzID0gKAorCQkJCSIke1BPRFNfUk9PVH0vVGFyZ2V0IFN1cHBvcnQg
+          RmlsZXMvUG9kcy1SdW5uZXIvUG9kcy1SdW5uZXItZnJhbWV3b3Jrcy0ke0NPTkZJR1VSQVRJT059LWlucHV0LWZpbGVzLnhj
+          ZmlsZWxpc3QiLAorCQkJKTsKKwkJCW5hbWUgPSAiW0NQXSBFbWJlZCBQb2RzIEZyYW1ld29ya3MiOworCQkJb3V0cHV0Rmls
+          ZUxpc3RQYXRocyA9ICgKKwkJCQkiJHtQT0RTX1JPT1R9L1RhcmdldCBTdXBwb3J0IEZpbGVzL1BvZHMtUnVubmVyL1BvZHMt
+          UnVubmVyLWZyYW1ld29ya3MtJHtDT05GSUdVUkFUSU9OfS1vdXRwdXQtZmlsZXMueGNmaWxlbGlzdCIsCisJCQkpOworCQkJ
+          cnVuT25seUZvckRlcGxveW1lbnRQb3N0cHJvY2Vzc2luZyA9IDA7CisJCQlzaGVsbFBhdGggPSAvYmluL3NoOworCQkJc2hl
+          bGxTY3JpcHQgPSAiXCIke1BPRFNfUk9PVH0vVGFyZ2V0IFN1cHBvcnQgRmlsZXMvUG9kcy1SdW5uZXIvUG9kcy1SdW5uZXIt
+          ZnJhbWV3b3Jrcy5zaFwiXG4iOworCQkJc2hvd0VudlZhcnNJbkxvZyA9IDA7CisJCX07CiAJCTk3NDBFRUI2MUNGOTAxRjYw
+          MDQzODRGQyAvKiBSdW4gU2NyaXB0ICovID0gewogCQkJaXNhID0gUEJYU2hlbGxTY3JpcHRCdWlsZFBoYXNlOwogCQkJYWx3
+          YXlzT3V0T2ZEYXRlID0gMTsKQEAgLTI1OCw2ICszNjMsMjggQEAKIAkJCXNoZWxsUGF0aCA9IC9iaW4vc2g7CiAJCQlzaGVs
+          bFNjcmlwdCA9ICIvYmluL3NoIFwiJEZMVVRURVJfUk9PVC9wYWNrYWdlcy9mbHV0dGVyX3Rvb2xzL2Jpbi94Y29kZV9iYWNr
+          ZW5kLnNoXCIgYnVpbGQiOwogCQl9OworCQk5Qjk0NUQyNDI3N0MyOERDNEJGRUM3NDAgLyogW0NQXSBDaGVjayBQb2RzIE1h
+          bmlmZXN0LmxvY2sgKi8gPSB7CisJCQlpc2EgPSBQQlhTaGVsbFNjcmlwdEJ1aWxkUGhhc2U7CisJCQlidWlsZEFjdGlvbk1h
+          c2sgPSAyMTQ3NDgzNjQ3OworCQkJZmlsZXMgPSAoCisJCQkpOworCQkJaW5wdXRGaWxlTGlzdFBhdGhzID0gKAorCQkJKTsK
+          KwkJCWlucHV0UGF0aHMgPSAoCisJCQkJIiR7UE9EU19QT0RGSUxFX0RJUl9QQVRIfS9Qb2RmaWxlLmxvY2siLAorCQkJCSIk
+          e1BPRFNfUk9PVH0vTWFuaWZlc3QubG9jayIsCisJCQkpOworCQkJbmFtZSA9ICJbQ1BdIENoZWNrIFBvZHMgTWFuaWZlc3Qu
+          bG9jayI7CisJCQlvdXRwdXRGaWxlTGlzdFBhdGhzID0gKAorCQkJKTsKKwkJCW91dHB1dFBhdGhzID0gKAorCQkJCSIkKERF
+          UklWRURfRklMRV9ESVIpL1BvZHMtUnVubmVyLWNoZWNrTWFuaWZlc3RMb2NrUmVzdWx0LnR4dCIsCisJCQkpOworCQkJcnVu
+          T25seUZvckRlcGxveW1lbnRQb3N0cHJvY2Vzc2luZyA9IDA7CisJCQlzaGVsbFBhdGggPSAvYmluL3NoOworCQkJc2hlbGxT
+          Y3JpcHQgPSAiZGlmZiBcIiR7UE9EU19QT0RGSUxFX0RJUl9QQVRIfS9Qb2RmaWxlLmxvY2tcIiBcIiR7UE9EU19ST09UfS9N
+          YW5pZmVzdC5sb2NrXCIgPiAvZGV2L251bGxcbmlmIFsgJD8gIT0gMCBdIDsgdGhlblxuICAgICMgcHJpbnQgZXJyb3IgdG8g
+          U1RERVJSXG4gICAgZWNobyBcImVycm9yOiBUaGUgc2FuZGJveCBpcyBub3QgaW4gc3luYyB3aXRoIHRoZSBQb2RmaWxlLmxv
+          Y2suIFJ1biAncG9kIGluc3RhbGwnIG9yIHVwZGF0ZSB5b3VyIENvY29hUG9kcyBpbnN0YWxsYXRpb24uXCIgPiYyXG4gICAg
+          ZXhpdCAxXG5maVxuIyBUaGlzIG91dHB1dCBpcyB1c2VkIGJ5IFhjb2RlICdvdXRwdXRzJyB0byBhdm9pZCByZS1ydW5uaW5n
+          IHRoaXMgc2NyaXB0IHBoYXNlLlxuZWNobyBcIlNVQ0NFU1NcIiA+IFwiJHtTQ1JJUFRfT1VUUFVUX0ZJTEVfMH1cIlxuIjsK
+          KwkJCXNob3dFbnZWYXJzSW5Mb2cgPSAwOworCQl9OwogLyogRW5kIFBCWFNoZWxsU2NyaXB0QnVpbGRQaGFzZSBzZWN0aW9u
+          ICovCiAKIC8qIEJlZ2luIFBCWFNvdXJjZXNCdWlsZFBoYXNlIHNlY3Rpb24gKi8KQEAgLTM2Nyw2ICs0OTQsNyBAQAogCQkJ
+          YnVpbGRTZXR0aW5ncyA9IHsKIAkJCQlBU1NFVENBVEFMT0dfQ09NUElMRVJfQVBQSUNPTl9OQU1FID0gQXBwSWNvbjsKIAkJ
+          CQlDTEFOR19FTkFCTEVfTU9EVUxFUyA9IFlFUzsKKwkJCQlDT0RFX1NJR05fRU5USVRMRU1FTlRTID0gUnVubmVyL1J1bm5l
+          ci5lbnRpdGxlbWVudHM7CiAJCQkJQ1VSUkVOVF9QUk9KRUNUX1ZFUlNJT04gPSAiJChGTFVUVEVSX0JVSUxEX05VTUJFUiki
+          OwogCQkJCUVOQUJMRV9CSVRDT0RFID0gTk87CiAJCQkJSU5GT1BMSVNUX0ZJTEUgPSBSdW5uZXIvSW5mby5wbGlzdDsKQEAg
+          LTM3NCw3ICs1MDIsNiBAQAogCQkJCQkiJChpbmhlcml0ZWQpIiwKIAkJCQkJIkBleGVjdXRhYmxlX3BhdGgvRnJhbWV3b3Jr
+          cyIsCiAJCQkJKTsKLQkJCQlDT0RFX1NJR05fRU5USVRMRU1FTlRTID0gUnVubmVyL1J1bm5lci5lbnRpdGxlbWVudHM7CiAJ
+          CQkJUFJPRFVDVF9CVU5ETEVfSURFTlRJRklFUiA9IGNvbS5tZWtpZG9hcHBzLnZlbmRpbmduYXZpOwogCQkJCVBST0RVQ1Rf
+          TkFNRSA9ICIkKFRBUkdFVF9OQU1FKSI7CiAJCQkJU1dJRlRfT0JKQ19CUklER0lOR19IRUFERVIgPSAiUnVubmVyL1J1bm5l
+          ci1CcmlkZ2luZy1IZWFkZXIuaCI7CkBAIC0zODUsNiArNTEyLDcgQEAKIAkJfTsKIAkJMzMxQzgwODgyOTRBNjNBNDAwMjYz
+          QkU1IC8qIERlYnVnICovID0gewogCQkJaXNhID0gWENCdWlsZENvbmZpZ3VyYXRpb247CisJCQliYXNlQ29uZmlndXJhdGlv
+          blJlZmVyZW5jZSA9IDhDODQyMjRGQzcyNzNCOTBBNzMzQkYzMSAvKiBQb2RzLVJ1bm5lclRlc3RzLmRlYnVnLnhjY29uZmln
+          ICovOwogCQkJYnVpbGRTZXR0aW5ncyA9IHsKIAkJCQlCVU5ETEVfTE9BREVSID0gIiQoVEVTVF9IT1NUKSI7CiAJCQkJQ09E
+          RV9TSUdOX1NUWUxFID0gQXV0b21hdGljOwpAQCAtNDAyLDYgKzUzMCw3IEBACiAJCX07CiAJCTMzMUM4MDg5Mjk0QTYzQTQw
+          MDI2M0JFNSAvKiBSZWxlYXNlICovID0gewogCQkJaXNhID0gWENCdWlsZENvbmZpZ3VyYXRpb247CisJCQliYXNlQ29uZmln
+          dXJhdGlvblJlZmVyZW5jZSA9IDEyMUU5NEE3NkQ4NzgyRTg3RTA5OTE1NiAvKiBQb2RzLVJ1bm5lclRlc3RzLnJlbGVhc2Uu
+          eGNjb25maWcgKi87CiAJCQlidWlsZFNldHRpbmdzID0gewogCQkJCUJVTkRMRV9MT0FERVIgPSAiJChURVNUX0hPU1QpIjsK
+          IAkJCQlDT0RFX1NJR05fU1RZTEUgPSBBdXRvbWF0aWM7CkBAIC00MTcsNiArNTQ2LDcgQEAKIAkJfTsKIAkJMzMxQzgwOEEy
+          OTRBNjNBNDAwMjYzQkU1IC8qIFByb2ZpbGUgKi8gPSB7CiAJCQlpc2EgPSBYQ0J1aWxkQ29uZmlndXJhdGlvbjsKKwkJCWJh
+          c2VDb25maWd1cmF0aW9uUmVmZXJlbmNlID0gM0U4QjRFOTM1OEI1RDQwODE2QUYyQTdGIC8qIFBvZHMtUnVubmVyVGVzdHMu
+          cHJvZmlsZS54Y2NvbmZpZyAqLzsKIAkJCWJ1aWxkU2V0dGluZ3MgPSB7CiAJCQkJQlVORExFX0xPQURFUiA9ICIkKFRFU1Rf
+          SE9TVCkiOwogCQkJCUNPREVfU0lHTl9TVFlMRSA9IEF1dG9tYXRpYzsKQEAgLTU0Nyw2ICs2NzcsNyBAQAogCQkJYnVpbGRT
+          ZXR0aW5ncyA9IHsKIAkJCQlBU1NFVENBVEFMT0dfQ09NUElMRVJfQVBQSUNPTl9OQU1FID0gQXBwSWNvbjsKIAkJCQlDTEFO
+          R19FTkFCTEVfTU9EVUxFUyA9IFlFUzsKKwkJCQlDT0RFX1NJR05fRU5USVRMRU1FTlRTID0gUnVubmVyL1J1bm5lci5lbnRp
+          dGxlbWVudHM7CiAJCQkJQ1VSUkVOVF9QUk9KRUNUX1ZFUlNJT04gPSAiJChGTFVUVEVSX0JVSUxEX05VTUJFUikiOwogCQkJ
+          CUVOQUJMRV9CSVRDT0RFID0gTk87CiAJCQkJSU5GT1BMSVNUX0ZJTEUgPSBSdW5uZXIvSW5mby5wbGlzdDsKQEAgLTU1NCw3
+          ICs2ODUsNiBAQAogCQkJCQkiJChpbmhlcml0ZWQpIiwKIAkJCQkJIkBleGVjdXRhYmxlX3BhdGgvRnJhbWV3b3JrcyIsCiAJ
+          CQkJKTsKLQkJCQlDT0RFX1NJR05fRU5USVRMRU1FTlRTID0gUnVubmVyL1J1bm5lci5lbnRpdGxlbWVudHM7CiAJCQkJUFJP
+          RFVDVF9CVU5ETEVfSURFTlRJRklFUiA9IGNvbS5tZWtpZG9hcHBzLnZlbmRpbmduYXZpOwogCQkJCVBST0RVQ1RfTkFNRSA9
+          ICIkKFRBUkdFVF9OQU1FKSI7CiAJCQkJU1dJRlRfT0JKQ19CUklER0lOR19IRUFERVIgPSAiUnVubmVyL1J1bm5lci1Ccmlk
+          Z2luZy1IZWFkZXIuaCI7CkBAIC01NzAsNiArNzAwLDcgQEAKIAkJCWJ1aWxkU2V0dGluZ3MgPSB7CiAJCQkJQVNTRVRDQVRB
+          TE9HX0NPTVBJTEVSX0FQUElDT05fTkFNRSA9IEFwcEljb247CiAJCQkJQ0xBTkdfRU5BQkxFX01PRFVMRVMgPSBZRVM7CisJ
+          CQkJQ09ERV9TSUdOX0VOVElUTEVNRU5UUyA9IFJ1bm5lci9SdW5uZXIuZW50aXRsZW1lbnRzOwogCQkJCUNVUlJFTlRfUFJP
+          SkVDVF9WRVJTSU9OID0gIiQoRkxVVFRFUl9CVUlMRF9OVU1CRVIpIjsKIAkJCQlFTkFCTEVfQklUQ09ERSA9IE5POwogCQkJ
+          CUlORk9QTElTVF9GSUxFID0gUnVubmVyL0luZm8ucGxpc3Q7CkBAIC01NzcsNyArNzA4LDYgQEAKIAkJCQkJIiQoaW5oZXJp
+          dGVkKSIsCiAJCQkJCSJAZXhlY3V0YWJsZV9wYXRoL0ZyYW1ld29ya3MiLAogCQkJCSk7Ci0JCQkJQ09ERV9TSUdOX0VOVElU
+          TEVNRU5UUyA9IFJ1bm5lci9SdW5uZXIuZW50aXRsZW1lbnRzOwogCQkJCVBST0RVQ1RfQlVORExFX0lERU5USUZJRVIgPSBj
+          b20ubWVraWRvYXBwcy52ZW5kaW5nbmF2aTsKIAkJCQlQUk9EVUNUX05BTUUgPSAiJChUQVJHRVRfTkFNRSkiOwogCQkJCVNX
+          SUZUX09CSkNfQlJJREdJTkdfSEVBREVSID0gIlJ1bm5lci9SdW5uZXItQnJpZGdpbmctSGVhZGVyLmgiOwo=
+          QA_REVIEWED_DIFF
+          printf '%s  %s\n' '47837cc8cc5a1384e2f810f05f305f73fa124d9f59053167d0b036ef178d7c86' "$RUNNER_TEMP/qa-reviewed-runner.diff" | shasum -a 256 -c -
+          test "$(git hash-object --no-filters ios/Runner.xcodeproj/project.pbxproj)" = "$PBX_BEFORE_BLOB"
+          git apply --check "$RUNNER_TEMP/qa-reviewed-runner.diff"
+          git apply "$RUNNER_TEMP/qa-reviewed-runner.diff"
+          printf '%s  %s\n' "$PBX_REVIEWED_SHA256" ios/Runner.xcodeproj/project.pbxproj | shasum -a 256 -c -
+          test "$(git hash-object --no-filters ios/Runner.xcodeproj/project.pbxproj)" = "$PBX_REVIEWED_BLOB"
+          # Config-only creates Flutter xcconfig/symlinks and may call CocoaPods.
+          # The reviewed lock is already present; recheck it immediately after that call.
           flutter build ios --release --config-only --no-codesign --no-pub --dart-define=APP_ENTRY=v2
-          (cd ios && pod install)
-          test -s ios/Podfile.lock
+          printf '%s  %s\n' "$LOCK_SHA256" ios/Podfile.lock | shasum -a 256 -c -
+          (cd ios && pod install --deployment)
+          printf '%s  %s\n' "$LOCK_SHA256" ios/Podfile.lock | shasum -a 256 -c -
           mkdir -p qa-evidence
           python3 - <<'PY'
           import base64, hashlib, json, re
@@ -89,7 +339,9 @@ jobs:
           for pod in ('Firebase/Firestore','FirebaseFirestore','FirebaseFirestoreInternal','FirebaseCore'):
               assert versions.get(pod) == '12.19.3', (pod,versions.get(pod))
           for pod in ('FirebaseAuth','FirebaseAppCheck','FirebaseFunctions','FirebaseStorage'):
-              assert re.fullmatch(r'12\.19\.\d+',versions.get(pod,'')), (pod,versions.get(pod))
+              assert versions.get(pod) == '12.19.0', (pod,versions.get(pod))
+          for name, version in [('GoogleMaps','9.4.0'), ('Google-Maps-iOS-Utils','6.1.0')]:
+              assert re.search(r'^  - ' + name + r' \(' + re.escape(version) + r'\):?$',lock,re.M)
           Path('qa-evidence/firebase-versions.json').write_text(json.dumps({k:v for k,v in versions.items() if k.startswith('Firebase')},indent=2)+'\n')
           raw = p.read_bytes()
           Path('qa-evidence/Podfile.lock').write_bytes(raw)
@@ -101,9 +353,29 @@ jobs:
           print('QA_LOCK_END', flush=True)
           print('QA_FIREBASE_JSON ' + json.dumps({k:v for k,v in versions.items() if k.startswith('Firebase')},sort_keys=True), flush=True)
           PY
-          (cd ios && pod install --deployment)
           cmp ios/Podfile.lock qa-evidence/Podfile.lock
-          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile ios/Runner.xcodeproj/project.pbxproj
+          git diff --exit-code -- . ':(exclude)ios/Runner.xcodeproj/project.pbxproj' ':(exclude)ios/Runner.xcworkspace/contents.xcworkspacedata'
+          test -z "$(git diff --cached --name-only)"
+          git status --short --untracked-files=no
+          test -f ios/Runner.xcodeproj/project.pbxproj && test ! -L ios/Runner.xcodeproj/project.pbxproj
+          python3 - <<'XMLPY'
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          p = Path('ios/Runner.xcworkspace/contents.xcworkspacedata')
+          assert p.is_file() and not p.is_symlink()
+          raw = p.read_bytes()
+          assert len(raw) < 4096 and not any(x in raw for x in (b'<!', b'<?xml-stylesheet'))
+          root = ET.fromstring(raw)
+          assert root.tag == 'Workspace' and root.attrib == {'version':'1.0'}
+          assert not (root.text or '').strip()
+          assert [n.attrib for n in root] == [
+              {'location':'group:Runner.xcodeproj'}, {'location':'group:Pods/Pods.xcodeproj'}]
+          assert all(n.tag == 'FileRef' and len(n)==0 and not (n.text or '').strip() and
+                     not (n.tail or '').strip() for n in root)
+          print('QA_WORKSPACE_OK reviewed Runner and Pods project references', flush=True)
+          XMLPY
+          printf '%s  %s\n' "$PBX_REVIEWED_SHA256" ios/Runner.xcodeproj/project.pbxproj | shasum -a 256 -c -
+          test "$(git hash-object --no-filters ios/Runner.xcodeproj/project.pbxproj)" = "$PBX_REVIEWED_BLOB"
       - name: Compile without signing and inspect the built bundle
         shell: bash
         run: |
@@ -113,8 +385,32 @@ jobs:
           flutter --version >> qa-evidence/toolchain.txt
           cat qa-evidence/toolchain.txt
           flutter build ios --release --no-codesign --no-pub --dart-define=APP_ENTRY=v2
+          test -s build/ios/iphoneos/Runner.app/Runner
+          printf 'QA_LINKED_BINARY '
+          shasum -a 256 build/ios/iphoneos/Runner.app/Runner
           cmp ios/Podfile.lock qa-evidence/Podfile.lock
-          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile ios/Runner.xcodeproj/project.pbxproj
+          git diff --exit-code -- . ':(exclude)ios/Runner.xcodeproj/project.pbxproj' ':(exclude)ios/Runner.xcworkspace/contents.xcworkspacedata'
+          test -z "$(git diff --cached --name-only)"
+          git status --short --untracked-files=no
+          test -f ios/Runner.xcodeproj/project.pbxproj && test ! -L ios/Runner.xcodeproj/project.pbxproj
+          python3 - <<'XMLPY'
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          p = Path('ios/Runner.xcworkspace/contents.xcworkspacedata')
+          assert p.is_file() and not p.is_symlink()
+          raw = p.read_bytes()
+          assert len(raw) < 4096 and not any(x in raw for x in (b'<!', b'<?xml-stylesheet'))
+          root = ET.fromstring(raw)
+          assert root.tag == 'Workspace' and root.attrib == {'version':'1.0'}
+          assert not (root.text or '').strip()
+          assert [n.attrib for n in root] == [
+              {'location':'group:Runner.xcodeproj'}, {'location':'group:Pods/Pods.xcodeproj'}]
+          assert all(n.tag == 'FileRef' and len(n)==0 and not (n.text or '').strip() and
+                     not (n.tail or '').strip() for n in root)
+          print('QA_WORKSPACE_OK reviewed Runner and Pods project references', flush=True)
+          XMLPY
+          printf '%s  %s\n' "$PBX_REVIEWED_SHA256" ios/Runner.xcodeproj/project.pbxproj | shasum -a 256 -c -
+          test "$(git hash-object --no-filters ios/Runner.xcodeproj/project.pbxproj)" = "$PBX_REVIEWED_BLOB"
           xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos -showBuildSettings > "$RUNNER_TEMP/ios-qa-build-settings.txt"
           python3 - <<'PY'
           import hashlib, json, os, plistlib, re
@@ -122,7 +418,7 @@ jobs:
           app = Path('build/ios/iphoneos/Runner.app')
           plist = plistlib.loads((app/'Info.plist').read_bytes())
           entitlements = plistlib.loads(Path('ios/Runner/Runner.entitlements').read_bytes())
-          block = (Path(os.environ['RUNNER_TEMP'])/'ios-qa-build-settings.txt').read_text().split('and target Runner:',1)[1]
+          block = (Path(os.environ['RUNNER_TEMP'])/'ios-qa-build-settings.txt').read_text().split('and target Runner:',1)[1].split('Build settings for action ',1)[0]
           assert re.search(r'^\s*IPHONEOS_DEPLOYMENT_TARGET = 15(?:\.0)+\s*$',block,re.M)
           assert re.search(r'^\s*TARGETED_DEVICE_FAMILY = 1\s*$',block,re.M)
           assert re.search(r'^\s*CODE_SIGN_ENTITLEMENTS = Runner/Runner\.entitlements\s*$',block,re.M)
@@ -133,9 +429,20 @@ jobs:
           assert plist.get('GoogleMapsAPIKey','') == ''
           assert not Path('ios/Flutter/LocalServices.xcconfig').exists()
           assert not (app/'_CodeSignature').exists() and not (app/'embedded.mobileprovision').exists()
+          maps_bundles = [p for p in app.rglob('GoogleMaps.bundle') if p.is_dir()]
+          privacy_files = [p for p in app.rglob('PrivacyInfo.xcprivacy') if p.is_file()]
+          maps_privacy_files = [p for p in privacy_files if 'googlemaps' in str(p.relative_to(app)).lower()]
+          # Log only bounded resource counts, never service values.
+          print('QA_MAPS_RESOURCES_JSON ' + json.dumps(dict(mapsBundles=len(maps_bundles),
+                privacyManifests=len(privacy_files),mapsPrivacyManifests=len(maps_privacy_files))), flush=True)
           data = dict(source=os.environ['GITHUB_SHA'], minimumOS=plist['MinimumOSVersion'], deviceFamily=plist['UIDeviceFamily'],
                       binarySHA256=hashlib.sha256((app/'Runner').read_bytes()).hexdigest(),
-                      lockSHA256=hashlib.sha256(Path('ios/Podfile.lock').read_bytes()).hexdigest())
+                      lockSHA256=hashlib.sha256(Path('ios/Podfile.lock').read_bytes()).hexdigest(),
+                      appleSignInEntitlement=True, emptyMapsConfiguration=True, noCodeSignature=True,
+                      mapsResourceBundles=len(maps_bundles), privacyManifests=len(privacy_files),
+                      mapsPrivacyManifests=len(maps_privacy_files))
           Path('qa-evidence/build-result.json').write_text(json.dumps(data,indent=2)+'\n')
           print('QA_BUILD_JSON ' + json.dumps(data,sort_keys=True), flush=True)
+          assert maps_bundles and privacy_files
+          assert all(isinstance(plistlib.loads(p.read_bytes()), dict) for p in maps_privacy_files)
           PY
