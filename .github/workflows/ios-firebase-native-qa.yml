@@ -1,4 +1,4 @@
-name: VendingNavi one-time unsigned Firebase QA (locked retry)
+name: VendingNavi one-time unsigned Firebase QA (iOS isolation)
 on:
   push:
     branches: ['qa/ios-firestore-12-19-3-20261128']
@@ -14,14 +14,14 @@ jobs:
       github.repository == 'mekidoapps/vending_navi' &&
       github.event_name == 'push' &&
       github.event.repository.private == false &&
-      github.event.before == '293c220d8da3d4ebaa151f5ff60f3de5274f54a3' &&
+      github.event.before == 'c187c44e8d5e078937801e1072926553bda1f2db' &&
       github.run_attempt == 1 &&
-      github.event.head_commit.message == 'ci: run one locked unsigned Firestore 12.19.3 QA retry'
+      github.event.head_commit.message == 'ci: run one isolated unsigned Firestore 12.19.3 QA verification'
     runs-on: macos-15
     timeout-minutes: 45
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      BASE: 293c220d8da3d4ebaa151f5ff60f3de5274f54a3
+      BASE: c187c44e8d5e078937801e1072926553bda1f2db
       LOCK_SHA256: 432db3e9c79592bb94cdd2f7a8480187d4eee5b9d2937fa5d7c670da76bbf50b
       PBX_BEFORE_BLOB: 6e5a808a48b277db7c78d93be088760bf6f8155d
       PBX_REVIEWED_BLOB: ead4ad43cce738536c76095832177788f427d0b8
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git show -s --format=%P HEAD)" = "$BASE"
-          diff -u <(printf '%s\n' .github/workflows/ios-firebase-native-qa.yml ios/Podfile.lock) <(git diff --name-only "$BASE" HEAD)
+          diff -u <(printf '%s\n' .github/workflows/ios-firebase-native-qa.yml) <(git diff --name-only "$BASE" HEAD)
           shasum -a 256 -c <<'EOF'
           735eb089361d582d4fa18aa377cadcf85afd4a1adf95f31e00c9ecc193acb953  ios/Podfile
           8a25c22a01fb1a478a7361ddf357679ae9e9996397b45126eb8756a4bd73121d  ios/Runner.xcodeproj/project.pbxproj
@@ -354,6 +354,70 @@ jobs:
           print('QA_FIREBASE_JSON ' + json.dumps({k:v for k,v in versions.items() if k.startswith('Firebase')},sort_keys=True), flush=True)
           PY
           cmp ios/Podfile.lock qa-evidence/Podfile.lock
+          python3 - <<'DESKTOPPY'
+          import hashlib, json, stat, subprocess
+          from pathlib import Path
+
+          APPROVED = {
+              'macos/Flutter/Flutter-Debug.xcconfig': ('62290ad8e938bf410206d8c7e131262696b58a6df110d39faf3399396ffe61b1', '802714a37a8fd3065fb3d8e21cbcfbb3147c7ad25f25934b64590085aa9f5b28', 'c2efd0b608ba84712fb3e1d01122468a50c7fba1', '4b81f9b2d200fc807eed25bca04dff9ee9dcc45f'),
+              'macos/Flutter/Flutter-Release.xcconfig': ('62290ad8e938bf410206d8c7e131262696b58a6df110d39faf3399396ffe61b1', 'd575f436f8bab30d7096792396e73b65db242edc01913c4123d2c29e713b3a6d', 'c2efd0b608ba84712fb3e1d01122468a50c7fba1', '5caa9d1579e481a5894c37e2e56b0da062e95b35'),
+              'macos/Flutter/GeneratedPluginRegistrant.swift': ('bd4c98e6cf2c15bfe5b91d5afc61aab7d5edd109beccdf514965991f39341253', '92a57a7407835fcb938c15c96ffd24e441ed8224c35737774ff2183e8927e03f', 'dabfe8ad4b93f6b538504ec5949fcf09830faec3', '40b03ae0df81c88b7c9609caa31faa761d75394e'),
+              'windows/flutter/generated_plugin_registrant.cc': ('bc084c80fa9f69159d8d94bb12d04d0d8f397183dfda22c758e7a86484f3fae5', '48a35e1c6ac41ecb69b93a54c1f0013433eefe60dce545315be9fcd2b40f7380', 'e6cabfc9e2dc576ccfd1431a572abc616d4a559b', 'beaaec21c9b771dc4aff11a2a65ce399a220b5de'),
+              'windows/flutter/generated_plugins.cmake': ('5a1c1480c6d8791cbde4a31b17e329ae048e517bee04d3d683790fc34fecd069', 'a9b016ddff5c8b54bbae3f43b10124cbe9eec2c022b7d0d9bd166b200aad51e3', '994f57f045454efe461c41eee8818a9543d039f4', '54f1b3f98906d1fa7c4944b42e5ff8054271d68b'),
+          }
+
+          def git(*args):
+              return subprocess.check_output(('git','-c','core.autocrlf=false') + args)
+          def h(raw):
+              return hashlib.sha256(raw).hexdigest()
+          def b(raw):
+              return hashlib.sha1(f'blob {len(raw)}'.encode('ascii')+b'\x00'+raw).hexdigest()
+
+          ios = {'ios/Runner.xcodeproj/project.pbxproj',
+                 'ios/Runner.xcworkspace/contents.xcworkspacedata'}
+          staged = git('diff','--cached','--name-only','-z')
+          if staged:
+              raise SystemExit('Unapproved staged changes')
+          changed = {p.decode('utf-8','strict') for p in git('diff','--no-renames','--name-only','-z','HEAD','--').split(b'\0') if p}
+          unexpected = changed-set(APPROVED)-ios
+          if unexpected:
+              raise SystemExit('Unapproved tracked paths: ' + ', '.join(sorted(unexpected)))
+          restore = []
+          status = {}
+          for name,(original,generated,original_blob,generated_blob) in APPROVED.items():
+              path=Path(name)
+              if any(p.is_symlink() for p in (path, *path.parents)) or not path.is_file():
+                  raise SystemExit('Non-regular desktop generated input: '+name)
+              baseline=git('show','HEAD:'+name)
+              if (h(baseline),b(baseline)) != (original,original_blob):
+                  raise SystemExit('Unexpected desktop baseline: '+name)
+              mode=git('ls-files','--stage','--',name).decode('ascii','strict').strip()
+              if mode != f'100644 {original_blob} 0\t{name}':
+                  raise SystemExit('Unexpected desktop index: '+name)
+              current=path.read_bytes()
+              if (h(current),b(current)) == (original,original_blob):
+                  if name in changed:
+                      raise SystemExit('Non-content change on desktop original: '+name)
+                  status[name]='unchanged'
+              elif (h(current),b(current)) == (generated,generated_blob) and name in changed:
+                  if git('diff','--summary','HEAD','--',name):
+                      raise SystemExit('Unexpected file mode/type for desktop generated input: '+name)
+                  restore.append(name)
+                  status[name]='approved-generated-and-restored'
+              else:
+                  raise SystemExit('Unapproved bytes on desktop path: '+name)
+          # Validate the entire set first. Only forget the named and byte-verified files.
+          if restore:
+              git('restore','--source=HEAD','--worktree','--',*restore)
+          for name,(original,_,original_blob,_) in APPROVED.items():
+              raw=Path(name).read_bytes()
+              if (h(raw),b(raw)) != (original,original_blob):
+                  raise SystemExit('Desktop restoration did not round-trip: '+name)
+          remain={p.decode('utf-8','strict') for p in git('diff','--no-renames','--name-only','-z','HEAD','--').split(b'\0') if p}
+          if remain-ios or git('diff','--cached','--name-only','-z'):
+              raise SystemExit('Unexpected remaining tracked or staged changes')
+          print('QA_DESKTOP_GUARD_JSON '+json.dumps(status,sort_keys=True),flush=True)
+          DESKTOPPY
           git diff --exit-code -- . ':(exclude)ios/Runner.xcodeproj/project.pbxproj' ':(exclude)ios/Runner.xcworkspace/contents.xcworkspacedata'
           test -z "$(git diff --cached --name-only)"
           git status --short --untracked-files=no
@@ -389,6 +453,70 @@ jobs:
           printf 'QA_LINKED_BINARY '
           shasum -a 256 build/ios/iphoneos/Runner.app/Runner
           cmp ios/Podfile.lock qa-evidence/Podfile.lock
+          python3 - <<'DESKTOPPY'
+          import hashlib, json, stat, subprocess
+          from pathlib import Path
+
+          APPROVED = {
+              'macos/Flutter/Flutter-Debug.xcconfig': ('62290ad8e938bf410206d8c7e131262696b58a6df110d39faf3399396ffe61b1', '802714a37a8fd3065fb3d8e21cbcfbb3147c7ad25f25934b64590085aa9f5b28', 'c2efd0b608ba84712fb3e1d01122468a50c7fba1', '4b81f9b2d200fc807eed25bca04dff9ee9dcc45f'),
+              'macos/Flutter/Flutter-Release.xcconfig': ('62290ad8e938bf410206d8c7e131262696b58a6df110d39faf3399396ffe61b1', 'd575f436f8bab30d7096792396e73b65db242edc01913c4123d2c29e713b3a6d', 'c2efd0b608ba84712fb3e1d01122468a50c7fba1', '5caa9d1579e481a5894c37e2e56b0da062e95b35'),
+              'macos/Flutter/GeneratedPluginRegistrant.swift': ('bd4c98e6cf2c15bfe5b91d5afc61aab7d5edd109beccdf514965991f39341253', '92a57a7407835fcb938c15c96ffd24e441ed8224c35737774ff2183e8927e03f', 'dabfe8ad4b93f6b538504ec5949fcf09830faec3', '40b03ae0df81c88b7c9609caa31faa761d75394e'),
+              'windows/flutter/generated_plugin_registrant.cc': ('bc084c80fa9f69159d8d94bb12d04d0d8f397183dfda22c758e7a86484f3fae5', '48a35e1c6ac41ecb69b93a54c1f0013433eefe60dce545315be9fcd2b40f7380', 'e6cabfc9e2dc576ccfd1431a572abc616d4a559b', 'beaaec21c9b771dc4aff11a2a65ce399a220b5de'),
+              'windows/flutter/generated_plugins.cmake': ('5a1c1480c6d8791cbde4a31b17e329ae048e517bee04d3d683790fc34fecd069', 'a9b016ddff5c8b54bbae3f43b10124cbe9eec2c022b7d0d9bd166b200aad51e3', '994f57f045454efe461c41eee8818a9543d039f4', '54f1b3f98906d1fa7c4944b42e5ff8054271d68b'),
+          }
+
+          def git(*args):
+              return subprocess.check_output(('git','-c','core.autocrlf=false') + args)
+          def h(raw):
+              return hashlib.sha256(raw).hexdigest()
+          def b(raw):
+              return hashlib.sha1(f'blob {len(raw)}'.encode('ascii')+b'\x00'+raw).hexdigest()
+
+          ios = {'ios/Runner.xcodeproj/project.pbxproj',
+                 'ios/Runner.xcworkspace/contents.xcworkspacedata'}
+          staged = git('diff','--cached','--name-only','-z')
+          if staged:
+              raise SystemExit('Unapproved staged changes')
+          changed = {p.decode('utf-8','strict') for p in git('diff','--no-renames','--name-only','-z','HEAD','--').split(b'\0') if p}
+          unexpected = changed-set(APPROVED)-ios
+          if unexpected:
+              raise SystemExit('Unapproved tracked paths: ' + ', '.join(sorted(unexpected)))
+          restore = []
+          status = {}
+          for name,(original,generated,original_blob,generated_blob) in APPROVED.items():
+              path=Path(name)
+              if any(p.is_symlink() for p in (path, *path.parents)) or not path.is_file():
+                  raise SystemExit('Non-regular desktop generated input: '+name)
+              baseline=git('show','HEAD:'+name)
+              if (h(baseline),b(baseline)) != (original,original_blob):
+                  raise SystemExit('Unexpected desktop baseline: '+name)
+              mode=git('ls-files','--stage','--',name).decode('ascii','strict').strip()
+              if mode != f'100644 {original_blob} 0\t{name}':
+                  raise SystemExit('Unexpected desktop index: '+name)
+              current=path.read_bytes()
+              if (h(current),b(current)) == (original,original_blob):
+                  if name in changed:
+                      raise SystemExit('Non-content change on desktop original: '+name)
+                  status[name]='unchanged'
+              elif (h(current),b(current)) == (generated,generated_blob) and name in changed:
+                  if git('diff','--summary','HEAD','--',name):
+                      raise SystemExit('Unexpected file mode/type for desktop generated input: '+name)
+                  restore.append(name)
+                  status[name]='approved-generated-and-restored'
+              else:
+                  raise SystemExit('Unapproved bytes on desktop path: '+name)
+          # Validate the entire set first. Only forget the named and byte-verified files.
+          if restore:
+              git('restore','--source=HEAD','--worktree','--',*restore)
+          for name,(original,_,original_blob,_) in APPROVED.items():
+              raw=Path(name).read_bytes()
+              if (h(raw),b(raw)) != (original,original_blob):
+                  raise SystemExit('Desktop restoration did not round-trip: '+name)
+          remain={p.decode('utf-8','strict') for p in git('diff','--no-renames','--name-only','-z','HEAD','--').split(b'\0') if p}
+          if remain-ios or git('diff','--cached','--name-only','-z'):
+              raise SystemExit('Unexpected remaining tracked or staged changes')
+          print('QA_DESKTOP_GUARD_JSON '+json.dumps(status,sort_keys=True),flush=True)
+          DESKTOPPY
           git diff --exit-code -- . ':(exclude)ios/Runner.xcodeproj/project.pbxproj' ':(exclude)ios/Runner.xcworkspace/contents.xcworkspacedata'
           test -z "$(git diff --cached --name-only)"
           git status --short --untracked-files=no
