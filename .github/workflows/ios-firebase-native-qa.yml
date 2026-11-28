@@ -1,0 +1,141 @@
+name: VendingNavi one-time unsigned Firebase QA
+on:
+  push:
+    branches: ['qa/ios-firestore-12-19-3-20261128']
+permissions:
+  contents: read
+concurrency:
+  group: vending-ios-firebase-qa-20261128
+  cancel-in-progress: false
+jobs:
+  unsigned:
+    if: >-
+      github.repository == 'mekidoapps/vending_navi' &&
+      github.event_name == 'push' &&
+      github.event.repository.private == false &&
+      github.event.created == true &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'ci: run one-time unsigned Firestore 12.19.3 QA'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      BASE: 0e7c6b063ff2c75c339ec571857621123f9df6a7
+      COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Check exact parent, path allowlist and Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%P HEAD)" = "$BASE"
+          diff -u <(printf '%s\n' .github/workflows/ios-firebase-native-qa.yml ios/Podfile ios/Runner.xcodeproj/project.pbxproj pubspec.lock pubspec.yaml) <(git diff --name-only "$BASE" HEAD)
+          shasum -a 256 -c <<'EOF'
+          735eb089361d582d4fa18aa377cadcf85afd4a1adf95f31e00c9ecc193acb953  ios/Podfile
+          8a25c22a01fb1a478a7361ddf357679ae9e9996397b45126eb8756a4bd73121d  ios/Runner.xcodeproj/project.pbxproj
+          eb860729ceb91ca52433c57d4ba9f9706295be92e201b56fa44fdae4a44715cb  pubspec.lock
+          8d896f31d11d7602cbdf0d0b41e0d4f886890920ae2adbbb868eee347d46b0e3  pubspec.yaml
+          EOF
+          test ! -e ios/Flutter/LocalServices.xcconfig
+          xcodebuild -version | grep -Fx 'Xcode 26.3'
+          pod --version
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.41.2'
+          channel: stable
+          cache: false
+      - name: Resolve public Pods and verify candidate lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics --no-enable-swift-package-manager
+          dart --disable-analytics
+          flutter pub get --enforce-lockfile
+          echo 'cdb3cce8ae483fc2d6abd6e24b35db8ada50a6cb380db86e64862e37906ac8c9  ios/Podfile.lock' | shasum -a 256 -c -
+          mv ios/Podfile.lock "$RUNNER_TEMP/Podfile.baseline.lock"
+          if ! pod repo list | grep -Fxq trunk; then
+            pod repo add-cdn trunk https://cdn.cocoapods.org/
+          fi
+          (cd ios && pod repo update trunk)
+          flutter build ios --release --config-only --no-codesign --no-pub --dart-define=APP_ENTRY=v2
+          (cd ios && pod install)
+          test -s ios/Podfile.lock
+          mkdir -p qa-evidence
+          python3 - <<'PY'
+          import base64, hashlib, json, re
+          from pathlib import Path
+          p = Path('ios/Podfile.lock')
+          assert p.is_file() and not p.is_symlink() and 0 < p.stat().st_size < 262144
+          lock = p.read_text()
+          assert 'PODS:' in lock and 'COCOAPODS:' in lock
+          assert not re.search(r'(?i)(https?://[^\s/]*@|[?&](token|key|password|signature)=|-----BEGIN|AIza|gh[pousr]_|github_pat_|xox[baprs]-|authorization:|password:)', lock)
+          assert ':git:' not in lock and ':http:' not in lock
+          if 'SPEC REPOS:' in lock:
+              repos = lock.split('SPEC REPOS:', 1)[1].split('\n\n', 1)[0]
+              assert all(line == '  trunk:' or line.startswith('    - ') or not line.strip() for line in repos.splitlines())
+          if 'EXTERNAL SOURCES:' in lock:
+              sources = lock.split('EXTERNAL SOURCES:',1)[1].split('\n\n',1)[0]
+              for line in sources.splitlines():
+                  if ':path:' in line:
+                      value = line.split(':path:',1)[1].strip().strip("'\"")
+                      assert value == 'Flutter' or re.fullmatch(r'\.symlinks/plugins/[A-Za-z0-9_]+/(ios|darwin)/?',value)
+          versions = dict(re.findall(r'^  - ([\w/]+) \(([\d.]+)\):?$',lock,re.M))
+          for pod in ('Firebase/Firestore','FirebaseFirestore','FirebaseFirestoreInternal','FirebaseCore'):
+              assert versions.get(pod) == '12.19.3', (pod,versions.get(pod))
+          for pod in ('FirebaseAuth','FirebaseAppCheck','FirebaseFunctions','FirebaseStorage'):
+              assert re.fullmatch(r'12\.19\.\d+',versions.get(pod,'')), (pod,versions.get(pod))
+          Path('qa-evidence/firebase-versions.json').write_text(json.dumps({k:v for k,v in versions.items() if k.startswith('Firebase')},indent=2)+'\n')
+          raw = p.read_bytes()
+          Path('qa-evidence/Podfile.lock').write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          encoded = base64.b64encode(raw).decode('ascii')
+          print(f'QA_LOCK_START {digest} {len(raw)}', flush=True)
+          for i in range(0,len(encoded),96):
+              print(f'QA_LOCK_CHUNK {i//96:04d} {encoded[i:i+96]}', flush=True)
+          print('QA_LOCK_END', flush=True)
+          print('QA_FIREBASE_JSON ' + json.dumps({k:v for k,v in versions.items() if k.startswith('Firebase')},sort_keys=True), flush=True)
+          PY
+          (cd ios && pod install --deployment)
+          cmp ios/Podfile.lock qa-evidence/Podfile.lock
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile ios/Runner.xcodeproj/project.pbxproj
+      - name: Compile without signing and inspect the built bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version > qa-evidence/toolchain.txt
+          pod --version >> qa-evidence/toolchain.txt
+          flutter --version >> qa-evidence/toolchain.txt
+          cat qa-evidence/toolchain.txt
+          flutter build ios --release --no-codesign --no-pub --dart-define=APP_ENTRY=v2
+          cmp ios/Podfile.lock qa-evidence/Podfile.lock
+          git diff --exit-code -- pubspec.yaml pubspec.lock ios/Podfile ios/Runner.xcodeproj/project.pbxproj
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos -showBuildSettings > "$RUNNER_TEMP/ios-qa-build-settings.txt"
+          python3 - <<'PY'
+          import hashlib, json, os, plistlib, re
+          from pathlib import Path
+          app = Path('build/ios/iphoneos/Runner.app')
+          plist = plistlib.loads((app/'Info.plist').read_bytes())
+          entitlements = plistlib.loads(Path('ios/Runner/Runner.entitlements').read_bytes())
+          block = (Path(os.environ['RUNNER_TEMP'])/'ios-qa-build-settings.txt').read_text().split('and target Runner:',1)[1]
+          assert re.search(r'^\s*IPHONEOS_DEPLOYMENT_TARGET = 15(?:\.0)+\s*$',block,re.M)
+          assert re.search(r'^\s*TARGETED_DEVICE_FAMILY = 1\s*$',block,re.M)
+          assert re.search(r'^\s*CODE_SIGN_ENTITLEMENTS = Runner/Runner\.entitlements\s*$',block,re.M)
+          assert plist['MinimumOSVersion'] in ('15.0','15.0.0')
+          assert plist['UIDeviceFamily'] == [1]
+          assert plist['CFBundleIdentifier'] == 'com.mekidoapps.vendingnavi'
+          assert entitlements['com.apple.developer.applesignin'] == ['Default']
+          assert plist.get('GoogleMapsAPIKey','') == ''
+          assert not Path('ios/Flutter/LocalServices.xcconfig').exists()
+          assert not (app/'_CodeSignature').exists() and not (app/'embedded.mobileprovision').exists()
+          data = dict(source=os.environ['GITHUB_SHA'], minimumOS=plist['MinimumOSVersion'], deviceFamily=plist['UIDeviceFamily'],
+                      binarySHA256=hashlib.sha256((app/'Runner').read_bytes()).hexdigest(),
+                      lockSHA256=hashlib.sha256(Path('ios/Podfile.lock').read_bytes()).hexdigest())
+          Path('qa-evidence/build-result.json').write_text(json.dumps(data,indent=2)+'\n')
+          print('QA_BUILD_JSON ' + json.dumps(data,sort_keys=True), flush=True)
+          PY
